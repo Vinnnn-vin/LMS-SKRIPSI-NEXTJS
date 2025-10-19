@@ -1,0 +1,139 @@
+// lmsistts\src\lib\models\Enrollment.ts
+
+import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
+import { User } from './User';
+import { Course } from './Course';
+import { Payment } from './Payment';
+import { Certificate } from './Certificate';
+import { AssignmentSubmission } from './AssignmentSubmission';
+
+interface EnrollmentAttributes {
+  enrollment_id: number;
+  user_id: number | null;
+  course_id: number | null;
+  status: 'active' | 'completed' | 'expired' | 'cancelled' | null;
+  enrolled_at: Date | null;
+  learning_started_at: Date | null;
+  access_expires_at: Date | null;
+  completed_at: Date | null;
+  created_at: Date | null;
+  updated_at: Date | null;
+  deleted_at: Date | null;
+}
+
+interface EnrollmentCreationAttributes extends Optional<EnrollmentAttributes, 'enrollment_id' | 'user_id' | 'course_id' | 'status' | 'enrolled_at' | 'learning_started_at' | 'access_expires_at' | 'completed_at' | 'created_at' | 'updated_at' | 'deleted_at'> {}
+
+export class Enrollment extends Model<EnrollmentAttributes, EnrollmentCreationAttributes> implements EnrollmentAttributes {
+  public enrollment_id!: number;
+  public user_id!: number | null;
+  public course_id!: number | null;
+  public status!: 'active' | 'completed' | 'expired' | 'cancelled' | null;
+  public enrolled_at!: Date | null;
+  public learning_started_at!: Date | null;
+  public access_expires_at!: Date | null;
+  public completed_at!: Date | null;
+  public created_at!: Date | null;
+  public updated_at!: Date | null;
+  public deleted_at!: Date | null;
+
+  public readonly student?: User;
+  public readonly course?: Course;
+  public readonly payment?: Payment;
+  public readonly certificate?: Certificate;
+  public readonly submissions?: AssignmentSubmission[];
+
+  public static associations: {
+    student: Association<Enrollment, User>;
+    course: Association<Enrollment, Course>;
+    payment: Association<Enrollment, Payment>;
+    certificate: Association<Enrollment, Certificate>;
+    submissions: Association<Enrollment, AssignmentSubmission>;
+  };
+
+  public isActive(): boolean {
+    return this.status === 'active';
+  }
+
+  public isCompleted(): boolean {
+    return this.status === 'completed';
+  }
+
+  public isExpired(): boolean {
+    return this.status === 'expired';
+  }
+
+  public hasStartedLearning(): boolean {
+    return this.learning_started_at !== null;
+  }
+
+  public static initModel(sequelize: Sequelize): typeof Enrollment {
+    Enrollment.init(
+      {
+        enrollment_id: {
+          type: DataTypes.INTEGER,
+          primaryKey: true,
+          autoIncrement: true
+        },
+        user_id: {
+          type: DataTypes.INTEGER,
+          allowNull: true
+        },
+        course_id: {
+          type: DataTypes.INTEGER,
+          allowNull: true
+        },
+        status: {
+          type: DataTypes.STRING(10),
+          allowNull: true,
+          validate: {
+            isIn: [['active', 'completed', 'expired', 'cancelled']]
+          }
+        },
+        enrolled_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        },
+        learning_started_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        },
+        access_expires_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        },
+        completed_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        },
+        created_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+          defaultValue: DataTypes.NOW
+        },
+        updated_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true
+        }
+      },
+      {
+        sequelize,
+        tableName: 'enrollments',
+        timestamps: false,
+        paranoid: false
+      }
+    );
+    return Enrollment;
+  }
+
+  public static associate(models: any): void {
+    Enrollment.belongsTo(models.User, { foreignKey: 'user_id', as: 'student' });
+    Enrollment.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
+    Enrollment.hasOne(models.Payment, { foreignKey: 'enrollment_id', as: 'payment' });
+    Enrollment.hasOne(models.Certificate, { foreignKey: 'enrollment_id', as: 'certificate' });
+    Enrollment.hasMany(models.AssignmentSubmission, { foreignKey: 'enrollment_id', as: 'submissions' });
+  }
+}
