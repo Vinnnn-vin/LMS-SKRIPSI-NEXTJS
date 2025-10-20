@@ -30,30 +30,30 @@ interface AssignmentSubmissionAttributes {
 interface AssignmentSubmissionCreationAttributes extends Optional<AssignmentSubmissionAttributes, 'submission_id' | 'file_path' | 'submission_url' | 'submission_text' | 'attempt_number' | 'status' | 'score' | 'feedback' | 'reviewed_by' | 'submitted_at' | 'reviewed_at' | 'created_at' | 'updated_at'> {}
 
 export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, AssignmentSubmissionCreationAttributes> implements AssignmentSubmissionAttributes {
-  public submission_id!: number;
-  public user_id!: number;
-  public material_detail_id!: number;
-  public course_id!: number;
-  public enrollment_id!: number;
-  public submission_type!: 'file' | 'url' | 'text';
-  public file_path!: string | null;
-  public submission_url!: string | null;
-  public submission_text!: string | null;
-  public attempt_number!: number | null;
-  public status!: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected' | null;
-  public score!: number | null;
-  public feedback!: string | null;
-  public reviewed_by!: number | null;
-  public submitted_at!: Date;
-  public reviewed_at!: Date | null;
-  public created_at!: Date;
-  public updated_at!: Date;
+  declare submission_id: number;
+  declare user_id: number;
+  declare material_detail_id: number;
+  declare course_id: number;
+  declare enrollment_id: number;
+  declare submission_type: 'file' | 'url' | 'text';
+  declare file_path: string | null;
+  declare submission_url: string | null;
+  declare submission_text: string | null;
+  declare attempt_number: number | null;
+  declare status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected' | null;
+  declare score: number | null;
+  declare feedback: string | null;
+  declare reviewed_by: number | null;
+  declare submitted_at: Date;
+  declare reviewed_at: Date | null;
+  declare created_at: Date;
+  declare updated_at: Date;
 
-  public readonly student?: User;
-  public readonly assignment?: MaterialDetail;
-  public readonly course?: Course;
-  public readonly enrollment?: Enrollment;
-  public readonly reviewer?: User;
+  declare readonly student?: User;
+  declare readonly assignment?: MaterialDetail;
+  declare readonly course?: Course;
+  declare readonly enrollment?: Enrollment;
+  declare readonly reviewer?: User;
 
   public static associations: {
     student: Association<AssignmentSubmission, User>;

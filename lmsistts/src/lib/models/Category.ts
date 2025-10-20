@@ -9,18 +9,20 @@ interface CategoryAttributes {
   category_description: string | null;
   image_url: string | null;
   created_at: Date | null;
+
+  courses?: Course[];
 }
 
 interface CategoryCreationAttributes extends Optional<CategoryAttributes, 'category_id' | 'category_name' | 'category_description' | 'image_url' | 'created_at'> {}
 
 export class Category extends Model<CategoryAttributes, CategoryCreationAttributes> implements CategoryAttributes {
-  public category_id!: number;
-  public category_name!: string | null;
-  public category_description!: string | null;
-  public image_url!: string | null;
-  public created_at!: Date | null;
+  declare category_id: number;
+  declare category_name: string | null;
+  declare category_description: string | null;
+  declare image_url: string | null;
+  declare created_at: Date | null;
 
-  public readonly courses?: Course[];
+  declare readonly courses?: Course[];
 
   public static associations: {
     courses: Association<Category, Course>;

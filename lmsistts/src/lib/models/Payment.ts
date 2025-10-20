@@ -25,24 +25,24 @@ interface PaymentAttributes {
 interface PaymentCreationAttributes extends Optional<PaymentAttributes, 'payment_id' | 'user_id' | 'course_id' | 'enrollment_id' | 'amount' | 'status' | 'gateway_invoice_id' | 'gateway_external_id' | 'payment_method' | 'paid_at' | 'email_sent' | 'created_at' | 'updated_at' | 'deleted_at'> {}
 
 export class Payment extends Model<PaymentAttributes, PaymentCreationAttributes> implements PaymentAttributes {
-  public payment_id!: number;
-  public user_id!: number | null;
-  public course_id!: number | null;
-  public enrollment_id!: number | null;
-  public amount!: number | null;
-  public status!: 'pending' | 'paid' | 'failed' | 'expired' | null;
-  public gateway_invoice_id!: string | null;
-  public gateway_external_id!: string | null;
-  public payment_method!: string | null;
-  public paid_at!: Date | null;
-  public email_sent!: boolean;
-  public created_at!: Date | null;
-  public updated_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare payment_id: number;
+  declare user_id: number | null;
+  declare course_id: number | null;
+  declare enrollment_id: number | null;
+  declare amount: number | null;
+  declare status: 'pending' | 'paid' | 'failed' | 'expired' | null;
+  declare gateway_invoice_id: string | null;
+  declare gateway_external_id: string | null;
+  declare payment_method: string | null;
+  declare paid_at: Date | null;
+  declare email_sent: boolean;
+  declare created_at: Date | null;
+  declare updated_at: Date | null;
+  declare deleted_at: Date | null;
 
-  public readonly user?: User;
-  public readonly course?: Course;
-  public readonly enrollment?: Enrollment;
+  declare readonly user?: User;
+  declare readonly course?: Course;
+  declare readonly enrollment?: Enrollment;
 
   public static associations: {
     user: Association<Payment, User>;

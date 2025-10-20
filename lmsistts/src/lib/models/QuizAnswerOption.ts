@@ -15,14 +15,14 @@ interface QuizAnswerOptionAttributes {
 interface QuizAnswerOptionCreationAttributes extends Optional<QuizAnswerOptionAttributes, 'option_id' | 'quiz_id' | 'question_id' | 'option_text' | 'is_correct'> {}
 
 export class QuizAnswerOption extends Model<QuizAnswerOptionAttributes, QuizAnswerOptionCreationAttributes> implements QuizAnswerOptionAttributes {
-  public option_id!: number;
-  public quiz_id!: number | null;
-  public question_id!: number | null;
-  public option_text!: string | null;
-  public is_correct!: boolean | null;
+  declare option_id: number;
+  declare quiz_id: number | null;
+  declare question_id: number | null;
+  declare option_text: string | null;
+  declare is_correct: boolean | null;
 
-  public readonly quiz?: Quiz;
-  public readonly question?: QuizQuestion;
+  declare readonly quiz?: Quiz;
+  declare readonly question?: QuizQuestion;
 
   public static associations: {
     quiz: Association<QuizAnswerOption, Quiz>;

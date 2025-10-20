@@ -27,33 +27,39 @@ interface CourseAttributes {
 
   lecturer?: User;
   category?: Category;
+  materials?: Material[];
+  enrollments?: Enrollment[];
+  reviews?: Review[];
+  payments?: Payment[];
+  certificates?: Certificate[];
+  quizzes?: Quiz[];
 }
 
 interface CourseCreationAttributes extends Optional<CourseAttributes, 'course_id' | 'course_title' | 'course_description' | 'course_level' | 'course_price' | 'course_duration' | 'publish_status' | 'user_id' | 'category_id' | 'thumbnail_url' | 'created_at' | 'updated_at' | 'deleted_at'> {}
 
 export class Course extends Model<CourseAttributes, CourseCreationAttributes> implements CourseAttributes {
-  public course_id!: number;
-  public course_title!: string | null;
-  public course_description!: string | null;
-  public course_level!: 'Beginner' | 'Intermediate' | 'Advanced' | null;
-  public course_price!: number | null;
-  public course_duration!: number | null;
-  public publish_status!: number | null;
-  public user_id!: number | null;
-  public category_id!: number | null;
-  public thumbnail_url!: string | null;
-  public created_at!: Date | null;
-  public updated_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare course_id: number;
+  declare course_title: string | null;
+  declare course_description: string | null;
+  declare course_level: 'Beginner' | 'Intermediate' | 'Advanced' | null;
+  declare course_price: number | null;
+  declare course_duration: number | null;
+  declare publish_status: number | null;
+  declare user_id: number | null;
+  declare category_id: number | null;
+  declare thumbnail_url: string | null;
+  declare created_at: Date | null;
+  declare updated_at: Date | null;
+  declare deleted_at: Date | null;
 
-  public readonly lecturer?: User;
-  public readonly category?: Category;
-  public readonly materials?: Material[];
-  public readonly enrollments?: Enrollment[];
-  public readonly reviews?: Review[];
-  public readonly payments?: Payment[];
-  public readonly certificates?: Certificate[];
-  public readonly quizzes?: Quiz[];
+  declare readonly lecturer?: User;
+  declare readonly category?: Category;
+  declare readonly materials?: Material[];
+  declare readonly enrollments?: Enrollment[];
+  declare readonly reviews?: Review[];
+  declare readonly payments?: Payment[];
+  declare readonly certificates?: Certificate[];
+  declare readonly quizzes?: Quiz[];
 
   public static associations: {
     lecturer: Association<Course, User>;

@@ -24,23 +24,23 @@ interface EnrollmentAttributes {
 interface EnrollmentCreationAttributes extends Optional<EnrollmentAttributes, 'enrollment_id' | 'user_id' | 'course_id' | 'status' | 'enrolled_at' | 'learning_started_at' | 'access_expires_at' | 'completed_at' | 'created_at' | 'updated_at' | 'deleted_at'> {}
 
 export class Enrollment extends Model<EnrollmentAttributes, EnrollmentCreationAttributes> implements EnrollmentAttributes {
-  public enrollment_id!: number;
-  public user_id!: number | null;
-  public course_id!: number | null;
-  public status!: 'active' | 'completed' | 'expired' | 'cancelled' | null;
-  public enrolled_at!: Date | null;
-  public learning_started_at!: Date | null;
-  public access_expires_at!: Date | null;
-  public completed_at!: Date | null;
-  public created_at!: Date | null;
-  public updated_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare enrollment_id: number;
+  declare user_id: number | null;
+  declare course_id: number | null;
+  declare status: 'active' | 'completed' | 'expired' | 'cancelled' | null;
+  declare enrolled_at: Date | null;
+  declare learning_started_at: Date | null;
+  declare access_expires_at: Date | null;
+  declare completed_at: Date | null;
+  declare created_at: Date | null;
+  declare updated_at: Date | null;
+  declare deleted_at: Date | null;
 
-  public readonly student?: User;
-  public readonly course?: Course;
-  public readonly payment?: Payment;
-  public readonly certificate?: Certificate;
-  public readonly submissions?: AssignmentSubmission[];
+  declare readonly student?: User;
+  declare readonly course?: Course;
+  declare readonly payment?: Payment;
+  declare readonly certificate?: Certificate;
+  declare readonly submissions?: AssignmentSubmission[];
 
   public static associations: {
     student: Association<Enrollment, User>;
@@ -63,7 +63,7 @@ export class Enrollment extends Model<EnrollmentAttributes, EnrollmentCreationAt
   }
 
   public hasStartedLearning(): boolean {
-    return this.learning_started_at !== null;
+    return this.learning_started_at == null;
   }
 
   public static initModel(sequelize: Sequelize): typeof Enrollment {

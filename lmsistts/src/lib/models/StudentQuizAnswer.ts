@@ -25,24 +25,24 @@ interface StudentQuizAnswerAttributes {
 interface StudentQuizAnswerCreationAttributes extends Optional<StudentQuizAnswerAttributes, 'answer_id' | 'question_id' | 'selected_option_id' | 'answer_text' | 'is_correct' | 'attempt_session' | 'score' | 'status' | 'answered_at' | 'completed_at'> {}
 
 export class StudentQuizAnswer extends Model<StudentQuizAnswerAttributes, StudentQuizAnswerCreationAttributes> implements StudentQuizAnswerAttributes {
-  public answer_id!: number;
-  public user_id!: number;
-  public quiz_id!: number;
-  public course_id!: number;
-  public question_id!: number | null;
-  public selected_option_id!: number | null;
-  public answer_text!: string | null;
-  public is_correct!: boolean | null;
-  public attempt_session!: number | null;
-  public score!: number | null;
-  public status!: 'passed' | 'failed' | 'pending' | null;
-  public answered_at!: Date | null;
-  public completed_at!: Date | null;
+  declare answer_id: number;
+  declare user_id: number;
+  declare quiz_id: number;
+  declare course_id: number;
+  declare question_id: number | null;
+  declare selected_option_id: number | null;
+  declare answer_text: string | null;
+  declare is_correct: boolean | null;
+  declare attempt_session: number | null;
+  declare score: number | null;
+  declare status: 'passed' | 'failed' | 'pending' | null;
+  declare answered_at: Date | null;
+  declare completed_at: Date | null;
 
-  public readonly student?: User;
-  public readonly quiz?: Quiz;
-  public readonly question?: QuizQuestion;
-  public readonly course?: Course;
+  declare readonly student?: User;
+  declare readonly quiz?: Quiz;
+  declare readonly question?: QuizQuestion;
+  declare readonly course?: Course;
 
   public static associations: {
     student: Association<StudentQuizAnswer, User>;

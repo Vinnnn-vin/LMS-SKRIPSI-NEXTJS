@@ -1,10 +1,11 @@
 // lmsistts\src\app\layout.tsx
-
 import type { Metadata } from "next";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
 import "@mantine/core/styles.css";
 import { Notifications } from "@mantine/notifications";
 import AuthProvider from "./AuthProvider";
+import { Header } from "@/components/layout/Header";
+import { Footer } from "@/components/layout/Footer";
 
 export const metadata: Metadata = {
   title: "LMS",
@@ -25,7 +26,9 @@ export default function RootLayout({
         <AuthProvider>
           <MantineProvider defaultColorScheme="auto">
             <Notifications />
-            {children}
+            <Header />
+            <main>{children}</main>
+            <Footer />
           </MantineProvider>
         </AuthProvider>
       </body>

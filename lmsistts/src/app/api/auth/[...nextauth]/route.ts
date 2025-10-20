@@ -25,62 +25,34 @@ export const authOptions: NextAuthOptions = {
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        console.log("---[Authorize Function Start]---"); // <-- LOG 1: Fungsi dimulai
-        console.log("Credentials received:", credentials); // <-- LOG 2: Kredensial yang diterima
-
         const validatedFields = loginSchema.safeParse(credentials);
         if (validatedFields.success) {
           const { email, password } = validatedFields.data;
-          console.log(`Attempting login for email: ${email}`); // <-- LOG 3: Email yang dicari
 
           const user = await User.findOne({ where: { email } });
 
-            console.log(user);
-            
-
           if (!user) {
-            console.log(`User not found for email: ${email}`); // <-- LOG 4a: User tidak ditemukan
-            console.log("---[Authorize Function End - User Not Found]---");
             return null;
           }
 
           if (!user.dataValues.password_hash) {
-            console.log(
-              `User ${email} found, but has no password_hash (likely OAuth user)`
-            ); // <-- LOG 4b: User ada tapi tak punya password
-            console.log("---[Authorize Function End - No Password Hash]---");
             return null;
           }
-
-          console.log(`User found: ${user.email}, comparing password...`); // <-- LOG 5: User ditemukan, siap bandingkan password
-          console.log(`  > Input Password: ${password}`);
-          console.log(`  > Hashed Password from DB: ${user.dataValues.password_hash}`);
-
           const passwordsMatch = await bcrypt.compare(
             password,
             user.dataValues.password_hash
           );
-          console.log(`Password comparison result: ${passwordsMatch}`); // <-- LOG 6: Hasil perbandingan
 
           if (passwordsMatch) {
-            console.log(`Password match for ${email}. Returning user object.`); // <-- LOG 7a: Sukses
-            console.log("---[Authorize Function End - Success]---");
             return {
-              // Objek yang dikembalikan HARUS sesuai struktur NextAuth
               id: String(user.user_id),
               email: user.email,
               name: user.getFullName(),
               role: user.role,
             };
-          } else {
-            console.log(`Password mismatch for ${email}.`); // <-- LOG 7b: Gagal (Password Salah)
           }
-        } else {
-          console.log("Credential validation failed:", validatedFields.error); // <-- LOG 8: Validasi Zod gagal
         }
-
-        console.log("---[Authorize Function End - Failed]---");
-        return null; // Gagal login jika sampai sini
+        return null;
       },
     }),
   ],
@@ -105,7 +77,7 @@ export const authOptions: NextAuthOptions = {
               email: user.email,
               first_name: nameParts[0] ?? null,
               last_name: nameParts.slice(1).join(" ") || null,
-              password_hash: null, // No password for OAuth users
+              password_hash: null,
               role: "student",
             });
           }
@@ -115,7 +87,7 @@ export const authOptions: NextAuthOptions = {
           return false;
         }
       }
-      return true; // Allow credentials sign in
+      return true;
     },
     async jwt({ token, user }) {
       if (user) {

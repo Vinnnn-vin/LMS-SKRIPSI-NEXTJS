@@ -19,18 +19,18 @@ interface StudentProgressAttributes {
 interface StudentProgressCreationAttributes extends Optional<StudentProgressAttributes, 'progress_id' | 'is_completed' | 'completed_at' | 'created_at' | 'updated_at'> {}
 
 export class StudentProgress extends Model<StudentProgressAttributes, StudentProgressCreationAttributes> implements StudentProgressAttributes {
-  public progress_id!: number;
-  public user_id!: number;
-  public course_id!: number;
-  public material_detail_id!: number;
-  public is_completed!: boolean;
-  public completed_at!: Date;
-  public created_at!: Date;
-  public updated_at!: Date;
+  declare progress_id: number;
+  declare user_id: number;
+  declare course_id: number;
+  declare material_detail_id: number;
+  declare is_completed: boolean;
+  declare completed_at: Date;
+  declare created_at: Date;
+  declare updated_at: Date;
 
-  public readonly student?: User;
-  public readonly course?: Course;
-  public readonly materialDetail?: MaterialDetail;
+  declare readonly student?: User;
+  declare readonly course?: Course;
+  declare readonly materialDetail?: MaterialDetail;
 
   public static associations: {
     student: Association<StudentProgress, User>;

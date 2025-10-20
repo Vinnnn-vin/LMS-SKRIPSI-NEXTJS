@@ -16,15 +16,15 @@ interface NotificationAttributes {
 interface NotificationCreationAttributes extends Optional<NotificationAttributes, 'notification_id' | 'user_id' | 'notification_title' | 'notification_message' | 'notification_type' | 'is_read' | 'created_at'> {}
 
 export class Notification extends Model<NotificationAttributes, NotificationCreationAttributes> implements NotificationAttributes {
-  public notification_id!: number;
-  public user_id!: number | null;
-  public notification_title!: string | null;
-  public notification_message!: string | null;
-  public notification_type!: 'info' | 'success' | 'warning' | 'error' | null;
-  public is_read!: boolean | null;
-  public created_at!: Date | null;
+  declare notification_id: number;
+  declare user_id: number | null;
+  declare notification_title: string | null;
+  declare notification_message: string | null;
+  declare notification_type: 'info' | 'success' | 'warning' | 'error' | null;
+  declare is_read: boolean | null;
+  declare created_at: Date | null;
 
-  public readonly user?: User;
+  declare readonly user?: User;
 
   public static associations: {
     user: Association<Notification, User>;

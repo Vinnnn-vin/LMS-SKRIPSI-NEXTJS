@@ -1,0 +1,140 @@
+/* Stats Section */
+.statsCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.statsCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(59, 130, 246, 0.3);
+}
+
+.statsValue {
+  font-size: 32px;
+}
+
+.statsValueBlue {
+  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.statsValueOrange {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.statsValueCyan {
+  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Featured Courses */
+.courseCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+  overflow: hidden;
+}
+
+.courseCard:hover {
+  transform: translateY(-10px);
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.3);
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.courseImage {
+  transition: transform 0.3s ease;
+}
+
+.courseCard:hover .courseImage {
+  transform: scale(1.1);
+}
+
+.coursePrice {
+  background: linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Features Section */
+.featureCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+  text-align: center;
+}
+
+.featureCard:hover {
+  transform: translateY(-10px);
+}
+
+.featureCardBlue:hover {
+  box-shadow: 0 20px 40px rgba(59, 130, 246, 0.4);
+}
+
+.featureCardOrange:hover {
+  box-shadow: 0 20px 40px rgba(249, 115, 22, 0.4);
+}
+
+.featureCardCyan:hover {
+  box-shadow: 0 20px 40px rgba(6, 182, 212, 0.4);
+}
+
+/* Category Cards */
+.categoryCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%);
+  border: 2px solid rgba(59, 130, 246, 0.2);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.categoryCard:hover {
+  transform: translateY(-8px) scale(1.02);
+  border-color: rgba(249, 115, 22, 0.6);
+  box-shadow: 0 15px 35px rgba(249, 115, 22, 0.3);
+}
+
+/* Testimonials */
+.testimonialCard {
+  background: linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
+  border-color: rgba(59, 130, 246, 0.2);
+  transition: all 0.3s ease;
+}
+
+.testimonialCard:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(59, 130, 246, 0.25);
+}
+
+/* Background Decorations */
+.decorationBlue {
+  position: absolute;
+  top: -100px;
+  left: -100px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.decorationOrange {
+  position: absolute;
+  bottom: -150px;
+  right: -150px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}

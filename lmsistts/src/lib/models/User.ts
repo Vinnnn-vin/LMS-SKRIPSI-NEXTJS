@@ -24,24 +24,24 @@ interface UserAttributes {
 interface UserCreationAttributes extends Optional<UserAttributes, 'user_id' | 'first_name' | 'last_name' | 'email' | 'password_hash' | 'role' | 'created_at' | 'deleted_at'> {}
 
 export class User extends Model<UserAttributes, UserCreationAttributes> implements UserAttributes {
-  public user_id!: number;
-  public first_name!: string | null;
-  public last_name!: string | null;
-  public email!: string | null;
-  public password_hash!: string | null;
-  public role!: 'admin' | 'lecturer' | 'student' | null;
-  public created_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare user_id: number;
+  declare first_name: string | null;
+  declare last_name: string | null;
+  declare email: string | null;
+  declare password_hash: string | null;
+  declare role: 'admin' | 'lecturer' | 'student' | null;
+  declare created_at: Date | null;
+  declare deleted_at: Date | null;
 
   // Associations
-  public readonly courses?: Course[];
-  public readonly enrollments?: Enrollment[];
-  public readonly payments?: Payment[];
-  public readonly reviews?: Review[];
-  public readonly certificates?: Certificate[];
-  public readonly submissions?: AssignmentSubmission[];
-  public readonly progress?: StudentProgress[];
-  public readonly quizAnswers?: StudentQuizAnswer[];
+  declare readonly courses?: Course[];
+  declare readonly enrollments?: Enrollment[];
+  declare readonly payments?: Payment[];
+  declare readonly reviews?: Review[];
+  declare readonly certificates?: Certificate[];
+  declare readonly submissions?: AssignmentSubmission[];
+  declare readonly progress?: StudentProgress[];
+  declare readonly quizAnswers?: StudentQuizAnswer[];
 
   public static associations: {
     courses: Association<User, Course>;

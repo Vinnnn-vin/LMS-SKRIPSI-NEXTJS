@@ -19,18 +19,18 @@ interface CertificateAttributes {
 interface CertificateCreationAttributes extends Optional<CertificateAttributes, 'certificate_id' | 'user_id' | 'course_id' | 'enrollment_id' | 'certificate_url' | 'certificate_number' | 'issued_at' | 'created_at'> {}
 
 export class Certificate extends Model<CertificateAttributes, CertificateCreationAttributes> implements CertificateAttributes {
-  public certificate_id!: number;
-  public user_id!: number | null;
-  public course_id!: number | null;
-  public enrollment_id!: number | null;
-  public certificate_url!: string | null;
-  public certificate_number!: string | null;
-  public issued_at!: Date | null;
-  public created_at!: Date | null;
+  declare certificate_id: number;
+  declare user_id: number | null;
+  declare course_id: number | null;
+  declare enrollment_id: number | null;
+  declare certificate_url: string | null;
+  declare certificate_number: string | null;
+  declare issued_at: Date | null;
+  declare created_at: Date | null;
 
-  public readonly student?: User;
-  public readonly course?: Course;
-  public readonly enrollment?: Enrollment;
+  declare readonly student?: User;
+  declare readonly course?: Course;
+  declare readonly enrollment?: Enrollment;
 
   public static associations: {
     student: Association<Certificate, User>;

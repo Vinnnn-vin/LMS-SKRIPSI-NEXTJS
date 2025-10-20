@@ -17,16 +17,16 @@ interface ReviewAttributes {
 interface ReviewCreationAttributes extends Optional<ReviewAttributes, 'review_id' | 'user_id' | 'course_id' | 'rating' | 'review_text' | 'created_at' | 'deleted_at'> {}
 
 export class Review extends Model<ReviewAttributes, ReviewCreationAttributes> implements ReviewAttributes {
-  public review_id!: number;
-  public user_id!: number | null;
-  public course_id!: number | null;
-  public rating!: number | null;
-  public review_text!: string | null;
-  public created_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare review_id: number;
+  declare user_id: number | null;
+  declare course_id: number | null;
+  declare rating: number | null;
+  declare review_text: string | null;
+  declare created_at: Date | null;
+  declare deleted_at: Date | null;
 
-  public readonly reviewer?: User;
-  public readonly course?: Course;
+  declare readonly reviewer?: User;
+  declare readonly course?: Course;
 
   public static associations: {
     reviewer: Association<Review, User>;

@@ -18,17 +18,17 @@ interface MaterialDetailAttributes {
 interface MaterialDetailCreationAttributes extends Optional<MaterialDetailAttributes, 'material_detail_id' | 'material_id' | 'is_free'> {}
 
 export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDetailCreationAttributes> implements MaterialDetailAttributes {
-  public material_detail_id!: number;
-  public material_detail_name!: string;
-  public material_detail_description!: string;
-  public material_detail_type!: number;
-  public materi_detail_url!: string;
-  public material_id!: number | null;
-  public is_free!: boolean;
+  declare material_detail_id: number;
+  declare material_detail_name: string;
+  declare material_detail_description: string;
+  declare material_detail_type: number;
+  declare materi_detail_url: string;
+  declare material_id: number | null;
+  declare is_free: boolean;
 
-  public readonly material?: Material;
-  public readonly submissions?: AssignmentSubmission[];
-  public readonly progress?: StudentProgress[];
+  declare readonly material?: Material;
+  declare readonly submissions?: AssignmentSubmission[];
+  declare readonly progress?: StudentProgress[];
 
   public static associations: {
     material: Association<MaterialDetail, Material>;

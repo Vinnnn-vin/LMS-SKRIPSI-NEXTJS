@@ -16,15 +16,15 @@ interface QuizQuestionAttributes {
 interface QuizQuestionCreationAttributes extends Optional<QuizQuestionAttributes, 'question_id' | 'quiz_id' | 'question_text' | 'question_type' | 'created_at'> {}
 
 export class QuizQuestion extends Model<QuizQuestionAttributes, QuizQuestionCreationAttributes> implements QuizQuestionAttributes {
-  public question_id!: number;
-  public quiz_id!: number | null;
-  public question_text!: string | null;
-  public question_type!: 'multiple_choice' | 'checkbox' | 'essay' | null;
-  public created_at!: Date | null;
+  declare question_id: number;
+  declare quiz_id: number | null;
+  declare question_text: string | null;
+  declare question_type: 'multiple_choice' | 'checkbox' | 'essay' | null;
+  declare created_at: Date | null;
 
-  public readonly quiz?: Quiz;
-  public readonly options?: QuizAnswerOption[];
-  public readonly studentAnswers?: StudentQuizAnswer[];
+  declare readonly quiz?: Quiz;
+  declare readonly options?: QuizAnswerOption[];
+  declare readonly studentAnswers?: StudentQuizAnswer[];
 
   public static associations: {
     quiz: Association<QuizQuestion, Quiz>;

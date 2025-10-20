@@ -1,0 +1,106 @@
+.header {
+  border-bottom: 1px solid rgba(203, 213, 225, 0.2);
+  background: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
+  backdrop-filter: blur(10px);
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+.logo {
+  background: linear-gradient(135deg, #3b82f6 0%, #f97316 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 800;
+  font-size: rem(24px);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+
+.logo:hover {
+  transform: scale(1.05);
+}
+
+.navButton {
+  color: #cbd5e1;
+  transition: all 0.3s ease;
+  position: relative;
+  font-weight: 500;
+}
+
+.navButton::after {
+  content: '';
+  position: absolute;
+  bottom: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #3b82f6 0%, #f97316 100%);
+  transition: width 0.3s ease;
+}
+
+.navButton:hover {
+  color: #ffffff;
+}
+
+.navButton:hover::after {
+  width: 80%;
+}
+
+.loginButton {
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+  transition: all 0.3s ease;
+  font-weight: 600;
+  border-radius: rem(8px);
+}
+
+.loginButton:hover {
+  background: #3b82f6;
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.signupButton {
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  border: none;
+  color: white;
+  font-weight: 600;
+  border-radius: rem(8px);
+  transition: all 0.3s ease;
+}
+
+.signupButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(249, 115, 22, 0.5);
+}
+
+.userMenu {
+  padding: rem(8px) rem(12px);
+  border-radius: rem(12px);
+  transition: all 0.3s ease;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.userMenu:hover {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.userName {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.mobileMenu {
+  background: linear-gradient(to bottom, #1e293b 0%, #0f172a 100%);
+  padding: rem(16px);
+  border-radius: rem(12px);
+  margin-top: rem(12px);
+  border: 1px solid rgba(203, 213, 225, 0.1);
+}

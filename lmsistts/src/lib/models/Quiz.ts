@@ -22,21 +22,21 @@ interface QuizAttributes {
 interface QuizCreationAttributes extends Optional<QuizAttributes, 'quiz_id' | 'material_id' | 'course_id' | 'quiz_title' | 'quiz_description' | 'passing_score' | 'time_limit' | 'max_attempts' | 'created_at' | 'deleted_at'> {}
 
 export class Quiz extends Model<QuizAttributes, QuizCreationAttributes> implements QuizAttributes {
-  public quiz_id!: number;
-  public material_id!: number | null;
-  public course_id!: number | null;
-  public quiz_title!: string | null;
-  public quiz_description!: string | null;
-  public passing_score!: number | null;
-  public time_limit!: number | null;
-  public max_attempts!: number | null;
-  public created_at!: Date | null;
-  public deleted_at!: Date | null;
+  declare quiz_id: number;
+  declare material_id: number | null;
+  declare course_id: number | null;
+  declare quiz_title: string | null;
+  declare quiz_description: string | null;
+  declare passing_score: number | null;
+  declare time_limit: number | null;
+  declare max_attempts: number | null;
+  declare created_at: Date | null;
+  declare deleted_at: Date | null;
 
-  public readonly material?: Material;
-  public readonly course?: Course;
-  public readonly questions?: QuizQuestion[];
-  public readonly studentAnswers?: StudentQuizAnswer[];
+  declare readonly material?: Material;
+  declare readonly course?: Course;
+  declare readonly questions?: QuizQuestion[];
+  declare readonly studentAnswers?: StudentQuizAnswer[];
 
   public static associations: {
     material: Association<Quiz, Material>;

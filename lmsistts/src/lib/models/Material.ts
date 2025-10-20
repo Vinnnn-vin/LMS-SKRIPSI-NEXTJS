@@ -15,14 +15,14 @@ interface MaterialAttributes {
 interface MaterialCreationAttributes extends Optional<MaterialAttributes, 'material_id' | 'material_name' | 'material_description'> {}
 
 export class Material extends Model<MaterialAttributes, MaterialCreationAttributes> implements MaterialAttributes {
-  public material_id!: number;
-  public material_name!: string | null;
-  public material_description!: string | null;
-  public course_id!: number;
+  declare material_id: number;
+  declare material_name: string | null;
+  declare material_description: string | null;
+  declare course_id: number;
 
-  public readonly course?: Course;
-  public readonly details?: MaterialDetail[];
-  public readonly quizzes?: Quiz[];
+  declare readonly course?: Course;
+  declare readonly details?: MaterialDetail[];
+  declare readonly quizzes?: Quiz[];
 
   public static associations: {
     course: Association<Material, Course>;
