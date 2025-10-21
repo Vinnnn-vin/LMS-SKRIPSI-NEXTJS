@@ -28,7 +28,7 @@ export default function RootLayout({
             <Notifications />
             <Header />
             <main>{children}</main>
-            <Footer />
+            {/* <Footer /> */}
           </MantineProvider>
         </AuthProvider>
       </body>

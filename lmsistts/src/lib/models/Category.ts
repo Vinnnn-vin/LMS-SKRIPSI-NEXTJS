@@ -3,7 +3,7 @@
 import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
 import { Course } from './Course';
 
-interface CategoryAttributes {
+export interface CategoryAttributes {
   category_id: number;
   category_name: string | null;
   category_description: string | null;

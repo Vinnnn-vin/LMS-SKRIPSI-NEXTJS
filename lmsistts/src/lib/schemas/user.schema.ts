@@ -51,12 +51,19 @@ export const registerFormSchema = z
     path: ["confirm_password"],
   });
 
-export const updateUserSchema = z.object({
-  first_name: z.string().min(2).max(255).optional(),
-  last_name: z.string().min(2).max(255).optional(),
-  email: z.string().email().max(255).optional(),
-  password_hash: z.string().min(8).optional(),
-  role: userRoleEnum.optional(),
+export const updateProfileSchema = z.object({
+  first_name: z
+    .string()
+    .min(2, 'Nama depan minimal 2 karakter')
+    .max(255)
+    .optional()
+    .or(z.literal('')), // Izinkan string kosong
+  last_name: z
+    .string()
+    .min(2, 'Nama belakang minimal 2 karakter')
+    .max(255)
+    .optional()
+    .or(z.literal('')), // Izinkan string kosong
 });
 
 export const loginSchema = z.object({
@@ -88,9 +95,34 @@ export const userIdParamSchema = z.object({
     .transform(Number),
 });
 
+// Skema untuk admin saat membuat user baru
+export const adminCreateUserSchema = z.object({
+  first_name: z.string().min(2).max(255).optional().or(z.literal('')),
+  last_name: z.string().min(2).max(255).optional().or(z.literal('')),
+  email: z.string().email('Format email tidak valid'),
+  role: userRoleEnum,
+  password: z.string().min(8, 'Password minimal 8 karakter'), // Password langsung, akan di-hash di server
+});
+
+// Skema untuk admin saat update user (tanpa password)
+export const adminUpdateUserSchema = z.object({
+  first_name: z.string().min(2).max(255).optional().or(z.literal('')),
+  last_name: z.string().min(2).max(255).optional().or(z.literal('')),
+  email: z.string().email('Format email tidak valid'),
+  role: userRoleEnum,
+});
+
+// Skema untuk admin saat ganti password user
+export const adminChangePasswordSchema = z.object({
+    new_password: z.string().min(8, 'Password baru minimal 8 karakter'),
+});
+
 // Ekspor tipe data
 export type RegisterFormInput = z.infer<typeof registerFormSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
-export type UpdateUserInput = z.infer<typeof updateUserSchema>;
+export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
+export type AdminCreateUserInput = z.infer<typeof adminCreateUserSchema>;
+export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
+export type AdminChangePasswordInput = z.infer<typeof adminChangePasswordSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

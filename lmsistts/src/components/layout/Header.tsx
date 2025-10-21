@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Container,
@@ -11,18 +11,18 @@ import {
   Burger,
   Divider,
   Box,
-} from '@mantine/core';
-import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+} from "@mantine/core";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   IconChevronDown,
   IconDashboard,
   IconLogout,
   IconUserEdit,
-} from '@tabler/icons-react';
-import { useDisclosure } from '@mantine/hooks';
-import classes from './Header.module.css';
+} from "@tabler/icons-react";
+import { useDisclosure } from "@mantine/hooks";
+import classes from "./Header.module.css";
 
 export function Header() {
   const { data: session, status } = useSession();
@@ -30,42 +30,36 @@ export function Header() {
   const [opened, { toggle }] = useDisclosure(false);
 
   const user = session?.user;
-  const isLoading = status === 'loading';
+  const isLoading = status === "loading";
 
-  // Tentukan link dashboard berdasarkan role
+  // Fungsi untuk mendapatkan link dashboard berdasarkan role
   const getDashboardLink = () => {
-    if (!user?.role) return '/';
-    
+    if (!user?.role) return "/";
+
     switch (user.role) {
-      case 'student':
-        return '/student/dashboard';
-      case 'admin':
-        return '/admin/dashboard';
-      case 'lecturer':
-        return '/lecturer/dashboard';
+      case "student":
+        return "/student/dashboard";
+      case "admin":
+        return "/admin/dashboard";
+      case "lecturer":
+        return "/lecturer/dashboard";
       default:
-        return '/';
+        return "/";
     }
   };
 
-  
-  
   const dashboardLink = getDashboardLink();
-  console.log("TESSSSSSS" + dashboardLink);
-  const editProfileLink = '/profile/edit';
+  const editProfileLink = "/profile/edit";
 
   // Handler untuk navigasi dashboard
   const handleDashboardClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Navigating to:', dashboardLink); // Debug log
-    console.log('User role:', user?.role); // Debug log
     router.push(dashboardLink);
   };
 
   // Handler untuk navigasi edit profile
   const handleEditProfileClick = (e: React.MouseEvent) => {
     e.preventDefault();
-    console.log('Navigating to:', editProfileLink); // Debug log
     router.push(editProfileLink);
   };
 
@@ -75,7 +69,7 @@ export function Header() {
         <Group justify="space-between" align="center">
           {/* Kiri: Logo + Navigasi */}
           <Group>
-            <Link href="/" style={{ textDecoration: 'none' }}>
+            <Link href="/" style={{ textDecoration: "none" }}>
               <Text className={classes.logo}>iClick</Text>
             </Link>
 
@@ -111,17 +105,19 @@ export function Header() {
           {/* Kanan: Menu Akun */}
           <Group visibleFrom="sm">
             {isLoading ? (
-              <Text size="sm" c="dimmed">Memuat...</Text>
+              <Text size="sm" c="dimmed">
+                Memuat...
+              </Text>
             ) : user ? (
               <Menu shadow="md" width={220}>
                 <Menu.Target>
                   <UnstyledButton className={classes.userMenu}>
                     <Group gap="sm">
-                      <Avatar 
-                        src={user.image} 
-                        alt={user.name ?? 'Avatar'} 
-                        radius="xl" 
-                        size={32} 
+                      <Avatar
+                        src={user.image}
+                        alt={user.name ?? "Avatar"}
+                        radius="xl"
+                        size={32}
                       />
                       <Text size="sm" className={classes.userName}>
                         {user.name || user.email}
@@ -136,29 +132,29 @@ export function Header() {
                       Role: {user.role?.toUpperCase()}
                     </Text>
                   </Menu.Label>
-                  
+
                   <Menu.Item
                     leftSection={<IconUserEdit size={16} />}
                     onClick={handleEditProfileClick}
                   >
                     Edit Profile
                   </Menu.Item>
-                  
+
                   <Menu.Item
                     leftSection={<IconDashboard size={16} />}
-                    onClick={handleDashboardClick}
+                    component={Link}
+                    href={dashboardLink}
                   >
                     Dashboard
                   </Menu.Item>
-                  
+
                   <Menu.Divider />
-                  
+
                   <Menu.Item
                     color="red"
                     leftSection={<IconLogout size={16} />}
                     onClick={() => {
-                      console.log('Logging out...'); // Debug log
-                      signOut({ callbackUrl: '/' });
+                      signOut({ callbackUrl: "/" });
                     }}
                   >
                     Logout
@@ -167,16 +163,16 @@ export function Header() {
               </Menu>
             ) : (
               <Group>
-                <Button 
-                  component={Link} 
-                  href="/login" 
+                <Button
+                  component={Link}
+                  href="/login"
                   variant="outline"
                   className={classes.loginButton}
                 >
                   Log in
                 </Button>
-                <Button 
-                  component={Link} 
+                <Button
+                  component={Link}
                   href="/register"
                   className={classes.signupButton}
                 >
@@ -187,7 +183,13 @@ export function Header() {
           </Group>
 
           {/* Tombol Burger (Mobile) */}
-          <Burger opened={opened} onClick={toggle} hiddenFrom="sm" size="sm" color="#cbd5e1" />
+          <Burger
+            opened={opened}
+            onClick={toggle}
+            hiddenFrom="sm"
+            size="sm"
+            color="#cbd5e1"
+          />
         </Group>
 
         {/* Menu mobile */}
@@ -242,7 +244,7 @@ export function Header() {
                     color="red"
                     variant="light"
                     fullWidth
-                    onClick={() => signOut({ callbackUrl: '/' })}
+                    onClick={() => signOut({ callbackUrl: "/" })}
                   >
                     Logout
                   </Button>
@@ -258,9 +260,9 @@ export function Header() {
                   >
                     Log in
                   </Button>
-                  <Button 
-                    component={Link} 
-                    href="/register" 
+                  <Button
+                    component={Link}
+                    href="/register"
                     fullWidth
                     className={classes.signupButton}
                   >

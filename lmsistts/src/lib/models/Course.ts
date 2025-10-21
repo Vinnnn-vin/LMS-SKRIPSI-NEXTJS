@@ -10,7 +10,7 @@ import { Payment } from './Payment';
 import { Certificate } from './Certificate';
 import { Quiz } from './Quiz';
 
-interface CourseAttributes {
+export interface CourseAttributes {
   course_id: number;
   course_title: string | null;
   course_description: string | null;
