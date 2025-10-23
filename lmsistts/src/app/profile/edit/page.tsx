@@ -108,7 +108,7 @@ function ProfileForm({ session, updateSession }: { session: Session; updateSessi
         
         // Optional: Redirect ke halaman profile atau dashboard setelah beberapa detik
         setTimeout(() => {
-          router.push('/student/dashboard');
+          router.push('/');
         }, 1500);
       }
     });

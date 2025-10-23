@@ -1,18 +1,18 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { getToken } from 'next-auth/jwt';
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+import { getToken } from "next-auth/jwt";
 
 // Helper function to get dashboard path based on role
 function getDashboardPath(role: string | undefined | null): string {
   switch (role) {
-    case 'admin':
-      return '/admin/dashboard';
-    case 'lecturer':
-      return '/lecturer/dashboard';
-    case 'student':
-      return '/student/dashboard';
+    case "admin":
+      return "/admin/dashboard";
+    case "lecturer":
+      return "/lecturer/dashboard";
+    case "student":
+      return "/student/dashboard";
     default:
-      return '/'; 
+      return "/";
   }
 }
 
@@ -24,13 +24,14 @@ export async function middleware(req: NextRequest) {
   const userRole = token?.role as string | undefined;
 
   // Rute autentikasi (login & register)
-  const isAuthRoute = pathname === '/login' || pathname === '/register';
+  const isAuthRoute = pathname === "/login" || pathname === "/register";
 
   // Rute yang diproteksi
   const isProtectedRoute =
-    pathname.startsWith('/student') ||
-    pathname.startsWith('/lecturer') ||
-    pathname.startsWith('/admin');
+    pathname.startsWith("/student") ||
+    pathname.startsWith("/lecturer") || // Pastikan ini ada
+    pathname.startsWith("/admin") ||
+    pathname.startsWith("/profile");
 
   // Jika SUDAH login dan mencoba akses halaman login/register
   if (isLoggedIn && isAuthRoute) {
@@ -43,7 +44,7 @@ export async function middleware(req: NextRequest) {
   // Jika BELUM login dan mencoba akses halaman terproteksi
   if (!isLoggedIn && isProtectedRoute) {
     // Arahkan ke halaman login
-    return NextResponse.redirect(new URL('/login', req.url));
+    return NextResponse.redirect(new URL("/login", req.url));
   }
 
   return NextResponse.next();
@@ -51,5 +52,12 @@ export async function middleware(req: NextRequest) {
 
 // Tentukan rute mana yang akan dijalankan oleh middleware
 export const config = {
-  matcher: ['/student/:path*', '/lecturer/:path*', '/admin/:path*', '/login', '/register'],
+  matcher: [
+    "/student/:path*",
+    "/lecturer/:path*",
+    "/admin/:path*",
+    '/profile/:path*',
+    "/login",
+    "/register",
+  ],
 };

@@ -1,0 +1,45 @@
+.certificateWrapper {
+    padding: var(--mantine-spacing-xl) var(--mantine-spacing-lg);
+    border: 3px solid var(--mantine-color-blue-7);
+    background-color: var(--mantine-color-gray-0);
+}
+
+.title {
+    font-family: 'Georgia', serif;
+    color: var(--mantine-color-blue-8);
+    font-size: rem(40px);
+}
+
+.studentName {
+    font-size: rem(48px);
+    font-family: 'Brush Script MT', 'cursive';
+    color: var(--mantine-color-blue-6);
+    border-bottom: 2px solid var(--mantine-color-gray-4);
+    padding-bottom: var(--mantine-spacing-xs);
+    margin-top: var(--mantine-spacing-md);
+}
+
+.courseTitle {
+    color: var(--mantine-color-gray-7);
+    font-style: italic;
+}
+
+.signature {
+    font-family: 'cursive';
+    font-size: var(--mantine-font-size-lg);
+    min-height: rem(40px);
+}
+
+.signatureLine {
+     border-top: 1px solid black;
+     padding: var(--mantine-spacing-xs) var(--mantine-spacing-xl);
+     font-family: 'Georgia', serif;
+     color: var(--mantine-color-dimmed);
+}
+
+.printButtonWrapper {
+    /* Sembunyikan tombol print saat di-print */
+    @media print {
+        display: none;
+    }
+}

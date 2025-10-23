@@ -1,6 +1,7 @@
 // lmsistts\src\lib\schemas\quizQuestion.schema.ts
 
 import { z } from 'zod';
+import { answerOptionSchema } from './quizAnswerOption';
 
 export const questionTypeEnum = z.enum(['multiple_choice', 'checkbox', 'essay']);
 
@@ -19,5 +20,18 @@ export const questionIdParamSchema = z.object({
   question_id: z.string().regex(/^\d+$/).transform(Number)
 });
 
+export const createQuestionSchema = z.object({
+  question_text: z.string().min(3, 'Teks pertanyaan tidak boleh kosong'),
+  question_type: z.enum(['multiple_choice', 'checkbox', 'essay']),
+  // Menerima array dari Pilihan Jawaban
+  options: z.array(answerOptionSchema)
+    .min(1, 'Minimal harus ada 1 pilihan jawaban')
+    // Validasi kustom: pastikan setidaknya 1 jawaban benar
+    .refine(options => options.some(opt => opt.is_correct), {
+        message: 'Minimal harus ada 1 jawaban yang ditandai benar (is_correct: true)',
+    }),
+});
+
+export type CreateQuestionInput = z.infer<typeof createQuestionSchema>;
 export type CreateQuizQuestionInput = z.infer<typeof createQuizQuestionSchema>;
 export type UpdateQuizQuestionInput = z.infer<typeof updateQuizQuestionSchema>;

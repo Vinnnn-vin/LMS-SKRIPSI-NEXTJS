@@ -1,6 +1,6 @@
 "use server";
 
-import { User, Course, Category, Payment, Enrollment } from "@/lib/models";
+import { User, Course, Category, Payment, Enrollment, StudentProgress, MaterialDetail, Material } from "@/lib/models";
 import { sequelize } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
@@ -581,5 +581,83 @@ export async function getFinancialTrendData() {
   } catch (error) {
     console.error('[GET_FINANCIAL_TREND_ERROR]', error);
     return { success: false, error: 'Gagal mengambil data tren keuangan.' };
+  }
+}
+
+export async function getCourseEnrollmentsForAdmin(courseId: number) {
+  try {
+    // 1. Ambil semua pendaftaran untuk kursus ini
+    const enrollments = await Enrollment.findAll({
+      where: { course_id: courseId },
+      include: [
+        {
+          model: User,
+          as: 'student', // Pastikan alias ini 'student' di model Enrollment
+          attributes: ['user_id', 'first_name', 'last_name', 'email'],
+          required: true,
+        },
+      ],
+      order: [['enrolled_at', 'DESC']],
+    });
+
+    // 2. Ambil total jumlah materi (konten) dalam kursus ini
+    const totalMaterials = await MaterialDetail.count({
+        include: [{
+            model: Material,
+            as: 'material', // Pastikan alias 'material' di model MaterialDetail
+            where: { course_id: courseId },
+            attributes: [],
+        }]
+    });
+    if (totalMaterials === 0) {
+        return { 
+            success: true, 
+            data: enrollments.map(e => ({
+                ...(e.toJSON()),
+                student: (e.student as User).toJSON(), // Pastikan student ada
+                progress: 0 
+            }))
+        };
+    }
+
+    // 3. Ambil data progres untuk semua user di kursus ini
+    const userIds = enrollments.map(e => e.user_id).filter(id => id !== null) as number[];
+    const progressData = await StudentProgress.findAll({
+      where: {
+        course_id: courseId,
+        user_id: { [Op.in]: userIds },
+        is_completed: true,
+      },
+      attributes: [
+        'user_id',
+        [sequelize.fn('COUNT', sequelize.col('progress_id')), 'completed_count'],
+      ],
+      group: ['user_id'],
+      raw: true,
+    });
+
+    const progressMap = (progressData as any[]).reduce((acc, item) => {
+      acc[item.user_id] = item.completed_count;
+      return acc;
+    }, {} as { [key: number]: number });
+
+    // 4. Gabungkan data
+    const combinedData = enrollments.map(enrollment => {
+      const user = (enrollment.student as User).toJSON(); // Ambil data user
+      const completedCount = progressMap[user.user_id] || 0;
+      const progress = Math.round((completedCount / totalMaterials) * 100);
+      
+      return {
+        ...enrollment.toJSON(),
+        student: user,
+        progress: progress > 100 ? 100 : progress, // Pastikan tidak lebih dari 100
+      };
+    });
+
+    return { success: true, data: combinedData };
+
+  } catch (error: any) {
+    console.error('[GET_COURSE_ENROLLMENTS_ERROR]', error);
+    return { success: false, error: error.message || 'Gagal mengambil data pendaftaran.' };
   }
 }

@@ -37,7 +37,6 @@ const stringToNumberId = (fieldName: string) =>
     .pipe(z.number().int().positive(`${fieldName} harus berupa angka positif`));
 
 // Schema untuk CREATE
-// Schema untuk CREATE
 export const createCourseSchema = z
   .object({
     course_title: z
@@ -184,7 +183,10 @@ export const courseQuerySchema = z.object({
 export const courseCardSchema = z.object({
   course_id: z.number(),
   course_title: z.string().nullable(),
-  thumbnail_url: z.string().url().nullable().or(z.literal(null)),
+  thumbnail_url: z.string().nullable().optional().refine(
+  (val) => !val || /^https?:\/\//.test(val) || /^\/uploads\//.test(val),
+  { message: "thumbnail_url harus berupa URL atau path lokal" }
+),
   course_price: z.number().nullable(),
   lecturer: z.object({
     name: z.string().nullable(),
@@ -195,6 +197,23 @@ export const courseCardSchema = z.object({
 });
 
 export const courseCardDataSchema = z.array(courseCardSchema);
+
+export const lecturerCreateCourseSchema = createCourseSchema.omit({
+    course_price: true,
+    publish_status: true,
+    user_id: true, // user_id akan diambil dari sesi
+});
+
+// Skema untuk Lecturer saat update (tanpa harga/status)
+export const lecturerUpdateCourseSchema = updateCourseSchema.omit({
+    course_price: true,
+    publish_status: true,
+    user_id: true, // Dosen tidak bisa ganti dosen lain
+});
+
+// --- EKSPOR TIPE BARU ---
+export type LecturerCreateCourseInput = z.infer<typeof lecturerCreateCourseSchema>;
+export type LecturerUpdateCourseInput = z.infer<typeof lecturerUpdateCourseSchema>;
 
 // Type exports
 export type CourseCardData = z.infer<typeof courseCardSchema>;

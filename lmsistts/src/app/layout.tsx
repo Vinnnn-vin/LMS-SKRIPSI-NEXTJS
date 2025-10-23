@@ -26,7 +26,7 @@ export default function RootLayout({
         <AuthProvider>
           <MantineProvider defaultColorScheme="auto">
             <Notifications />
-            <Header />
+            {/* <Header /> */}
             <main>{children}</main>
             {/* <Footer /> */}
           </MantineProvider>

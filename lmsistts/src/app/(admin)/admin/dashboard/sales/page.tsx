@@ -1,12 +1,22 @@
 import {
   Container,
-  Title,
-  Text,
-  Alert,
   SimpleGrid,
+  Paper,
+  Text,
+  Title,
+  Group,
+  ThemeIcon,
+  rem,
+  Alert,
   Stack,
 } from "@mantine/core";
-import { IconAlertCircle } from "@tabler/icons-react";
+import {
+  IconUsers,
+  IconBook,
+  IconCash,
+  IconCertificate,
+  IconAlertCircle,
+} from "@tabler/icons-react";
 import {
   getAdminDashboardStats,
   getAllPaymentsForAdmin,
@@ -16,32 +26,52 @@ import {
 } from "@/app/actions/admin.actions"; // Impor kedua fungsi
 import { SalesManagementTable } from "@/components/admin/SalesManagementTable";
 import { CoursePopularityChart } from "@/components/admin/CoursePopularityChart"; // Impor chart baru
-import { FinancialTrendChart } from "@/components/admin/FinancialTrendChart";
-import { SalesChart } from "@/components/admin/SalesChart";
 
-const formatNumber = (num: number) =>
-  new Intl.NumberFormat("id-ID").format(num);
-const formatRupiah = (num: number) =>
-  new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(num);
+import { SalesChart } from "@/components/admin/SalesChart";
+import { FinancialTrendChart } from "@/components/admin/FinancialTrendChart"; // Impor chart baru
 
 export default async function ManageSalesPage() {
   // Ambil data secara paralel
-  const [paymentsResult, courseStatsResult, salesDataResult, trendDataResult] =
-    await Promise.all([
-      getAllPaymentsForAdmin(), // Pertimbangkan filter default jika perlu
-      getCourseSalesStats(),
-      getAdminDashboardStats(),
-      getMonthlySalesData(),
-      getFinancialTrendData(),
-      getCourseSalesStats(),
-    ]);
+  const [
+    paymentsResult,
+    courseStatsResult,
+    statsResult,
+    salesDataResult,
+    trendDataResult,
+  ] = await Promise.all([
+    getAllPaymentsForAdmin(), // Pertimbangkan filter default jika perlu
+    getCourseSalesStats(),
+    getAdminDashboardStats(),
+    getMonthlySalesData(),
+    getFinancialTrendData(),
+  ]);
 
-  const hasError = !paymentsResult.success || !courseStatsResult.success;
-  const errorMessage = paymentsResult.error || courseStatsResult.error;
+  const hasError =
+    !paymentsResult.success ||
+    !courseStatsResult.success ||
+    !statsResult.success ||
+    !salesDataResult.success ||
+    !trendDataResult.success;
+  const errorMessage =
+    paymentsResult.error ||
+    courseStatsResult.error ||
+    statsResult.error ||
+    salesDataResult.error ||
+    trendDataResult.error;
+
+  if (hasError) {
+    return (
+      <Container py="xl">
+        <Alert
+          color="red"
+          title="Gagal Memuat Data Dashboard"
+          icon={<IconAlertCircle />}
+        >
+          {errorMessage}
+        </Alert>
+      </Container>
+    );
+  }
 
   return (
     <Container fluid>
@@ -62,21 +92,16 @@ export default async function ManageSalesPage() {
             </Title>
             <SalesManagementTable payments={paymentsResult.data as any[]} />
           </div>
+          {/* Chart Baru: Pergerakan Keuangan */}
+          <FinancialTrendChart data={trendDataResult.data as any[]} />
 
-          {/* Chart Kursus Terlaris */}
-          <CoursePopularityChart data={courseStatsResult.data as any[]} />
+          {/* Chart yang sudah ada */}
+          <SimpleGrid cols={{ base: 1, lg: 2 }}>
+            <SalesChart data={salesDataResult.data as any[]} />
+            <CoursePopularityChart data={courseStatsResult.data as any[]} />
+          </SimpleGrid>
         </Stack>
       )}
-
-      <Stack mt="xl" gap="xl">
-        {/* Chart Baru: Pergerakan Keuangan */}
-        <FinancialTrendChart data={trendDataResult.data as any[]} />
-
-        {/* Chart yang sudah ada */}
-        <SimpleGrid cols={{ base: 1, lg: 2 }}>
-          {/* <SalesChart data={salesDataResult.data as any[]} /> */}
-        </SimpleGrid>
-      </Stack>
     </Container>
   );
 }

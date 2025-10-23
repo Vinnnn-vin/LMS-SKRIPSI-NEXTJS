@@ -18,5 +18,10 @@ export const optionIdParamSchema = z.object({
   option_id: z.string().regex(/^\d+$/).transform(Number)
 });
 
+export const answerOptionSchema = z.object({
+  option_text: z.string().min(1, 'Teks opsi tidak boleh kosong'),
+  is_correct: z.boolean().default(false),
+});
+
 export type CreateQuizAnswerOptionInput = z.infer<typeof createQuizAnswerOptionSchema>;
 export type UpdateQuizAnswerOptionInput = z.infer<typeof updateQuizAnswerOptionSchema>;
