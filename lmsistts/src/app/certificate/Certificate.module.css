@@ -1,3 +1,5 @@
+/* lmsistts\src\app\certificate\Certificate.module.css */
+
 .certificateWrapper {
     padding: var(--mantine-spacing-xl) var(--mantine-spacing-lg);
     border: 3px solid var(--mantine-color-blue-7);

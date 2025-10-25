@@ -1,3 +1,5 @@
+// lmsistts\src\app\(student)\student\dashboard\page.tsx
+
 import { Container, Title, Text, SimpleGrid, Paper, Group, ThemeIcon, rem, Alert, Stack, Card, Image, Badge, Progress, Button, CardSection } from '@mantine/core';
 import { IconSchool, IconCertificate, IconPlayerPlay, IconAlertCircle } from '@tabler/icons-react';
 import { getStudentDashboardStats, getMyEnrolledCourses } from '@/app/actions/student.actions';

@@ -1,3 +1,5 @@
+// lmsistts\src\app\(admin)\admin\dashboard\page.tsx
+
 import { Container, SimpleGrid, Paper, Text, Title, Group, ThemeIcon, rem, Alert } from '@mantine/core';
 import { IconUsers, IconBook, IconCash, IconCertificate, IconAlertCircle } from '@tabler/icons-react';
 import { getAdminDashboardStats, getMonthlySalesData } from '@/app/actions/admin.actions';

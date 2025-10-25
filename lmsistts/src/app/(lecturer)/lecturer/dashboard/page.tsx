@@ -1,4 +1,4 @@
-// src/app/(lecturer)/lecturer/dashboard/page.tsx
+// lmsistts\src\app\(lecturer)\lecturer\dashboard\page.tsx
 
 import { Container, Title, Text, SimpleGrid, Paper, Group, ThemeIcon, rem, Alert, Stack } from '@mantine/core';
 import { IconBook, IconUsers, IconCash, IconAlertCircle } from '@tabler/icons-react';

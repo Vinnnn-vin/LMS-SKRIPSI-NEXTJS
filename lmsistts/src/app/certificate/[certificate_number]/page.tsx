@@ -1,3 +1,5 @@
+// lmsistts\src\app\certificate\[certificate_number]\page.tsx
+
 import { Container, Title, Text, Paper, Stack, Button, Group, Center } from '@mantine/core';
 import { Certificate } from '@/lib/models'; // Impor model
 import { notFound } from 'next/navigation';

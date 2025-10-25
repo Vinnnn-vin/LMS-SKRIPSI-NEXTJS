@@ -1,4 +1,4 @@
-// lmsistts/src/app/%28admin%29/admin/dashboard/courses/page.tsx
+// lmsistts\src\app\(admin)\admin\dashboard\courses\page.tsx
 
 import { Container, Title, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';

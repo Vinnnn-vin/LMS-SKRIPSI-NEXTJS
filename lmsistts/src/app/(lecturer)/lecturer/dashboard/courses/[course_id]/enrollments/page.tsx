@@ -1,3 +1,5 @@
+// lmsistts\src\app\(lecturer)\lecturer\dashboard\courses\[course_id]\enrollments\page.tsx
+
 import { Container, Title, Text, Alert, Breadcrumbs, Anchor } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import Link from 'next/link';

@@ -1,3 +1,5 @@
+// lmsistts\src\app\unauthorized\page.tsx
+
 import { Container, Title, Text, Button, Paper } from '@mantine/core';
 import { IconLock } from '@tabler/icons-react';
 import Link from 'next/link';

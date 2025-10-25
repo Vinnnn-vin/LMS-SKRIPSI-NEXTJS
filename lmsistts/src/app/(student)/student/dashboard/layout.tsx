@@ -1,3 +1,5 @@
+// lmsistts\src\app\(student)\student\dashboard\layout.tsx
+
 'use client';
 
 import { Box, NavLink, Paper } from '@mantine/core';

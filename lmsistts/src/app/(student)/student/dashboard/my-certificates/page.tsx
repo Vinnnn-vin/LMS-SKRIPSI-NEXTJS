@@ -1,3 +1,5 @@
+// lmsistts\src\app\(student)\student\dashboard\my-certificates\page.tsx
+
 import { Container, Title, Text, SimpleGrid, Card, Group, Button, Alert, Paper, Center } from '@mantine/core';
 import { IconAlertCircle, IconCertificate, IconDownload } from '@tabler/icons-react';
 import { getMyCertificates } from '@/app/actions/student.actions';

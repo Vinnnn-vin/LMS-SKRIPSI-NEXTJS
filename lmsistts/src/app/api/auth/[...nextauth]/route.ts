@@ -1,4 +1,5 @@
-// app/api/auth/[...nextauth]/route.ts
+// lmsistts\src\app\api\auth\[...nextauth]\route.ts
+
 import NextAuth, { type NextAuthOptions } from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';

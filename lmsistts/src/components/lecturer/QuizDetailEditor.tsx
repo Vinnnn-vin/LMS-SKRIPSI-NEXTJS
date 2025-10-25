@@ -1,4 +1,5 @@
-// lmsistts/src/components/lecturer/QuizDetailEditor.tsx
+// lmsistts\src\components\lecturer\QuizDetailEditor.tsx
+
 "use client";
 
 import { useState, useTransition } from "react";

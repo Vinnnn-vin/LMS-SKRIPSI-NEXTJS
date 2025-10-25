@@ -1,4 +1,4 @@
-// lmsistts/src/app/(lecturer)/lecturer/dashboard/courses/[course_id]/materials/[material_id]/page.tsx
+// lmsistts\src\app\(lecturer)\lecturer\dashboard\courses\[course_id]\materials\[material_id]\page.tsx
 
 import {
   Container,
@@ -73,7 +73,7 @@ export default async function ManageMaterialDetailsPage({
         materialId={materialId}
         courseId={courseId}
       />
-      
+
     </Container>
   );
 }

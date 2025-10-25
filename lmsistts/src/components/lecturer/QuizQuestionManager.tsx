@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\QuizQuestionManager.tsx
+
 "use client";
 
 import { useState, useTransition } from "react";

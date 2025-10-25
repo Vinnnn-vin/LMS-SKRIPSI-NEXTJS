@@ -1,3 +1,5 @@
+// lmsistts\src\components\admin\CategoryManagementTable.tsx
+
 "use client";
 
 import { useState, useTransition, useEffect } from "react";

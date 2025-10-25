@@ -1,3 +1,5 @@
+// lmsistts\src\app\(student)\student\courses\[course_id]\learn\page.tsx
+
 import { Container, Alert, Loader, Center, Anchor, Text } from '@mantine/core';
 import { getCourseLearningData } from '@/app/actions/student.actions';
 import { notFound } from 'next/navigation';

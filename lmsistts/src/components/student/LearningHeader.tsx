@@ -1,3 +1,5 @@
+// lmsistts/src/components/student/LearningHeader.tsx
+
 'use client';
 
 import { Group, Title, Text, ActionIcon, Tooltip, Progress, Box, Anchor } from '@mantine/core';

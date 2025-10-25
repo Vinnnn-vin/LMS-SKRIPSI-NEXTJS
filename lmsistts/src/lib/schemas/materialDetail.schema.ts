@@ -96,5 +96,18 @@ export const updateMaterialDetailSchema = baseMaterialDetailSchema.partial().ext
   path: ["content_file"],
 });
 
+export const materialDetailDataSchema = baseMaterialDetailSchema.extend({
+  material_detail_id: z.number(),
+  materi_detail_url: z.string().nullable().optional(),
+  material_id: z.number().nullable(),
+});
+
+export const quizDataSchema = z.object({
+  quiz_id: z.number(),
+  quiz_title: z.string().nullable(),
+});
+
+export type QuizData = z.infer<typeof quizDataSchema>;
+export type MaterialDetailData = z.infer<typeof materialDetailDataSchema>;
 export type CreateMaterialDetailInput = z.infer<typeof createMaterialDetailSchema>;
 export type UpdateMaterialDetailInput = z.infer<typeof updateMaterialDetailSchema>;

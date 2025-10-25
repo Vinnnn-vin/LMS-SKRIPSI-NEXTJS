@@ -3,6 +3,12 @@
 import { z } from "zod";
 
 export const courseLevelEnum = z.enum(["Beginner", "Intermediate", "Advanced"]);
+export const publishRequestStatusEnum = z.enum([
+  "none",
+  "pending",
+  "approved",
+  "rejected",
+]);
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 const ACCEPTED_IMAGE_TYPES = [
@@ -37,55 +43,28 @@ const stringToNumberId = (fieldName: string) =>
     .pipe(z.number().int().positive(`${fieldName} harus berupa angka positif`));
 
 // Schema untuk CREATE
-export const createCourseSchema = z
-  .object({
-    course_title: z
-      .string()
-      .min(5, "Judul kursus minimal 5 karakter")
-      .max(255, "Judul kursus maksimal 255 karakter")
-      .trim(),
-    course_description: z
-      .string()
-      .min(10, "Deskripsi minimal 10 karakter")
-      .max(5000, "Deskripsi maksimal 5000 karakter")
-      .trim(),
-    course_level: courseLevelEnum,
-    course_price: z
-      .number()
-      .int("Harga harus berupa bilangan bulat")
-      .min(0, "Harga tidak boleh negatif")
-      .max(100000000, "Harga terlalu besar"),
-    course_duration: z
-      .number()
-      .int("Durasi harus berupa bilangan bulat")
-      .min(0, "Durasi tidak boleh negatif")
-      .default(0),
-    // ✅ PERBAIKAN: Transform string/number ke literal 0 | 1
-    publish_status: z
-      .union([z.string(), z.number()])
-      .transform((val) => {
-        if (typeof val === 'string') {
-          return val === '1' || val === 'true' ? 1 : 0;
-        }
-        return val === 1 ? 1 : 0;
-      })
-      .pipe(z.literal(0).or(z.literal(1))),  // ✅ Gunakan literal union
-    category_id: stringToNumberId("Kategori"),
-    user_id: stringToNumberId("Lecturer"),
-    thumbnail_file: fileSchema,
-  })
-  .refine(
-    (data) => {
-      if (data.publish_status === 1 && data.course_price <= 0) {
-        return false;
-      }
-      return true;
-    },
-    {
-      message: "Harga harus lebih dari 0 untuk mempublikasikan kursus",
-      path: ["course_price"],
-    }
-  );
+export const createCourseSchema = z.object({
+  course_title: z
+    .string()
+    .min(5, "Title must be at least 5 characters")
+    .max(255),
+  course_description: z
+    .string()
+    .min(10, "Description must be at least 10 characters")
+    .max(5000),
+  course_level: courseLevelEnum,
+  course_price: z
+    .number()
+    .int()
+    .min(0, "Price must be at least 0")
+    .max(100000000),
+  course_duration: z.number().int().min(0).default(0),
+  publish_status: z.number().int().min(0).max(1).default(0),
+  publish_request_status: publishRequestStatusEnum.default("none"),
+  category_id: z.number().int().positive("Category ID is required"),
+  user_id: z.number().int().positive("User ID is required"),
+  thumbnail_file: z.instanceof(File).optional(),
+});
 
 // Schema untuk UPDATE
 export const updateCourseSchema = z
@@ -118,12 +97,12 @@ export const updateCourseSchema = z
     publish_status: z
       .union([z.string(), z.number()])
       .transform((val) => {
-        if (typeof val === 'string') {
-          return val === '1' || val === 'on' || val === 'true' ? 1 : 0;
+        if (typeof val === "string") {
+          return val === "1" || val === "on" || val === "true" ? 1 : 0;
         }
         return val === 1 ? 1 : 0;
       })
-      .pipe(z.literal(0).or(z.literal(1)))  // ✅ Gunakan literal union
+      .pipe(z.literal(0).or(z.literal(1))) // ✅ Gunakan literal union
       .optional(),
     category_id: z.string().regex(/^\d+$/).transform(Number).optional(),
     user_id: z.string().regex(/^\d+$/).transform(Number).optional(),
@@ -183,10 +162,14 @@ export const courseQuerySchema = z.object({
 export const courseCardSchema = z.object({
   course_id: z.number(),
   course_title: z.string().nullable(),
-  thumbnail_url: z.string().nullable().optional().refine(
-  (val) => !val || /^https?:\/\//.test(val) || /^\/uploads\//.test(val),
-  { message: "thumbnail_url harus berupa URL atau path lokal" }
-),
+  thumbnail_url: z
+    .string()
+    .nullable()
+    .optional()
+    .refine(
+      (val) => !val || /^https?:\/\//.test(val) || /^\/uploads\//.test(val),
+      { message: "thumbnail_url harus berupa URL atau path lokal" }
+    ),
   course_price: z.number().nullable(),
   lecturer: z.object({
     name: z.string().nullable(),
@@ -199,21 +182,25 @@ export const courseCardSchema = z.object({
 export const courseCardDataSchema = z.array(courseCardSchema);
 
 export const lecturerCreateCourseSchema = createCourseSchema.omit({
-    course_price: true,
-    publish_status: true,
-    user_id: true, // user_id akan diambil dari sesi
+  user_id: true,
+  publish_status: true,
+  course_price: true,
 });
 
 // Skema untuk Lecturer saat update (tanpa harga/status)
-export const lecturerUpdateCourseSchema = updateCourseSchema.omit({
-    course_price: true,
-    publish_status: true,
-    user_id: true, // Dosen tidak bisa ganti dosen lain
-});
+export const lecturerUpdateCourseSchema = lecturerCreateCourseSchema
+  .partial()
+  .extend({
+    thumbnail_file: z.instanceof(File).optional().nullable(),
+  });
 
 // --- EKSPOR TIPE BARU ---
-export type LecturerCreateCourseInput = z.infer<typeof lecturerCreateCourseSchema>;
-export type LecturerUpdateCourseInput = z.infer<typeof lecturerUpdateCourseSchema>;
+export type LecturerCreateCourseInput = z.infer<
+  typeof lecturerCreateCourseSchema
+>;
+export type LecturerUpdateCourseInput = z.infer<
+  typeof lecturerUpdateCourseSchema
+>;
 
 // Type exports
 export type CourseCardData = z.infer<typeof courseCardSchema>;

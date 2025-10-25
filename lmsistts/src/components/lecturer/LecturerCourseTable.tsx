@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\LecturerCourseTable.tsx
+
 "use client";
 
 import { useState, useTransition, useEffect } from "react";
@@ -15,14 +17,13 @@ import {
   Tooltip,
   Badge,
   Stack,
-  Switch,
   Image,
   LoadingOverlay,
   FileInput,
-  Menu,
+  Alert,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm, zodResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
   IconPlus,
@@ -30,42 +31,42 @@ import {
   IconTrash,
   IconSearch,
   IconSend,
-  IconDotsVertical,
-  IconFilePlus,
-  IconPencilQuestion,
-  IconClipboardText,
   IconListDetails,
   IconUsers,
+  IconAlertCircle,
+  IconX,
+  IconClipboardList,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
 import {
   lecturerCreateCourseSchema,
   lecturerUpdateCourseSchema,
-} from "@/lib/schemas/course.schema"; // Gunakan skema lecturer
+} from "@/lib/schemas/course.schema";
 import {
   createCourseByLecturer,
   updateCourseByLecturer,
   deleteCourseByLecturer,
   requestCoursePublish,
-} from "@/app/actions/lecturer.actions"; // Gunakan actions lecturer
+  cancelPublishRequest,
+} from "@/app/actions/lecturer.actions";
 import type { Category as CategoryType } from "@/lib/models";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 
-// Interface disesuaikan untuk Lecturer
 interface LecturerCourseData {
   course_id: number;
   course_title: string | null;
-  course_description: string | null; // Tambah deskripsi untuk edit
+  course_description: string | null;
   course_level: "Beginner" | "Intermediate" | "Advanced" | null;
   category_id: number | null;
   thumbnail_url: string | null;
   publish_status: number | null;
-  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null; // Tambah status permintaan
+  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
+  rejection_reason?: string | null;
   category?: { category_name?: string | null };
 }
 
-const PAGE_SIZE = 10;
+const PAGE_SIZES = [5, 10, 20, 50, 100];
 
 export function LecturerCourseTable({
   courses: initialCourses,
@@ -77,24 +78,23 @@ export function LecturerCourseTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
-  const [sortStatus, setSortStatus] = useState<
-    DataTableSortStatus<LecturerCourseData>
-  >({ columnAccessor: "course_title", direction: "asc" });
+  const [pageSize, setPageSize] = useState(10);
+  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<LecturerCourseData>>({ 
+    columnAccessor: "course_title", 
+    direction: "asc" 
+  });
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<LecturerCourseData[]>([]);
+  const [totalRecords, setTotalRecords] = useState(0);
 
-  const [selectedCourse, setSelectedCourse] =
-    useState<LecturerCourseData | null>(null);
-  const [formModalOpened, { open: openForm, close: closeForm }] =
-    useDisclosure(false);
-  const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
-    useDisclosure(false);
-  const [publishModalOpened, { open: openPublish, close: closePublish }] =
-    useDisclosure(false);
+  const [selectedCourse, setSelectedCourse] = useState<LecturerCourseData | null>(null);
+  const [formModalOpened, { open: openForm, close: closeForm }] = useDisclosure(false);
+  const [deleteModalOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
+  const [publishModalOpened, { open: openPublish, close: closePublish }] = useDisclosure(false);
+  const [cancelModalOpened, { open: openCancel, close: closeCancel }] = useDisclosure(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const isEditing = !!selectedCourse;
 
-  // Form disesuaikan untuk lecturer (tanpa price/publish_status)
   const form = useForm({
     initialValues: {
       course_title: "",
@@ -110,20 +110,22 @@ export function LecturerCourseTable({
 
   useEffect(() => {
     let data = [...initialCourses];
-    if (query)
+    if (query) {
       data = data.filter((c) =>
         c.course_title?.toLowerCase().includes(query.toLowerCase())
       );
+    }
+    setTotalRecords(data.length);
     data = sortBy(data, sortStatus.columnAccessor) as LecturerCourseData[];
     if (sortStatus.direction === "desc") data.reverse();
-    setRecords(data.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE));
-  }, [initialCourses, query, sortStatus, page]);
+    setRecords(data.slice((page - 1) * pageSize, page * pageSize));
+  }, [initialCourses, query, sortStatus, page, pageSize]);
 
   const handleOpenEdit = (course: LecturerCourseData) => {
     setSelectedCourse(course);
     form.setValues({
       course_title: course.course_title ?? "",
-      course_description: course.course_description ?? "", // Perlu ada di data awal atau fetch
+      course_description: course.course_description ?? "",
       course_level: course.course_level ?? "Beginner",
       category_id: course.category_id ? String(course.category_id) : null,
       thumbnail_file: undefined,
@@ -131,19 +133,19 @@ export function LecturerCourseTable({
     setThumbnailPreview(course.thumbnail_url || null);
     openForm();
   };
+
   const handleOpenCreate = () => {
     setSelectedCourse(null);
     form.reset();
     setThumbnailPreview(null);
     openForm();
   };
+
   const handleThumbnailChange = (file: File | null) => {
     form.setFieldValue("thumbnail_file", file || undefined);
     if (file) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setThumbnailPreview(reader.result as string);
-      };
+      reader.onloadend = () => setThumbnailPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
       setThumbnailPreview(null);
@@ -169,9 +171,7 @@ export function LecturerCourseTable({
       if (result.success) {
         notifications.show({
           title: "Sukses",
-          message: isEditing
-            ? "Kursus berhasil diperbarui."
-            : "Kursus berhasil dibuat.",
+          message: isEditing ? "Kursus berhasil diperbarui." : "Kursus berhasil dibuat.",
           color: "green",
         });
         closeForm();
@@ -208,11 +208,11 @@ export function LecturerCourseTable({
     });
   };
 
-  // Handler baru untuk request publish
   const handleRequestPublish = (course: LecturerCourseData) => {
     setSelectedCourse(course);
     openPublish();
   };
+
   const confirmRequestPublish = () => {
     if (!selectedCourse) return;
     startTransition(async () => {
@@ -235,12 +235,38 @@ export function LecturerCourseTable({
     });
   };
 
+  const handleCancelRequest = (course: LecturerCourseData) => {
+    setSelectedCourse(course);
+    openCancel();
+  };
+
+  const confirmCancelRequest = () => {
+    if (!selectedCourse) return;
+    startTransition(async () => {
+      const result = await cancelPublishRequest(selectedCourse.course_id);
+      if (result.success) {
+        notifications.show({
+          title: "Sukses",
+          message: result.success,
+          color: "green",
+        });
+        closeCancel();
+        router.refresh();
+      } else {
+        notifications.show({
+          title: "Gagal",
+          message: result.error,
+          color: "red",
+        });
+      }
+    });
+  };
+
   const categoryOptions = categories.map((c) => ({
     value: String(c.category_id),
     label: c.category_name || "Tanpa Nama",
   }));
 
-  // Fungsi helper untuk status permintaan
   const getRequestStatusBadge = (
     status: LecturerCourseData["publish_request_status"]
   ) => {
@@ -275,6 +301,7 @@ export function LecturerCourseTable({
   return (
     <Box pos="relative">
       <LoadingOverlay visible={isPending} />
+
       {/* Modal Form Create/Edit */}
       <Modal
         opened={formModalOpened}
@@ -285,7 +312,6 @@ export function LecturerCourseTable({
       >
         <form onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
-            {/* Field form: Judul, Deskripsi, Level, Kategori, Thumbnail */}
             <TextInput
               label="Judul Kursus"
               required
@@ -325,6 +351,7 @@ export function LecturerCourseTable({
           </Stack>
         </form>
       </Modal>
+
       {/* Modal Delete */}
       <Modal
         opened={deleteModalOpened}
@@ -335,8 +362,7 @@ export function LecturerCourseTable({
       >
         <Text size="sm">
           Anda yakin ingin menghapus kursus{" "}
-          <strong>{selectedCourse?.course_title}</strong>? Tindakan ini tidak
-          dapat dibatalkan.
+          <strong>{selectedCourse?.course_title}</strong>? Tindakan ini tidak dapat dibatalkan.
         </Text>
         <Group justify="flex-end" mt="lg">
           <Button variant="default" onClick={closeDelete}>
@@ -347,6 +373,7 @@ export function LecturerCourseTable({
           </Button>
         </Group>
       </Modal>
+
       {/* Modal Request Publish */}
       <Modal
         opened={publishModalOpened}
@@ -355,32 +382,71 @@ export function LecturerCourseTable({
         centered
         size="sm"
       >
+        <Stack>
+          <Text size="sm">
+            Anda yakin ingin mengirim permintaan publikasi untuk kursus{" "}
+            <strong>{selectedCourse?.course_title}</strong> ke admin?
+          </Text>
+          {selectedCourse?.rejection_reason && (
+            <Alert color="red" icon={<IconAlertCircle />} title="Alasan Penolakan Sebelumnya">
+              {selectedCourse.rejection_reason}
+            </Alert>
+          )}
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={closePublish}>
+              Batal
+            </Button>
+            <Button color="blue" onClick={confirmRequestPublish} loading={isPending}>
+              Kirim Permintaan
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      {/* Modal Cancel Request */}
+      <Modal
+        opened={cancelModalOpened}
+        onClose={closeCancel}
+        title="Batalkan Permintaan Publikasi"
+        centered
+        size="sm"
+      >
         <Text size="sm">
-          Anda yakin ingin mengirim permintaan publikasi untuk kursus{" "}
-          <strong>{selectedCourse?.course_title}</strong> ke admin?
+          Anda yakin ingin membatalkan permintaan publikasi untuk kursus{" "}
+          <strong>{selectedCourse?.course_title}</strong>?
         </Text>
         <Group justify="flex-end" mt="lg">
-          <Button variant="default" onClick={closePublish}>
-            Batal
+          <Button variant="default" onClick={closeCancel}>
+            Tidak
           </Button>
-          <Button
-            color="blue"
-            onClick={confirmRequestPublish}
-            loading={isPending}
-          >
-            Kirim Permintaan
+          <Button color="orange" onClick={confirmCancelRequest} loading={isPending}>
+            Ya, Batalkan
           </Button>
         </Group>
       </Modal>
 
-      {/* Filter & Add Button */}
+      {/* Filter & Pagination Controls */}
       <Group justify="space-between" mb="md">
-        <TextInput
-          placeholder="Cari judul..."
-          leftSection={<IconSearch size={16} />}
-          value={query}
-          onChange={(e) => setQuery(e.currentTarget.value)}
-        />
+        <Group>
+          <TextInput
+            placeholder="Cari judul..."
+            leftSection={<IconSearch size={16} />}
+            value={query}
+            onChange={(e) => {
+              setQuery(e.currentTarget.value);
+              setPage(1);
+            }}
+          />
+          <Select
+            data={PAGE_SIZES.map(size => ({ value: String(size), label: `${size} per halaman` }))}
+            value={String(pageSize)}
+            onChange={(value) => {
+              setPageSize(Number(value));
+              setPage(1);
+            }}
+            w={150}
+          />
+        </Group>
         <Button leftSection={<IconPlus size={16} />} onClick={handleOpenCreate}>
           Buat Kursus Baru
         </Button>
@@ -390,7 +456,7 @@ export function LecturerCourseTable({
         idAccessor="course_id"
         records={records}
         columns={[
-          { accessor: "course_title", title: "Judul", sortable: true },
+          { accessor: "course_title", title: "Judul", sortable: true, width: 200 },
           {
             accessor: "category.category_name",
             title: "Kategori",
@@ -405,11 +471,21 @@ export function LecturerCourseTable({
               </Badge>
             ),
           },
-          // --- Kolom Baru: Status Permintaan ---
           {
             accessor: "publish_request_status",
             title: "Permintaan Publish",
-            render: (c) => getRequestStatusBadge(c.publish_request_status),
+            render: (c) => (
+              <Stack gap={4}>
+                {getRequestStatusBadge(c.publish_request_status)}
+                {c.publish_request_status === 'rejected' && c.rejection_reason && (
+                  <Tooltip label={c.rejection_reason} multiline w={220}>
+                    <Text size="xs" c="red" style={{ cursor: 'help' }}>
+                      Lihat alasan
+                    </Text>
+                  </Tooltip>
+                )}
+              </Stack>
+            ),
           },
           {
             accessor: "actions",
@@ -417,15 +493,24 @@ export function LecturerCourseTable({
             textAlign: "right",
             render: (course) => (
               <Group gap="xs" justify="flex-end">
-                {/* TOMBOL BARU: Lihat Mahasiswa */}
+                <Tooltip label="Lihat Tugas Mahasiswa">
+                  <ActionIcon
+                    variant="light"
+                    color="indigo"
+                    onClick={() =>
+                      router.push(`/lecturer/dashboard/courses/${course.course_id}/assignments`)
+                    }
+                  >
+                    <IconClipboardList size={16} />
+                  </ActionIcon>
+                </Tooltip>
+                
                 <Tooltip label="Lihat Mahasiswa Terdaftar">
                   <ActionIcon
                     variant="light"
                     color="teal"
                     onClick={() =>
-                      router.push(
-                        `/lecturer/dashboard/courses/${course.course_id}/enrollments`
-                      )
+                      router.push(`/lecturer/dashboard/courses/${course.course_id}/enrollments`)
                     }
                   >
                     <IconUsers size={16} />
@@ -437,24 +522,44 @@ export function LecturerCourseTable({
                     variant="light"
                     color="cyan"
                     onClick={() =>
-                      router.push(
-                        `/lecturer/dashboard/courses/${course.course_id}/materials`
-                      )
+                      router.push(`/lecturer/dashboard/courses/${course.course_id}/materials`)
                     }
                   >
                     <IconListDetails size={16} />
                   </ActionIcon>
                 </Tooltip>
-                <Tooltip label="Minta Publikasi">
-                  <ActionIcon
-                    variant="light"
-                    color="blue"
-                    onClick={() => handleRequestPublish(course)}
-                    disabled={course.publish_request_status === "pending" || course.publish_status === 1}
+
+                {course.publish_request_status === 'pending' ? (
+                  <Tooltip label="Batalkan Permintaan">
+                    <ActionIcon
+                      variant="light"
+                      color="orange"
+                      onClick={() => handleCancelRequest(course)}
+                    >
+                      <IconX size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                ) : (
+                  <Tooltip 
+                    label={
+                      course.publish_status === 1 
+                        ? "Kursus sudah dipublikasikan" 
+                        : course.publish_request_status === 'rejected'
+                        ? "Ajukan Ulang"
+                        : "Minta Publikasi"
+                    }
                   >
-                    <IconSend size={16} />
-                  </ActionIcon>
-                </Tooltip>
+                    <ActionIcon
+                      variant="light"
+                      color="blue"
+                      onClick={() => handleRequestPublish(course)}
+                      disabled={course.publish_status === 1}
+                    >
+                      <IconSend size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                )}
+
                 <Tooltip label="Edit Kursus">
                   <ActionIcon
                     variant="light"
@@ -464,6 +569,7 @@ export function LecturerCourseTable({
                     <IconPencil size={16} />
                   </ActionIcon>
                 </Tooltip>
+
                 <Tooltip label="Hapus Kursus">
                   <ActionIcon
                     variant="light"
@@ -482,12 +588,13 @@ export function LecturerCourseTable({
         ]}
         sortStatus={sortStatus}
         onSortStatusChange={setSortStatus}
-        totalRecords={initialCourses.length}
-        recordsPerPage={PAGE_SIZE}
+        totalRecords={totalRecords}
+        recordsPerPage={pageSize}
         page={page}
         onPageChange={setPage}
         minHeight={200}
         fetching={isPending}
+        noRecordsText="Tidak ada kursus yang cocok dengan pencarian"
       />
     </Box>
   );

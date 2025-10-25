@@ -1,3 +1,5 @@
+// lmsistts\src\app\(public)\categories\page.tsx
+
 import { Container, Title, Text, SimpleGrid, Paper, Alert, Group, rem, Stack } from '@mantine/core';
 import { IconAlertCircle, IconBook } from '@tabler/icons-react';
 import Link from 'next/link';

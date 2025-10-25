@@ -1,3 +1,5 @@
+/* lmsistts\src\components\layout\Footer.module.css */
+
 .footer {
   margin-top: rem(120px);
   padding-top: calc(var(--mantine-spacing-xl) * 3);

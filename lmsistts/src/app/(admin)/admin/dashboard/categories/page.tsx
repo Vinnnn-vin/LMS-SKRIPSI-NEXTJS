@@ -1,3 +1,5 @@
+// lmsistts\src\app\(admin)\admin\dashboard\categories\page.tsx
+
 import { Container, Title, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getAllCategoriesForAdmin } from '@/app/actions/admin.actions';

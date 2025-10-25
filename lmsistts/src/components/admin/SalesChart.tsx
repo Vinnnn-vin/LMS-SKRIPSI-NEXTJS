@@ -1,4 +1,4 @@
-// lmsistts/src/components/admin/SalesChart.tsx
+// lmsistts\src\components\admin\SalesChart.tsx
 
 'use client';
 

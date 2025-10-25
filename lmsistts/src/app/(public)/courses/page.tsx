@@ -1,3 +1,5 @@
+// lmsistts\src\app\(public)\courses\page.tsx
+
 import { Container, Title, Text, SimpleGrid, Card, Image, Badge, Group, Button, Alert, Stack, rem, CardSection } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import Link from 'next/link';

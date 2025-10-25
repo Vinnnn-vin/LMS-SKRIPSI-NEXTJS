@@ -1,3 +1,5 @@
+// lmsistts\src\app\(public)\courses\[course_id]\page.tsx
+
 import {
   Container,
   Title,

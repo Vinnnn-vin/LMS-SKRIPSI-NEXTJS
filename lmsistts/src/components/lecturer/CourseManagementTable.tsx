@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\CourseManagementTable.tsx
+
 "use client";
 
 import { useState, useTransition, useEffect } from "react";

@@ -1,3 +1,5 @@
+// lmsistts\src\components\landing\HeroBanner.tsx
+
 'use client';
 import { Title, Text, Button, Container, Group } from '@mantine/core';
 import Link from 'next/link';

@@ -1,3 +1,5 @@
+// lmsistts\src\app\actions\admin.actions.ts
+
 "use server";
 
 import { User, Course, Category, Payment, Enrollment, StudentProgress, MaterialDetail, Material } from "@/lib/models";
@@ -517,39 +519,41 @@ export async function getAllPaymentsForAdmin(filters?: { startDate?: Date, endDa
 
 // --- FUNGSI BARU UNTUK CHART KURSUS TERLARIS ---
 export async function getCourseSalesStats() {
-    try {
-        const courseSales = await Payment.findAll({
-            where: { status: 'paid' },
-            attributes: [
-                'course_id',
-                [sequelize.fn('COUNT', sequelize.col('payment_id')), 'salesCount'],
-                [sequelize.literal('`course`.`course_title`'), 'course_title']
-            ],
-            include: [{
-                model: Course,
-                as: 'course',
-                attributes: [],
-                required: true,
-            }],
-            group: ['Payment.course_id', sequelize.literal('`course`.`course_title`')],
-            // --- PERBAIKAN: Gunakan sequelize.col untuk merujuk alias ---
-            order: [[sequelize.col('salesCount'), 'DESC']],
-            limit: 10,
-            raw: true,
-        });
+  try {
+    const courseSales = await Payment.findAll({
+      where: { status: 'paid' },
+      attributes: [
+        'course_id',
+        [sequelize.fn('COUNT', sequelize.col('payment_id')), 'salesCount'],
+        [sequelize.col('course.course_title'), 'course_title'], // ✅ pakai col, bukan literal
+      ],
+      include: [
+        {
+          model: Course,
+          as: 'course',
+          attributes: [],
+          required: true,
+        },
+      ],
+      group: ['Payment.course_id', 'course.course_title'], // ✅ gunakan string, bukan literal
+      order: [[sequelize.col('salesCount'), 'DESC']],
+      limit: 10,
+      raw: true,
+    });
 
-        const formattedData = courseSales.map(item => ({
-            name: (item as any).course_title || `Course ID: ${item.course_id}`,
-            JumlahTerjual: Number((item as any).salesCount || 0),
-        }));
+    const formattedData = courseSales.map((item: any) => ({
+      name: item.course_title || `Course ID: ${item.course_id}`,
+      JumlahTerjual: Number(item.salesCount || 0),
+    }));
 
-        return { success: true, data: formattedData };
-    } catch (error) {
-        console.error('[GET_COURSE_SALES_STATS_ERROR]', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        return { success: false, error: `Gagal mengambil statistik. Error: ${errorMessage}` };
-    }
+    return { success: true, data: formattedData };
+  } catch (error) {
+    console.error('[GET_COURSE_SALES_STATS_ERROR]', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: `Gagal mengambil statistik. Error: ${errorMessage}` };
+  }
 }
+
 
 // --- FUNGSI BARU UNTUK CHART PERGERAKAN KEUANGAN ---
 export async function getFinancialTrendData() {

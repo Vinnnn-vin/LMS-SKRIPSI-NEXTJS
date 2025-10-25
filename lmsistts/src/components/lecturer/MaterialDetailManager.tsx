@@ -1,7 +1,6 @@
-// lmsistts/src/components/lecturer/MaterialDetailManager.tsx
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition } from "react";
 import {
   Box,
   Button,
@@ -22,10 +21,10 @@ import {
   Switch,
   Badge,
   ThemeIcon,
-  rem,
+  NumberInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm, zodResolver } from "@mantine/form";
+import { useForm } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import {
   IconPlus,
@@ -43,31 +42,40 @@ import {
   createMaterialDetailSchema,
   updateMaterialDetailSchema,
 } from "@/lib/schemas/materialDetail.schema";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   createMaterialDetail,
   updateMaterialDetail,
   deleteMaterialDetail,
 } from "@/app/actions/lecturer.actions";
-import { zod4Resolver } from "mantine-form-zod-resolver";
-import z from "zod";
+import { fileToBase64 } from "@/lib/fileUtils";
 
-// =========================================
-// INTERFACE
-// =========================================
 interface MaterialDetailData {
   material_detail_id: number;
   material_detail_name: string;
   material_detail_description: string;
   material_detail_type: number;
-  materi_detail_url: string;
+  materi_detail_url: string | null;
   material_id: number | null;
   is_free: boolean;
+  assignment_template_url?: string | null;
+  passing_score?: number | null;
 }
 
 interface QuizData {
   quiz_id: number;
   quiz_title: string | null;
 }
+
+type MaterialDetailFormValues = {
+  material_detail_name: string;
+  material_detail_description: string;
+  material_detail_type: "1" | "2" | "3" | "4";
+  is_free: boolean;
+  materi_detail_url: string;
+  content_file: File | undefined | null;
+  passing_score: number | null;
+};
 
 const typeOptions = [
   { value: "1", label: "Video (Upload)" },
@@ -91,10 +99,6 @@ const getMaterialIcon = (type: number) => {
   }
 };
 
-type MaterialDetailFormValues = z.infer<
-  typeof createMaterialDetailSchema
->;
-
 export function MaterialDetailManager({
   details: initialDetails = [],
   quizzes: initialQuizzes = [],
@@ -115,6 +119,7 @@ export function MaterialDetailManager({
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [selectedDetail, setSelectedDetail] =
     useState<MaterialDetailData | null>(null);
+  const [templateFile, setTemplateFile] = useState<File | null>(null);
 
   const [
     deleteConfirmOpened,
@@ -125,40 +130,25 @@ export function MaterialDetailManager({
 
   const isEditing = modalMode === "edit";
 
-  // =========================================
-  // FORM SETUP
-  // =========================================
-  const form = useForm({
+  const form = useForm<MaterialDetailFormValues>({
     initialValues: {
       material_detail_name: "",
       material_detail_description: "",
-      material_detail_type: "1" as "1" | "2" | "3" | "4",
+      material_detail_type: "1",
       is_free: false,
       materi_detail_url: "",
-      content_file: undefined as File | undefined | null,
+      content_file: undefined,
+      passing_score: null,
     },
     validate: zod4Resolver(
       isEditing ? updateMaterialDetailSchema : createMaterialDetailSchema
     ),
   });
 
-  // =========================================
-  // EFFECT UPDATE DATA
-  // =========================================
-  useEffect(() => {
-    setRecords(initialDetails);
-  }, [initialDetails]);
-
-  useEffect(() => {
-    setQuizRecords(initialQuizzes);
-  }, [initialQuizzes]);
-
-  // =========================================
-  // HANDLER MODAL
-  // =========================================
   const handleOpenCreateModal = () => {
     setModalMode("create");
     setSelectedDetail(null);
+    setTemplateFile(null);
     form.reset();
     form.setFieldValue("material_detail_type", "1");
     openFormModal();
@@ -167,6 +157,8 @@ export function MaterialDetailManager({
   const handleOpenEditModal = (detail: MaterialDetailData) => {
     setModalMode("edit");
     setSelectedDetail(detail);
+    setTemplateFile(null);
+
     form.setValues({
       material_detail_name: detail.material_detail_name ?? "",
       material_detail_description: detail.material_detail_description ?? "",
@@ -178,6 +170,7 @@ export function MaterialDetailManager({
       is_free: detail.is_free ?? false,
       materi_detail_url: detail.materi_detail_url ?? "",
       content_file: undefined,
+      passing_score: detail.passing_score ?? null,
     });
     openFormModal();
   };
@@ -187,19 +180,29 @@ export function MaterialDetailManager({
     openDeleteConfirm();
   };
 
-  // =========================================
-  // HANDLE SUBMIT
-  // =========================================
   const handleSubmit = async (values: MaterialDetailFormValues) => {
-    // Validasi file size sebelum submit
     if (values.content_file instanceof File) {
       const fileSizeMB = values.content_file.size / 1024 / 1024;
-      console.log(`📁 File size: ${fileSizeMB.toFixed(2)} MB`);
-
       if (fileSizeMB > 50) {
         notifications.show({
           title: "File Terlalu Besar",
-          message: `Ukuran file ${fileSizeMB.toFixed(2)}MB melebihi batas maksimal 50MB`,
+          message: `Ukuran file ${fileSizeMB.toFixed(
+            2
+          )}MB melebihi batas maksimal 50MB`,
+          color: "red",
+        });
+        return;
+      }
+    }
+
+    if (templateFile instanceof File) {
+      const templateSizeMB = templateFile.size / 1024 / 1024;
+      if (templateSizeMB > 50) {
+        notifications.show({
+          title: "File Template Terlalu Besar",
+          message: `Ukuran file template ${templateSizeMB.toFixed(
+            2
+          )}MB melebihi batas maksimal 50MB`,
           color: "red",
         });
         return;
@@ -210,61 +213,61 @@ export function MaterialDetailManager({
       try {
         const formData = new FormData();
 
-        // Append text data
         formData.append("material_detail_name", values.material_detail_name);
         formData.append(
           "material_detail_description",
           values.material_detail_description
         );
-        formData.append("material_detail_type", values.material_detail_type.toString());
+        formData.append("material_detail_type", values.material_detail_type);
         formData.append("is_free", values.is_free ? "true" : "false");
 
-        // Append URL jika ada
-        if (values.materi_detail_url) {
+        if (
+          values.material_detail_type === "3" &&
+          values.materi_detail_url
+        ) {
           formData.append("materi_detail_url", values.materi_detail_url);
         }
 
-        // ✅ CRITICAL FIX: Convert file ke base64 (BUKAN append File langsung)
+        if (
+          values.material_detail_type === "4" &&
+          values.passing_score !== null &&
+          values.passing_score !== undefined
+        ) {
+          formData.append("passing_score", values.passing_score.toString());
+        }
+
         if (values.content_file instanceof File) {
-          console.log(
-            "📤 Converting file to base64:",
-            values.content_file.name
-          );
-
           try {
-            // Import fileToBase64 dari lib/fileUtils
-            const { fileToBase64 } = await import("@/lib/fileUtils");
             const base64 = await fileToBase64(values.content_file);
-
-            // Append sebagai string, bukan File object
             formData.append("file_base64", base64);
             formData.append("file_name", values.content_file.name);
-
-            console.log("✅ File converted to base64 successfully");
           } catch (conversionError) {
-            console.error("❌ File conversion error:", conversionError);
+            console.error("Content file conversion error:", conversionError);
             notifications.show({
-              title: "Error",
-              message: "Gagal membaca file. Silakan coba lagi.",
+              title: "Gagal Mengkonversi File",
+              message: "Terjadi kesalahan saat memproses file konten",
               color: "red",
             });
             return;
           }
         }
 
-        // Debug: Log FormData contents
-        console.log("📦 FormData contents:");
-        for (const [key, value] of formData.entries()) {
-          if (key === "file_base64") {
-            console.log(
-              `  ${key}: [Base64 Data - ${value.toString().length} chars]`
-            );
-          } else {
-            console.log(`  ${key}: ${value}`);
+        if (values.material_detail_type === "4" && templateFile) {
+          try {
+            const base64 = await fileToBase64(templateFile);
+            formData.append("template_file_base64", base64);
+            formData.append("template_file_name", templateFile.name);
+          } catch (conversionError) {
+            console.error("Template file conversion error:", conversionError);
+            notifications.show({
+              title: "Gagal Mengkonversi Template",
+              message: "Terjadi kesalahan saat memproses file template",
+              color: "red",
+            });
+            return;
           }
         }
 
-        console.log("🚀 Sending request to server...");
         const result = isEditing
           ? await updateMaterialDetail(
               selectedDetail!.material_detail_id,
@@ -272,38 +275,38 @@ export function MaterialDetailManager({
             )
           : await createMaterialDetail(materialId, formData);
 
-        console.log("📥 Server response:", result);
-
         if (result?.success) {
           notifications.show({
-            title: "Sukses",
-            message: result.success,
+            title: "Berhasil",
+            message: isEditing
+              ? "Konten berhasil diperbarui"
+              : "Konten baru berhasil ditambahkan",
             color: "green",
           });
           closeFormModal();
           form.reset();
+          setTemplateFile(null);
           router.refresh();
         } else {
           notifications.show({
             title: "Gagal",
-            message: result?.error || "Terjadi kesalahan",
+            message:
+              result?.error ||
+              `Gagal ${isEditing ? "memperbarui" : "menambahkan"} konten`,
             color: "red",
           });
         }
       } catch (error: any) {
-        console.error("❌ Submit error:", error);
+        console.error("Submit error:", error);
         notifications.show({
-          title: "Error",
-          message: error.message || "Terjadi kesalahan saat menyimpan data",
+          title: "Terjadi Kesalahan",
+          message: error?.message || "Gagal memproses permintaan",
           color: "red",
         });
       }
     });
   };
 
-  // =========================================
-  // HANDLE DELETE
-  // =========================================
   const handleDelete = () => {
     if (!selectedDetail) return;
     startTransition(async () => {
@@ -312,16 +315,20 @@ export function MaterialDetailManager({
       );
       if (result?.success) {
         notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "teal",
+          title: "Berhasil",
+          message: "Konten berhasil dihapus",
+          color: "green",
         });
         closeDeleteConfirm();
-        router.refresh();
+        setRecords((prev) =>
+          prev.filter(
+            (r) => r.material_detail_id !== selectedDetail.material_detail_id
+          )
+        );
       } else {
         notifications.show({
           title: "Gagal",
-          message: result?.error,
+          message: result?.error || "Gagal menghapus konten",
           color: "red",
         });
       }
@@ -331,17 +338,14 @@ export function MaterialDetailManager({
   const selectedType = form.values.material_detail_type;
   const showFileInput = selectedType === "1" || selectedType === "2";
   const showUrlInput = selectedType === "3";
+  const showAssignmentFields = selectedType === "4";
 
   const addQuizUrl = `/lecturer/dashboard/courses/${courseId}/quizzes/add?materialId=${materialId}`;
 
-  // =========================================
-  // RENDER
-  // =========================================
   return (
     <Box pos="relative">
       <LoadingOverlay visible={isPending} overlayProps={{ blur: 2 }} />
 
-      {/* MODAL FORM */}
       <Modal
         opened={formModalOpened}
         onClose={closeFormModal}
@@ -370,8 +374,12 @@ export function MaterialDetailManager({
 
             {showFileInput && (
               <FileInput
-                label={selectedType === "1" ? "Upload Video" : "Upload PDF"}
-                description="Ukuran maks 50MB"
+                label={
+                  selectedType === "1"
+                    ? "Upload Video (.mp4, .webm)"
+                    : "Upload PDF (.pdf)"
+                }
+                description="Ukuran maksimal 50MB"
                 placeholder={
                   isEditing
                     ? "Pilih file baru jika ingin mengganti"
@@ -395,6 +403,28 @@ export function MaterialDetailManager({
               />
             )}
 
+            {showAssignmentFields && (
+              <>
+                <FileInput
+                  label="Template Tugas (Opsional)"
+                  placeholder="Upload file template (.pdf, .docx, .zip)"
+                  accept=".pdf,.doc,.docx,.zip"
+                  onChange={setTemplateFile}
+                  clearable
+                  description="File ini bisa diunduh oleh mahasiswa"
+                />
+                <NumberInput
+                  label="Skor Lulus Tugas (%)"
+                  placeholder="Contoh: 75"
+                  min={0}
+                  max={100}
+                  allowDecimal={false}
+                  {...form.getInputProps("passing_score")}
+                  description="Skor minimum agar tugas dianggap lulus (opsional)"
+                />
+              </>
+            )}
+
             <Switch
               label="Konten Gratis (Dapat diakses tanpa login)"
               {...form.getInputProps("is_free", { type: "checkbox" })}
@@ -407,7 +437,6 @@ export function MaterialDetailManager({
         </form>
       </Modal>
 
-      {/* MODAL HAPUS */}
       <Modal
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}
@@ -431,7 +460,6 @@ export function MaterialDetailManager({
         </Stack>
       </Modal>
 
-      {/* TOMBOL TAMBAH */}
       <Group justify="flex-end" mb="md">
         <Button
           leftSection={<IconPlus size={16} />}
@@ -448,7 +476,6 @@ export function MaterialDetailManager({
         </Button>
       </Group>
 
-      {/* DAFTAR KONTEN MATERI */}
       <Title order={5} c="dimmed">
         Konten Materi & Tugas
       </Title>
@@ -519,7 +546,6 @@ export function MaterialDetailManager({
         </Text>
       )}
 
-      {/* DAFTAR QUIZ */}
       <Title order={5} c="dimmed" mt="xl">
         Quiz
       </Title>

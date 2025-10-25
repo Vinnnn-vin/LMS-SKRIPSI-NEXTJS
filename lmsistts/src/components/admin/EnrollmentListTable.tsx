@@ -1,3 +1,5 @@
+// lmsistts\src\components\admin\EnrollmentListTable.tsx
+
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';

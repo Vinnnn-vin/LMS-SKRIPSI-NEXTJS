@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\MaterialManager.tsx
+
 "use client";
 
 import { useState, useTransition } from "react"; // ❌ Hapus useEffect

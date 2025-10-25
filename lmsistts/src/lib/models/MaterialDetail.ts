@@ -12,6 +12,7 @@ interface MaterialDetailAttributes {
   material_detail_type: number;
   materi_detail_url: string;
   material_id: number | null;
+  assignment_template_url: string | null;
   is_free: boolean;
 }
 
@@ -24,6 +25,7 @@ export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDeta
   declare material_detail_type: number;
   declare materi_detail_url: string;
   declare material_id: number | null;
+  declare assignment_template_url: string | null;
   declare is_free: boolean;
 
   declare readonly material?: Material;
@@ -89,6 +91,10 @@ export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDeta
         },
         material_id: {
           type: DataTypes.INTEGER,
+          allowNull: true
+        },
+        assignment_template_url: {
+          type: DataTypes.TEXT,
           allowNull: true
         },
         is_free: {
