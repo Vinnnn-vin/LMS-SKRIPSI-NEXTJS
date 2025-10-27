@@ -15,6 +15,7 @@ import {
   Category,
   User,
   StudentProgress,
+  AssignmentSubmission,
 } from "@/lib/models";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
@@ -51,6 +52,7 @@ import { base64ToBuffer, sanitizeFilename } from "@/lib/fileUtils";
 import path from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
+import { ReviewAssignmentInput, reviewAssignmentSchema } from "@/lib/schemas/assignmentSubmission.schema";
 
 // Helper function untuk memeriksa sesi dosen
 async function getLecturerSession() {
@@ -59,6 +61,118 @@ async function getLecturerSession() {
     throw new Error("Akses ditolak. Anda harus login sebagai dosen.");
   }
   return { userId: parseInt(session.user.id, 10), session };
+}
+
+// --- FUNGSI BARU UNTUK MENGAMBIL TUGAS YANG PERLU DIREVIEW ---
+export async function getAssignmentsToReviewByLecturer(options?: { page?: number, limit?: number, sortBy?: string, sortOrder?: 'ASC' | 'DESC', statusFilter?: string }) {
+    try {
+        const { userId } = await getLecturerSession();
+
+        // 1. Ambil ID kursus milik dosen
+        const lecturerCourseIds = await Course.findAll({
+            where: { user_id: userId },
+            attributes: ['course_id'],
+            raw: true,
+        }).then(courses => courses.map(c => c.course_id));
+
+        if (lecturerCourseIds.length === 0) {
+            return { success: true, data: [], total: 0 }; // Tidak ada kursus, tidak ada tugas
+        }
+
+        // 2. Siapkan kondisi pencarian
+        const page = options?.page || 1;
+        const limit = options?.limit || 10;
+        const offset = (page - 1) * limit;
+        const sortBy = options?.sortBy || 'submitted_at';
+        const sortOrder = options?.sortOrder || 'DESC';
+
+        const whereClause: any = {
+            course_id: { [Op.in]: lecturerCourseIds },
+            // Prioritaskan yang belum direview atau sedang direview
+            status: { [Op.in]: ['submitted', 'under_review'] }
+        };
+
+        // Tambahkan filter status jika ada
+        if (options?.statusFilter && ['submitted', 'under_review', 'approved', 'rejected'].includes(options.statusFilter)) {
+            whereClause.status = options.statusFilter;
+        }
+
+
+        // 3. Ambil data submission
+        const { count, rows: submissions } = await AssignmentSubmission.findAndCountAll({
+            where: whereClause,
+            include: [
+                { model: User, as: 'student', attributes: ['user_id', 'first_name', 'last_name', 'email'] },
+                { model: MaterialDetail, as: 'assignment', attributes: ['material_detail_id', 'material_detail_name'] },
+                { model: Course, as: 'course', attributes: ['course_id', 'course_title'] },
+                 // Bisa tambahkan 'reviewer' jika ingin menampilkan siapa yg mereview
+                 // { model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name']}
+            ],
+            order: [[sortBy, sortOrder]],
+            limit: limit,
+            offset: offset,
+        });
+
+        return { success: true, data: submissions.map(s => s.toJSON()), total: count };
+
+    } catch (error: any) {
+        console.error("[GET_ASSIGNMENTS_TO_REVIEW_ERROR]", error);
+        return { success: false, error: error.message || 'Gagal mengambil data tugas.' };
+    }
+}
+
+
+// --- FUNGSI BARU UNTUK MENILAI TUGAS ---
+export async function gradeAssignmentByLecturer(submissionId: number, values: ReviewAssignmentInput) {
+    try {
+        const { userId } = await getLecturerSession();
+
+        // 1. Validasi input penilaian
+        const validatedFields = reviewAssignmentSchema.safeParse(values);
+        if (!validatedFields.success) {
+            const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
+            return { success: false, error: firstError || "Input penilaian tidak valid!" };
+        }
+        const { status, score, feedback } = validatedFields.data;
+
+        // 2. Cari submission dan validasi kepemilikan kursus
+        const submission = await AssignmentSubmission.findOne({
+            where: { submission_id: submissionId },
+            include: [{ model: Course, as: 'course', where: { user_id: userId }, attributes: [] }] // Cek kepemilikan via course
+        });
+
+        if (!submission) {
+            return { success: false, error: 'Submission tidak ditemukan atau Anda tidak berhak menilainya.' };
+        }
+
+        // Optional: Validasi skor hanya jika status 'approved'
+        if (status === 'approved' && (score === null || score === undefined || score < 0 || score > 100)) {
+            return { success: false, error: 'Skor harus diisi (0-100) jika status Approved.' };
+        }
+         // Optional: Set skor jadi null jika ditolak
+         const finalScore = status === 'rejected' ? null : score;
+
+
+        // 3. Update data submission
+        await submission.update({
+            status: status,
+            score: finalScore,
+            feedback: feedback || null, // Pastikan feedback bisa null
+            reviewed_by: userId,
+            reviewed_at: new Date(),
+        });
+
+        // Revalidate path halaman review tugas (jika diperlukan refresh otomatis)
+        revalidatePath('/lecturer/dashboard/assignments');
+
+        // TODO: Kirim notifikasi ke mahasiswa (jika ada sistem notifikasi)
+
+        return { success: true, message: 'Tugas berhasil dinilai.' };
+
+    } catch (error: any) {
+        console.error("[GRADE_ASSIGNMENT_ERROR]", error);
+        return { success: false, error: error.message || 'Gagal menyimpan penilaian.' };
+    }
 }
 
 // --- FUNGSI BARU UNTUK OVERVIEW DASHBOARD LECTURER ---
@@ -483,56 +597,18 @@ export async function getMaterialDetailsForLecturer(materialId: number) {
   }
 }
 
-// Dosen membuat MaterialDetail baru
-async function uploadBase64ToPublic(
-  base64Data: string,
-  originalFilename: string,
-  subFolder: "videos" | "pdfs"
-): Promise<{ success: boolean; url?: string; error?: string }> {
-  try {
-    console.log("🔄 Starting base64 upload for:", originalFilename);
-
-    // Convert base64 to buffer
-    const buffer = base64ToBuffer(base64Data);
-    console.log("✅ Buffer created, size:", buffer.length, "bytes");
-
-    // Generate unique filename
-    const timestamp = Date.now();
-    const sanitized = sanitizeFilename(originalFilename);
-    const fileName = `${timestamp}_${sanitized}`;
-
-    // Path ke folder public
-    const publicDir = path.join(process.cwd(), "public", subFolder);
-
-    // Buat folder jika belum ada
-    if (!existsSync(publicDir)) {
-      console.log("📁 Creating directory:", publicDir);
-      await mkdir(publicDir, { recursive: true });
-    }
-
-    // Path lengkap file
-    const filePath = path.join(publicDir, fileName);
-    console.log("💾 Writing file to:", filePath);
-
-    // Simpan file
-    await writeFile(filePath, buffer);
-
-    // Return relative path
-    const relativePath = `/${subFolder}/${fileName}`;
-
-    console.log("✅ File uploaded successfully:", relativePath);
-    return { success: true, url: relativePath };
-  } catch (error: any) {
-    console.error("❌ Upload base64 error:", error);
-    return { success: false, error: error.message || "Gagal upload file" };
-  }
-}
-
 // KEMUDIAN GANTI createMaterialDetail dengan ini:
-
 export async function createMaterialDetail(
   materialId: number,
-  formData: FormData
+  values: {
+    material_detail_name: string;
+    material_detail_description: string;
+    material_detail_type: string;
+    is_free: boolean;
+    materi_detail_url: string | null;
+    assignment_template_url?: string | null;
+    passing_score?: number | null;
+  }
 ) {
   try {
     const { userId } = await getLecturerSession();
@@ -547,107 +623,89 @@ export async function createMaterialDetail(
         },
       ],
     });
+
     if (!material) throw new Error("Bab/Seksi tidak ditemukan.");
 
-    // Parse FormData
-    const material_detail_name =
-      formData.get("material_detail_name")?.toString() || "";
-    const material_detail_description =
-      formData.get("material_detail_description")?.toString() || "";
-    const material_detail_type =
-      formData.get("material_detail_type")?.toString() || "1";
-    const is_free = formData.get("is_free")?.toString() === "true";
-    const materi_detail_url =
-      formData.get("materi_detail_url")?.toString() || "";
-
-    // ✅ Ambil base64 data dan filename
-    const fileBase64 = formData.get("file_base64")?.toString();
-    const fileName = formData.get("file_name")?.toString();
-
-    console.log("📝 Server received FormData:", {
-      material_detail_name,
-      material_detail_type,
-      is_free,
-      hasFile: !!fileBase64,
-      fileName,
-      base64Length: fileBase64 ? fileBase64.length : 0,
-    });
-
     // Validasi
-    if (!material_detail_name || material_detail_name.length < 3) {
+    if (
+      !values.material_detail_name ||
+      values.material_detail_name.length < 3
+    ) {
       return { error: "Nama konten minimal 3 karakter" };
     }
-
     if (
-      !material_detail_description ||
-      material_detail_description.length < 10
+      !values.material_detail_description ||
+      values.material_detail_description.length < 10
     ) {
       return { error: "Deskripsi minimal 10 karakter" };
     }
 
-    const detailType = parseInt(material_detail_type);
-
-    // Validasi konten sesuai tipe
-    if ((detailType === 1 || detailType === 2) && !fileBase64) {
-      return { error: "File wajib diupload untuk tipe konten ini" };
+    // Konversi tipe ke number
+    const detailType = parseInt(values.material_detail_type, 10);
+    if (isNaN(detailType) || detailType < 1 || detailType > 4) {
+      return { error: "Tipe konten tidak valid." };
     }
 
-    if (detailType === 3 && !materi_detail_url) {
-      return { error: "URL YouTube wajib diisi untuk tipe konten ini" };
+    // Validasi URL berdasarkan tipe
+    // Tipe 1 (Video) = URL YouTube hasil upload
+    // Tipe 2 (PDF) = URL file hasil upload ke /public/pdfs
+    // Tipe 3 (YouTube) = URL YouTube yang diinput manual
+    // Tipe 4 (Assignment) = bisa kosong, template opsional
+
+    if (
+      (detailType === 1 || detailType === 2 || detailType === 3) &&
+      !values.materi_detail_url
+    ) {
+      return { error: "URL konten wajib diisi." };
     }
 
-    let contentUrl = materi_detail_url || "";
-
-    // ✅ Upload file dari base64
-    if (fileBase64 && fileName) {
-      console.log("📤 Processing file upload from base64:", fileName);
-
-      const subFolder = detailType === 1 ? "videos" : "pdfs";
-      const uploadResult = await uploadBase64ToPublic(
-        fileBase64,
-        fileName,
-        subFolder
-      );
-
-      if (!uploadResult.success) {
-        console.error("❌ Upload failed:", uploadResult.error);
-        return { error: uploadResult.error || "Gagal upload file konten." };
+    // Validasi passing score untuk assignment
+    if (
+      detailType === 4 &&
+      values.passing_score !== null &&
+      values.passing_score !== undefined
+    ) {
+      if (values.passing_score < 0 || values.passing_score > 100) {
+        return { error: "Skor lulus harus antara 0-100." };
       }
-
-      contentUrl = uploadResult.url!;
-      console.log("✅ Upload complete, URL:", contentUrl);
     }
 
     // Simpan ke database
     await MaterialDetail.create({
-      material_detail_name,
-      material_detail_description,
+      material_detail_name: values.material_detail_name,
+      material_detail_description: values.material_detail_description,
       material_detail_type: detailType,
-      is_free,
-      materi_detail_url: contentUrl,
+      is_free: values.is_free,
+      materi_detail_url: values.materi_detail_url || "",
+      assignment_template_url: values.assignment_template_url || null,
+      passing_score: detailType === 4 ? (values.passing_score ?? null) : null,
       material_id: materialId,
     });
-
-    console.log("✅ MaterialDetail created in database");
 
     revalidatePath(
       `/lecturer/dashboard/courses/${material.course?.course_id}/materials/${materialId}`
     );
     return { success: "Konten berhasil ditambahkan!" };
   } catch (error: any) {
-    console.error("❌ Create MaterialDetail error:", error);
+    console.error("❌ Create MaterialDetail action error:", error);
     return { error: error.message || "Gagal menambahkan konten." };
   }
 }
 
-// Dosen memperbarui MaterialDetail
 export async function updateMaterialDetail(
   materialDetailId: number,
-  formData: FormData
+  values: {
+    material_detail_name?: string;
+    material_detail_description?: string;
+    material_detail_type?: string;
+    is_free?: boolean;
+    materi_detail_url?: string | null;
+    assignment_template_url?: string | null;
+    passing_score?: number | null;
+  }
 ) {
   try {
     const { userId } = await getLecturerSession();
-
     const detail = await MaterialDetail.findOne({
       where: { material_detail_id: materialDetailId },
       include: [
@@ -671,122 +729,79 @@ export async function updateMaterialDetail(
     if (!detail)
       throw new Error("Konten tidak ditemukan atau Anda tidak berhak.");
 
-    // ✅ PERBAIKAN: Parse FormData dengan lebih aman
-    const material_detail_name = formData
-      .get("material_detail_name")
-      ?.toString();
-    const material_detail_description = formData
-      .get("material_detail_description")
-      ?.toString();
-    const material_detail_type = formData
-      .get("material_detail_type")
-      ?.toString();
-    const is_free = formData.get("is_free")?.toString() === "true";
-    const materi_detail_url = formData.get("materi_detail_url")?.toString();
-    const content_file = formData.get("content_file");
+    const updateData: any = {};
 
-    console.log("📝 Parsing FormData for Update:", {
-      material_detail_name,
-      material_detail_type,
-      is_free,
-      hasFile: content_file instanceof File,
-      fileSize: content_file instanceof File ? content_file.size : 0,
-    });
-
-    // ✅ Validasi dengan Zod
-    const validatedFields = updateMaterialDetailSchema.safeParse({
-      material_detail_name: material_detail_name || undefined,
-      material_detail_description: material_detail_description || undefined,
-      material_detail_type: material_detail_type || undefined,
-      is_free,
-      materi_detail_url: materi_detail_url || undefined,
-      content_file:
-        content_file instanceof File
-          ? content_file
-          : content_file === null
-            ? null
-            : undefined,
-    });
-
-    if (!validatedFields.success) {
-      console.error(
-        "❌ Update Validation Error:",
-        validatedFields.error.flatten()
-      );
-      const firstError = Object.values(
-        validatedFields.error.flatten().fieldErrors
-      )[0]?.[0];
-      return { error: firstError || "Input data konten tidak valid!" };
+    // Validasi dan siapkan data update
+    if (values.material_detail_name !== undefined) {
+      if (values.material_detail_name.length < 3) {
+        return { error: "Nama minimal 3 karakter." };
+      }
+      updateData.material_detail_name = values.material_detail_name;
     }
 
-    const {
-      content_file: validated_file,
-      materi_detail_url: validated_url,
-      ...detailData
-    } = validatedFields.data;
-    let newContentUrl: string | undefined | null = undefined;
+    if (values.material_detail_description !== undefined) {
+      if (values.material_detail_description.length < 10) {
+        return { error: "Deskripsi minimal 10 karakter." };
+      }
+      updateData.material_detail_description =
+        values.material_detail_description;
+    }
 
-    // ✅ UPLOAD FILE BARU KE FOLDER PUBLIC
-    if (validated_file instanceof File) {
-      console.log("📤 Uploading new content file:", validated_file.name);
+    let detailType = detail.material_detail_type;
+    if (values.material_detail_type !== undefined) {
+      const newType = parseInt(values.material_detail_type, 10);
+      if (isNaN(newType) || newType < 1 || newType > 4) {
+        return { error: "Tipe konten tidak valid." };
+      }
+      updateData.material_detail_type = newType;
+      detailType = newType;
+    }
 
-      // Hapus file lama jika ada
+    if (values.is_free !== undefined) {
+      updateData.is_free = values.is_free;
+    }
+
+    // Handle URL konten
+    if (values.materi_detail_url !== undefined) {
       if (
-        detail.materi_detail_url &&
-        detail.materi_detail_url.startsWith("/")
+        (detailType === 1 || detailType === 2 || detailType === 3) &&
+        !values.materi_detail_url
       ) {
-        const deleted = await deleteFromPublic(detail.materi_detail_url);
-        console.log(deleted ? "🗑️ Old file deleted" : "⚠️ Old file not found");
+        return { error: "URL konten wajib diisi." };
       }
+      updateData.materi_detail_url = values.materi_detail_url || "";
+    }
 
-      // Upload file baru
-      const subFolder =
-        (detailData.material_detail_type || detail.material_detail_type) === 1
-          ? "videos"
-          : "pdfs";
+    // Handle URL template (assignment only)
+    if (detailType === 4 && values.assignment_template_url !== undefined) {
+      updateData.assignment_template_url =
+        values.assignment_template_url || null;
+    }
 
-      const uploadResult = await uploadToPublic(validated_file, subFolder);
-
-      if (!uploadResult.success) {
-        console.error("❌ Upload failed:", uploadResult.error);
-        return {
-          error: uploadResult.error || "Gagal upload file konten baru.",
-        };
-      }
-
-      newContentUrl = uploadResult.url!;
-      console.log("✅ New file uploaded successfully:", newContentUrl);
-    } else if (validated_file === null) {
-      // File di-clear, hapus file lama
+    // Handle passing score (assignment only)
+    if (detailType === 4 && values.passing_score !== undefined) {
       if (
-        detail.materi_detail_url &&
-        detail.materi_detail_url.startsWith("/")
+        values.passing_score !== null &&
+        (values.passing_score < 0 || values.passing_score > 100)
       ) {
-        await deleteFromPublic(detail.materi_detail_url);
-        console.log("🗑️ File cleared and deleted");
+        return { error: "Skor lulus tidak valid (0-100)." };
       }
-      newContentUrl = "";
-    } else if (validated_url !== undefined) {
-      // URL diubah (untuk YouTube link)
-      newContentUrl = validated_url || "";
+      updateData.passing_score = values.passing_score ?? null;
     }
 
-    const updateData: any = { ...detailData };
-    if (newContentUrl !== undefined) {
-      updateData.materi_detail_url = newContentUrl;
-    }
-
+    // Lakukan update
     await detail.update(updateData);
-    console.log("✅ MaterialDetail updated successfully");
 
     const courseId = detail.material?.course?.course_id;
-    if (courseId)
+    if (courseId) {
       revalidatePath(
         `/lecturer/dashboard/courses/${courseId}/materials/${detail.material_id}`
       );
+    }
+
     return { success: "Konten berhasil diperbarui!" };
   } catch (error: any) {
-    console.error("❌ Update MaterialDetail error:", error);
+    console.error("❌ Update MaterialDetail action error:", error);
     return { error: error.message || "Gagal memperbarui konten." };
   }
 }

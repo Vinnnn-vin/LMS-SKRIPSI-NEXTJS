@@ -2,7 +2,17 @@
 
 "use server";
 
-import { User, Course, Category, Payment, Enrollment, StudentProgress, MaterialDetail, Material } from "@/lib/models";
+import {
+  User,
+  Course,
+  Category,
+  Payment,
+  Enrollment,
+  StudentProgress,
+  MaterialDetail,
+  Material,
+  Quiz,
+} from "@/lib/models";
 import { sequelize } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
@@ -100,11 +110,70 @@ export async function getAllCoursesForAdmin() {
 
 export async function getCourseByIdForAdmin(courseId: number) {
   try {
-    const course = await Course.findByPk(courseId);
-    if (!course) return { error: "Kursus tidak ditemukan" };
+    const course = await Course.findByPk(courseId, {
+      include: [
+        {
+          model: User,
+          as: "lecturer",
+          attributes: ["first_name", "last_name"],
+        },
+        {
+          model: Category,
+          as: "category",
+          attributes: ["category_name"],
+        },
+        {
+          model: Material,
+          as: "materials",
+          attributes: ["material_id", "material_name"],
+          required: false,
+          include: [
+            {
+              model: MaterialDetail,
+              as: "details",
+              attributes: [
+                "material_detail_id",
+                "material_detail_name",
+                "material_detail_type",
+              ],
+              required: false,
+            },
+            // --- TAMBAHKAN INCLUDE QUIZ DI SINI ---
+            {
+              model: Quiz,
+              as: "quizzes", // Pastikan alias ini benar di model Material
+              attributes: ["quiz_id", "quiz_title"], // Ambil ID & judul quiz
+              required: false, // Gunakan LEFT JOIN
+            },
+            // --- AKHIR TAMBAHAN QUIZ ---
+          ],
+        },
+      ],
+      order: [
+        [{ model: Material, as: "materials" }, "material_id", "ASC"],
+        [
+          { model: Material, as: "materials" },
+          { model: MaterialDetail, as: "details" },
+          "material_detail_id",
+          "ASC",
+        ],
+        // --- TAMBAHKAN ORDER UNTUK QUIZ ---
+        [
+          { model: Material, as: "materials" },
+          { model: Quiz, as: "quizzes" }, // Order quiz dalam material
+          "quiz_id",
+          "ASC", // Urutkan berdasarkan ID quiz
+        ],
+        // --- AKHIR ORDER QUIZ ---
+      ],
+    });
+    
+    if (!course) return { success: false, error: "Kursus tidak ditemukan" }; // Ubah pesan error
+    // Kembalikan success: true agar bisa dibedakan antara not found dan error lain
     return { success: true, data: course.toJSON() };
   } catch (error) {
-    return { error: "Gagal mengambil data kursus." };
+    console.error(`[GET_COURSE_BY_ID_ADMIN_ERROR] ID: ${courseId}`, error); // Log error
+    return { success: false, error: "Gagal mengambil data kursus." }; // Kembalikan success: false
   }
 }
 
@@ -482,7 +551,10 @@ export async function deleteCategory(categoryId: number) {
 }
 
 // --- FUNGSI BARU UNTUK MANAJEMEN PENJUALAN ---
-export async function getAllPaymentsForAdmin(filters?: { startDate?: Date, endDate?: Date }) {
+export async function getAllPaymentsForAdmin(filters?: {
+  startDate?: Date;
+  endDate?: Date;
+}) {
   try {
     const whereClause: any = {}; // Objek untuk kondisi filter
 
@@ -493,27 +565,31 @@ export async function getAllPaymentsForAdmin(filters?: { startDate?: Date, endDa
         whereClause.paid_at[Op.gte] = filters.startDate;
       }
       if (filters.endDate) {
-         // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari tersebut
-         const nextDay = new Date(filters.endDate);
-         nextDay.setDate(nextDay.getDate() + 1);
-         whereClause.paid_at[Op.lt] = nextDay;
+        // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari tersebut
+        const nextDay = new Date(filters.endDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        whereClause.paid_at[Op.lt] = nextDay;
       }
     }
     // Hanya ambil yang sudah dibayar untuk manajemen penjualan
-    whereClause.status = 'paid';
+    whereClause.status = "paid";
 
     const payments = await Payment.findAll({
       where: whereClause, // Terapkan filter
       include: [
-        { model: User, as: 'user', attributes: ['first_name', 'last_name', 'email'] },
-        { model: Course, as: 'course', attributes: ['course_title'] },
+        {
+          model: User,
+          as: "user",
+          attributes: ["first_name", "last_name", "email"],
+        },
+        { model: Course, as: "course", attributes: ["course_title"] },
       ],
-      order: [['paid_at', 'DESC']], // Urutkan berdasarkan tanggal bayar
+      order: [["paid_at", "DESC"]], // Urutkan berdasarkan tanggal bayar
     });
     return { success: true, data: payments.map((p) => p.toJSON()) };
   } catch (error) {
-    console.error('[GET_ALL_PAYMENTS_ERROR]', error);
-    return { success: false, error: 'Gagal mengambil data penjualan.' };
+    console.error("[GET_ALL_PAYMENTS_ERROR]", error);
+    return { success: false, error: "Gagal mengambil data penjualan." };
   }
 }
 
@@ -521,22 +597,22 @@ export async function getAllPaymentsForAdmin(filters?: { startDate?: Date, endDa
 export async function getCourseSalesStats() {
   try {
     const courseSales = await Payment.findAll({
-      where: { status: 'paid' },
+      where: { status: "paid" },
       attributes: [
-        'course_id',
-        [sequelize.fn('COUNT', sequelize.col('payment_id')), 'salesCount'],
-        [sequelize.col('course.course_title'), 'course_title'], // ✅ pakai col, bukan literal
+        "course_id",
+        [sequelize.fn("COUNT", sequelize.col("payment_id")), "salesCount"],
+        [sequelize.col("course.course_title"), "course_title"], // ✅ pakai col, bukan literal
       ],
       include: [
         {
           model: Course,
-          as: 'course',
+          as: "course",
           attributes: [],
           required: true,
         },
       ],
-      group: ['Payment.course_id', 'course.course_title'], // ✅ gunakan string, bukan literal
-      order: [[sequelize.col('salesCount'), 'DESC']],
+      group: ["Payment.course_id", "course.course_title"], // ✅ gunakan string, bukan literal
+      order: [[sequelize.col("salesCount"), "DESC"]],
       limit: 10,
       raw: true,
     });
@@ -548,43 +624,49 @@ export async function getCourseSalesStats() {
 
     return { success: true, data: formattedData };
   } catch (error) {
-    console.error('[GET_COURSE_SALES_STATS_ERROR]', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    return { success: false, error: `Gagal mengambil statistik. Error: ${errorMessage}` };
+    console.error("[GET_COURSE_SALES_STATS_ERROR]", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    return {
+      success: false,
+      error: `Gagal mengambil statistik. Error: ${errorMessage}`,
+    };
   }
 }
-
 
 // --- FUNGSI BARU UNTUK CHART PERGERAKAN KEUANGAN ---
 export async function getFinancialTrendData() {
   try {
     const trendData = await Payment.findAll({
       where: {
-        status: 'paid',
+        status: "paid",
         paid_at: {
           [Op.gte]: new Date(new Date().setDate(new Date().getDate() - 30)), // Ambil data 30 hari terakhir
         },
       },
       attributes: [
         // Kelompokkan berdasarkan tanggal
-        [sequelize.fn('DATE', sequelize.col('paid_at')), 'date'],
+        [sequelize.fn("DATE", sequelize.col("paid_at")), "date"],
         // Jumlahkan total pemasukan per hari
-        [sequelize.fn('SUM', sequelize.col('amount')), 'dailyTotal'],
+        [sequelize.fn("SUM", sequelize.col("amount")), "dailyTotal"],
       ],
-      group: ['date'],
-      order: [['date', 'ASC']], // Urutkan dari tanggal terlama
+      group: ["date"],
+      order: [["date", "ASC"]], // Urutkan dari tanggal terlama
       raw: true,
     });
 
     const formattedData = trendData.map((item: any) => ({
-      tanggal: new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+      tanggal: new Date(item.date).toLocaleDateString("id-ID", {
+        day: "numeric",
+        month: "short",
+      }),
       Pemasukan: Number(item.dailyTotal),
     }));
 
     return { success: true, data: formattedData };
   } catch (error) {
-    console.error('[GET_FINANCIAL_TREND_ERROR]', error);
-    return { success: false, error: 'Gagal mengambil data tren keuangan.' };
+    console.error("[GET_FINANCIAL_TREND_ERROR]", error);
+    return { success: false, error: "Gagal mengambil data tren keuangan." };
   }
 }
 
@@ -596,36 +678,40 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
       include: [
         {
           model: User,
-          as: 'student', // Pastikan alias ini 'student' di model Enrollment
-          attributes: ['user_id', 'first_name', 'last_name', 'email'],
+          as: "student", // Pastikan alias ini 'student' di model Enrollment
+          attributes: ["user_id", "first_name", "last_name", "email"],
           required: true,
         },
       ],
-      order: [['enrolled_at', 'DESC']],
+      order: [["enrolled_at", "DESC"]],
     });
 
     // 2. Ambil total jumlah materi (konten) dalam kursus ini
     const totalMaterials = await MaterialDetail.count({
-        include: [{
-            model: Material,
-            as: 'material', // Pastikan alias 'material' di model MaterialDetail
-            where: { course_id: courseId },
-            attributes: [],
-        }]
+      include: [
+        {
+          model: Material,
+          as: "material", // Pastikan alias 'material' di model MaterialDetail
+          where: { course_id: courseId },
+          attributes: [],
+        },
+      ],
     });
     if (totalMaterials === 0) {
-        return { 
-            success: true, 
-            data: enrollments.map(e => ({
-                ...(e.toJSON()),
-                student: (e.student as User).toJSON(), // Pastikan student ada
-                progress: 0 
-            }))
-        };
+      return {
+        success: true,
+        data: enrollments.map((e) => ({
+          ...e.toJSON(),
+          student: (e.student as User).toJSON(), // Pastikan student ada
+          progress: 0,
+        })),
+      };
     }
 
     // 3. Ambil data progres untuk semua user di kursus ini
-    const userIds = enrollments.map(e => e.user_id).filter(id => id !== null) as number[];
+    const userIds = enrollments
+      .map((e) => e.user_id)
+      .filter((id) => id !== null) as number[];
     const progressData = await StudentProgress.findAll({
       where: {
         course_id: courseId,
@@ -633,24 +719,30 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
         is_completed: true,
       },
       attributes: [
-        'user_id',
-        [sequelize.fn('COUNT', sequelize.col('progress_id')), 'completed_count'],
+        "user_id",
+        [
+          sequelize.fn("COUNT", sequelize.col("progress_id")),
+          "completed_count",
+        ],
       ],
-      group: ['user_id'],
+      group: ["user_id"],
       raw: true,
     });
 
-    const progressMap = (progressData as any[]).reduce((acc, item) => {
-      acc[item.user_id] = item.completed_count;
-      return acc;
-    }, {} as { [key: number]: number });
+    const progressMap = (progressData as any[]).reduce(
+      (acc, item) => {
+        acc[item.user_id] = item.completed_count;
+        return acc;
+      },
+      {} as { [key: number]: number }
+    );
 
     // 4. Gabungkan data
-    const combinedData = enrollments.map(enrollment => {
+    const combinedData = enrollments.map((enrollment) => {
       const user = (enrollment.student as User).toJSON(); // Ambil data user
       const completedCount = progressMap[user.user_id] || 0;
       const progress = Math.round((completedCount / totalMaterials) * 100);
-      
+
       return {
         ...enrollment.toJSON(),
         student: user,
@@ -659,9 +751,166 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
     });
 
     return { success: true, data: combinedData };
-
   } catch (error: any) {
-    console.error('[GET_COURSE_ENROLLMENTS_ERROR]', error);
-    return { success: false, error: error.message || 'Gagal mengambil data pendaftaran.' };
+    console.error("[GET_COURSE_ENROLLMENTS_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal mengambil data pendaftaran.",
+    };
+  }
+}
+
+// Fungsi baru: Approve permintaan publikasi
+export async function approvePublishRequest(courseId: number) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
+
+  try {
+    const course = await Course.findByPk(courseId);
+    if (!course) return { error: "Kursus tidak ditemukan." };
+
+    if (course.publish_request_status !== "pending") {
+      return {
+        error: "Kursus tidak memiliki permintaan publikasi yang pending.",
+      };
+    }
+
+    // Validasi harga harus lebih dari 0
+    if (!course.course_price || course.course_price <= 0) {
+      return {
+        error: "Harga kursus harus diisi (lebih dari 0) sebelum publikasi.",
+      };
+    }
+
+    course.publish_status = 1;
+    course.publish_request_status = "approved";
+    await course.save();
+
+    revalidatePath("/admin/dashboard/courses");
+    return { success: "Kursus berhasil dipublikasikan!" };
+  } catch (error: any) {
+    console.error("[APPROVE_PUBLISH_ERROR]", error);
+    return { error: "Gagal menyetujui publikasi kursus." };
+  }
+}
+
+// Fungsi baru: Reject permintaan publikasi
+export async function rejectPublishRequest(courseId: number, reason: string) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
+
+  try {
+    const course = await Course.findByPk(courseId);
+    if (!course) return { error: "Kursus tidak ditemukan." };
+
+    if (course.publish_request_status !== "pending") {
+      return {
+        error: "Kursus tidak memiliki permintaan publikasi yang pending.",
+      };
+    }
+
+    course.publish_request_status = "rejected";
+    await course.save();
+
+    revalidatePath("/admin/dashboard/courses");
+    return { success: "Permintaan publikasi ditolak." };
+  } catch (error: any) {
+    console.error("[REJECT_PUBLISH_ERROR]", error);
+    return { error: "Gagal menolak publikasi kursus." };
+  }
+}
+
+export async function approveCoursePublish(courseId: number, price: number) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") {
+    return { success: false, error: "Akses ditolak. Hanya admin." };
+  }
+
+  // Validasi harga dasar
+  if (price === null || price === undefined || price <= 0) {
+    return {
+      success: false,
+      error: "Harga harus lebih besar dari 0 untuk publikasi.",
+    };
+  }
+
+  try {
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return { success: false, error: "Kursus tidak ditemukan." };
+    }
+    // Pastikan status permintaan adalah 'pending'
+    if (course.publish_request_status !== "pending") {
+      return {
+        success: false,
+        error: "Kursus ini tidak sedang menunggu persetujuan.",
+      };
+    }
+
+    // Update status dan harga
+    course.publish_status = 1; // Set status publish menjadi 1 (Published)
+    course.publish_request_status = "approved"; // Set status permintaan
+    course.course_price = price; // Set harga yang ditentukan admin
+
+    await course.save();
+
+    // Revalidate path yang relevan
+    revalidatePath("/admin/dashboard/courses"); // Halaman admin
+    revalidatePath("/courses"); // Halaman publik daftar kursus
+    revalidatePath(`/courses/${courseId}`); // Halaman detail kursus publik
+    // Mungkin revalidate path lain jika diperlukan (misal: kategori)
+
+    return {
+      success: true,
+      message: `Kursus "${course.course_title}" berhasil disetujui dan dipublikasikan.`,
+    };
+  } catch (error: any) {
+    console.error("[APPROVE_COURSE_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal menyetujui kursus.",
+    };
+  }
+}
+
+export async function rejectCoursePublish(
+  courseId: number /*, reason?: string */
+) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") {
+    return { success: false, error: "Akses ditolak. Hanya admin." };
+  }
+
+  try {
+    const course = await Course.findByPk(courseId);
+    if (!course) {
+      return { success: false, error: "Kursus tidak ditemukan." };
+    }
+    // Pastikan status permintaan adalah 'pending'
+    if (course.publish_request_status !== "pending") {
+      return {
+        success: false,
+        error: "Kursus ini tidak sedang menunggu persetujuan.",
+      };
+    }
+
+    // Update HANYA status permintaan
+    course.publish_request_status = "rejected";
+    // course.rejection_reason = reason; // Jika menyimpan alasan
+
+    await course.save();
+
+    revalidatePath("/admin/dashboard/courses"); // Hanya perlu revalidate halaman admin
+
+    return {
+      success: true,
+      message: `Permintaan publikasi untuk kursus "${course.course_title}" ditolak.`,
+    };
+  } catch (error: any) {
+    console.error("[REJECT_COURSE_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal menolak permintaan kursus.",
+    };
   }
 }

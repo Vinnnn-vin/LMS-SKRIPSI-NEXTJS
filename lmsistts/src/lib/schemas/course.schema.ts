@@ -28,19 +28,25 @@ const fileSchema = z
   )
   .optional();
 
-// Helper untuk transform string ID ke number dengan validasi
-const stringToNumberId = (fieldName: string) =>
-  z
-    .string()
-    .min(1, `${fieldName} harus dipilih`)
-    .transform((val) => {
-      const parsed = parseInt(val, 10);
-      if (isNaN(parsed)) {
-        throw new Error(`${fieldName} tidak valid`);
-      }
-      return parsed;
-    })
-    .pipe(z.number().int().positive(`${fieldName} harus berupa angka positif`));
+const idFromString = z.preprocess(
+  (val) => {
+    // Jika value ada (bukan null/undefined) dan berupa string, coba konversi ke number
+    // Jika sudah number, biarkan saja. Jika null/undefined, biarkan.
+    if (
+      val !== null &&
+      val !== undefined &&
+      typeof val === "string" &&
+      val.trim() !== ""
+    ) {
+      const num = Number(val);
+      return isNaN(num) ? val : num; // Kembalikan string asli jika bukan angka valid
+    }
+    // Jika kosong, null, undefined, atau sudah number, kembalikan apa adanya
+    return val === "" ? null : val;
+  },
+  // Validasi sebagai number positif, tapi buat nullable agar bisa handle null dari Select clearable
+  z.number().int().positive("ID harus berupa angka positif").nullable()
+);
 
 // Schema untuk CREATE
 export const createCourseSchema = z.object({
@@ -61,8 +67,14 @@ export const createCourseSchema = z.object({
   course_duration: z.number().int().min(0).default(0),
   publish_status: z.number().int().min(0).max(1).default(0),
   publish_request_status: publishRequestStatusEnum.default("none"),
-  category_id: z.number().int().positive("Category ID is required"),
-  user_id: z.number().int().positive("User ID is required"),
+  // category_id: z.number().int().positive("Category ID is required"),
+  // user_id: z.number().int().positive("User ID is required"),
+  category_id: idFromString.refine((val) => val !== null, {
+    message: "Kategori wajib dipilih",
+  }), // Tambah refine agar tidak null
+  user_id: idFromString.refine((val) => val !== null, {
+    message: "Dosen wajib dipilih",
+  }), // Tambah refine agar tidak null
   thumbnail_file: z.instanceof(File).optional(),
 });
 
@@ -93,7 +105,6 @@ export const updateCourseSchema = z
       .int("Durasi harus berupa bilangan bulat")
       .min(0, "Durasi tidak boleh negatif")
       .optional(),
-    // ✅ PERBAIKAN: Transform string/number ke literal 0 | 1
     publish_status: z
       .union([z.string(), z.number()])
       .transform((val) => {
@@ -104,8 +115,14 @@ export const updateCourseSchema = z
       })
       .pipe(z.literal(0).or(z.literal(1))) // ✅ Gunakan literal union
       .optional(),
-    category_id: z.string().regex(/^\d+$/).transform(Number).optional(),
-    user_id: z.string().regex(/^\d+$/).transform(Number).optional(),
+    // category_id: z.string().regex(/^\d+$/).transform(Number).optional(),
+    // user_id: z.string().regex(/^\d+$/).transform(Number).optional(),
+    category_id: idFromString.refine((val) => val !== null, {
+      message: "Kategori wajib dipilih",
+    }), // Tambah refine agar tidak null
+    user_id: idFromString.refine((val) => val !== null, {
+      message: "Dosen wajib dipilih",
+    }), // Tambah refine agar tidak null
     thumbnail_file: fileSchema.nullable(),
   })
   .refine(

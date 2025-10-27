@@ -7,8 +7,8 @@ import { CourseLearningClientUI } from '@/components/student/CourseLearningClien
 import { Suspense } from 'react';
 import Link from 'next/link';
 
-export default async function LearnCoursePage({ params }: { params: { course_id: string } }) {
-    const courseId = parseInt(params.course_id, 10);
+export default async function LearnCoursePage({ params }: { params: Promise<{ course_id: string }> }) {
+    const courseId = parseInt((await params).course_id, 10);
     if (isNaN(courseId)) notFound();
 
     const result = await getCourseLearningData(courseId);
@@ -33,7 +33,7 @@ export default async function LearnCoursePage({ params }: { params: { course_id:
         <Suspense fallback={<Center h="100vh"><Loader /></Center>}>
             <CourseLearningClientUI
                 course={course as any}
-                completedItems={completedItems} // Ini adalah { details: Set<number>, quizzes: Set<number> }
+                completedItems={completedItems}
                 enrollmentId={enrollment_id as number}
                 totalProgress={totalProgress}
             />

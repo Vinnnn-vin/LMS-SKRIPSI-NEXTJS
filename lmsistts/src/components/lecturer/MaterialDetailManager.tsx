@@ -22,6 +22,7 @@ import {
   Badge,
   ThemeIcon,
   NumberInput,
+  Progress,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -34,38 +35,19 @@ import {
   IconFileText,
   IconLink,
   IconClipboardText,
-  IconEye,
   IconQuestionMark,
+  IconUpload,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import {
-  createMaterialDetailSchema,
-  updateMaterialDetailSchema,
+  MaterialDetailData,
+  QuizData,
 } from "@/lib/schemas/materialDetail.schema";
-import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   createMaterialDetail,
   updateMaterialDetail,
   deleteMaterialDetail,
 } from "@/app/actions/lecturer.actions";
-import { fileToBase64 } from "@/lib/fileUtils";
-
-interface MaterialDetailData {
-  material_detail_id: number;
-  material_detail_name: string;
-  material_detail_description: string;
-  material_detail_type: number;
-  materi_detail_url: string | null;
-  material_id: number | null;
-  is_free: boolean;
-  assignment_template_url?: string | null;
-  passing_score?: number | null;
-}
-
-interface QuizData {
-  quiz_id: number;
-  quiz_title: string | null;
-}
 
 type MaterialDetailFormValues = {
   material_detail_name: string;
@@ -73,14 +55,16 @@ type MaterialDetailFormValues = {
   material_detail_type: "1" | "2" | "3" | "4";
   is_free: boolean;
   materi_detail_url: string;
-  content_file: File | undefined | null;
+  youtube_url: string;
+  content_file: File | null;
+  template_file: File | null;
   passing_score: number | null;
 };
 
 const typeOptions = [
-  { value: "1", label: "Video (Upload)" },
+  { value: "1", label: "Video (Auto-upload ke YouTube)" },
   { value: "2", label: "PDF (Upload)" },
-  { value: "3", label: "Link YouTube" },
+  { value: "3", label: "Link YouTube Manual" },
   { value: "4", label: "Tugas / Assignment" },
 ];
 
@@ -112,14 +96,13 @@ export function MaterialDetailManager({
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-
-  const [records, setRecords] = useState<MaterialDetailData[]>(initialDetails);
-  const [quizRecords, setQuizRecords] = useState<QuizData[]>(initialQuizzes);
-
+  const [records, setRecords] = useState(initialDetails);
+  const [quizRecords] = useState(initialQuizzes);
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [selectedDetail, setSelectedDetail] =
     useState<MaterialDetailData | null>(null);
-  const [templateFile, setTemplateFile] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [
     deleteConfirmOpened,
@@ -137,28 +120,23 @@ export function MaterialDetailManager({
       material_detail_type: "1",
       is_free: false,
       materi_detail_url: "",
-      content_file: undefined,
+      youtube_url: "",
+      content_file: null,
+      template_file: null,
       passing_score: null,
     },
-    validate: zod4Resolver(
-      isEditing ? updateMaterialDetailSchema : createMaterialDetailSchema
-    ),
   });
 
   const handleOpenCreateModal = () => {
     setModalMode("create");
     setSelectedDetail(null);
-    setTemplateFile(null);
     form.reset();
-    form.setFieldValue("material_detail_type", "1");
     openFormModal();
   };
 
   const handleOpenEditModal = (detail: MaterialDetailData) => {
     setModalMode("edit");
     setSelectedDetail(detail);
-    setTemplateFile(null);
-
     form.setValues({
       material_detail_name: detail.material_detail_name ?? "",
       material_detail_description: detail.material_detail_description ?? "",
@@ -169,7 +147,12 @@ export function MaterialDetailManager({
         | "4",
       is_free: detail.is_free ?? false,
       materi_detail_url: detail.materi_detail_url ?? "",
-      content_file: undefined,
+      youtube_url:
+        detail.material_detail_type === 3
+          ? (detail.materi_detail_url ?? "")
+          : "",
+      content_file: null,
+      template_file: null,
       passing_score: detail.passing_score ?? null,
     });
     openFormModal();
@@ -180,127 +163,180 @@ export function MaterialDetailManager({
     openDeleteConfirm();
   };
 
+  // Upload file biasa (PDF/Template)
+  const uploadFile = async (
+    file: File,
+    fileType: "pdfs" | "assignments"
+  ): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("fileType", fileType);
+
+    try {
+      const response = await fetch("/api/upload/file", {
+        // ✅ endpoint baru
+        method: "POST",
+        body: formData,
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error);
+      return result.url;
+    } catch (error: any) {
+      notifications.show({
+        title: "Upload Gagal",
+        message: error.message || "Terjadi kesalahan saat upload file",
+        color: "red",
+      });
+      return null;
+    }
+  };
+
+  // Upload video ke YouTube
+  const uploadVideoToYoutube = async (
+    file: File,
+    title: string,
+    description: string,
+    isFree: boolean
+  ): Promise<string | null> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("title", title);
+    formData.append("description", description);
+    formData.append("isFree", String(isFree));
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Simulasi progress (karena YouTube API tidak support progress event)
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 1000);
+
+      const response = await fetch("/api/upload/youtube", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error);
+      }
+
+      notifications.show({
+        title: "Upload Berhasil",
+        message: "Video berhasil diupload ke YouTube",
+        color: "green",
+      });
+
+      return result.url; // Return YouTube URL
+    } catch (error: any) {
+      notifications.show({
+        title: "Upload YouTube Gagal",
+        message: error.message || "Terjadi kesalahan saat upload ke YouTube",
+        color: "red",
+      });
+      return null;
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
+    }
+  };
+
   const handleSubmit = async (values: MaterialDetailFormValues) => {
-    if (values.content_file instanceof File) {
-      const fileSizeMB = values.content_file.size / 1024 / 1024;
-      if (fileSizeMB > 50) {
-        notifications.show({
-          title: "File Terlalu Besar",
-          message: `Ukuran file ${fileSizeMB.toFixed(
-            2
-          )}MB melebihi batas maksimal 50MB`,
-          color: "red",
-        });
-        return;
-      }
-    }
-
-    if (templateFile instanceof File) {
-      const templateSizeMB = templateFile.size / 1024 / 1024;
-      if (templateSizeMB > 50) {
-        notifications.show({
-          title: "File Template Terlalu Besar",
-          message: `Ukuran file template ${templateSizeMB.toFixed(
-            2
-          )}MB melebihi batas maksimal 50MB`,
-          color: "red",
-        });
-        return;
-      }
-    }
-
     startTransition(async () => {
-      try {
-        const formData = new FormData();
+      let materiUrl: string | null = values.materi_detail_url || null;
+      let assignmentUrl: string | null = null;
 
-        formData.append("material_detail_name", values.material_detail_name);
-        formData.append(
-          "material_detail_description",
-          values.material_detail_description
+      // TIPE 1: Upload video ke YouTube
+      if (
+        values.material_detail_type === "1" &&
+        values.content_file instanceof File
+      ) {
+        const youtubeUrl = await uploadVideoToYoutube(
+          values.content_file,
+          values.material_detail_name,
+          values.material_detail_description,
+          values.is_free
         );
-        formData.append("material_detail_type", values.material_detail_type);
-        formData.append("is_free", values.is_free ? "true" : "false");
+        if (!youtubeUrl) return;
+        materiUrl = youtubeUrl;
+      }
 
-        if (
-          values.material_detail_type === "3" &&
-          values.materi_detail_url
-        ) {
-          formData.append("materi_detail_url", values.materi_detail_url);
-        }
+      // TIPE 2: Upload PDF
+      if (
+        values.material_detail_type === "2" &&
+        values.content_file instanceof File
+      ) {
+        const uploaded = await uploadFile(values.content_file, "pdfs");
+        if (!uploaded) return;
+        materiUrl = uploaded;
+      }
 
-        if (
-          values.material_detail_type === "4" &&
-          values.passing_score !== null &&
-          values.passing_score !== undefined
-        ) {
-          formData.append("passing_score", values.passing_score.toString());
-        }
+      // TIPE 3: YouTube URL manual
+      if (values.material_detail_type === "3") {
+        materiUrl = values.youtube_url;
+      }
 
-        if (values.content_file instanceof File) {
-          try {
-            const base64 = await fileToBase64(values.content_file);
-            formData.append("file_base64", base64);
-            formData.append("file_name", values.content_file.name);
-          } catch (conversionError) {
-            console.error("Content file conversion error:", conversionError);
-            notifications.show({
-              title: "Gagal Mengkonversi File",
-              message: "Terjadi kesalahan saat memproses file konten",
-              color: "red",
-            });
-            return;
-          }
-        }
+      // TIPE 4: Upload template assignment (opsional)
+      if (
+        values.material_detail_type === "4" &&
+        values.template_file instanceof File
+      ) {
+        const uploaded = await uploadFile(values.template_file, "assignments");
+        if (!uploaded) return;
+        assignmentUrl = uploaded;
+      }
 
-        if (values.material_detail_type === "4" && templateFile) {
-          try {
-            const base64 = await fileToBase64(templateFile);
-            formData.append("template_file_base64", base64);
-            formData.append("template_file_name", templateFile.name);
-          } catch (conversionError) {
-            console.error("Template file conversion error:", conversionError);
-            notifications.show({
-              title: "Gagal Mengkonversi Template",
-              message: "Terjadi kesalahan saat memproses file template",
-              color: "red",
-            });
-            return;
-          }
-        }
+      const dataToSend = {
+        material_detail_name: values.material_detail_name,
+        material_detail_description: values.material_detail_description,
+        material_detail_type: values.material_detail_type,
+        is_free: values.is_free,
+        materi_detail_url: materiUrl,
+        assignment_template_url: assignmentUrl,
+        passing_score:
+          values.material_detail_type === "4" ? values.passing_score : null,
+      };
 
-        const result = isEditing
+      try {
+        const res = isEditing
           ? await updateMaterialDetail(
               selectedDetail!.material_detail_id,
-              formData
+              dataToSend
             )
-          : await createMaterialDetail(materialId, formData);
+          : await createMaterialDetail(materialId, dataToSend);
 
-        if (result?.success) {
+        if (res?.success) {
           notifications.show({
-            title: "Berhasil",
-            message: isEditing
-              ? "Konten berhasil diperbarui"
-              : "Konten baru berhasil ditambahkan",
+            title: "Sukses",
+            message: res.success,
             color: "green",
           });
           closeFormModal();
           form.reset();
-          setTemplateFile(null);
           router.refresh();
         } else {
           notifications.show({
             title: "Gagal",
-            message:
-              result?.error ||
-              `Gagal ${isEditing ? "memperbarui" : "menambahkan"} konten`,
+            message: res?.error || "Terjadi kesalahan",
             color: "red",
           });
         }
       } catch (error: any) {
-        console.error("Submit error:", error);
         notifications.show({
-          title: "Terjadi Kesalahan",
-          message: error?.message || "Gagal memproses permintaan",
+          title: "Error",
+          message: error.message,
           color: "red",
         });
       }
@@ -315,9 +351,9 @@ export function MaterialDetailManager({
       );
       if (result?.success) {
         notifications.show({
-          title: "Berhasil",
-          message: "Konten berhasil dihapus",
-          color: "green",
+          title: "Sukses",
+          message: result.success,
+          color: "teal",
         });
         closeDeleteConfirm();
         setRecords((prev) =>
@@ -328,7 +364,7 @@ export function MaterialDetailManager({
       } else {
         notifications.show({
           title: "Gagal",
-          message: result?.error || "Gagal menghapus konten",
+          message: result?.error,
           color: "red",
         });
       }
@@ -336,16 +372,16 @@ export function MaterialDetailManager({
   };
 
   const selectedType = form.values.material_detail_type;
-  const showFileInput = selectedType === "1" || selectedType === "2";
-  const showUrlInput = selectedType === "3";
+  const showVideoUpload = selectedType === "1";
+  const showPDFUpload = selectedType === "2";
+  const showYouTubeInput = selectedType === "3";
   const showAssignmentFields = selectedType === "4";
-
-  const addQuizUrl = `/lecturer/dashboard/courses/${courseId}/quizzes/add?materialId=${materialId}`;
 
   return (
     <Box pos="relative">
       <LoadingOverlay visible={isPending} overlayProps={{ blur: 2 }} />
 
+      {/* FORM MODAL */}
       <Modal
         opened={formModalOpened}
         onClose={closeFormModal}
@@ -361,82 +397,104 @@ export function MaterialDetailManager({
               required
               {...form.getInputProps("material_detail_type")}
             />
+
             <TextInput
               label="Judul Konten"
               required
               {...form.getInputProps("material_detail_name")}
             />
+
             <Textarea
               label="Deskripsi"
               minRows={3}
               {...form.getInputProps("material_detail_description")}
             />
 
-            {showFileInput && (
+            {/* TIPE 1: Video Upload */}
+            {showVideoUpload && (
+              <>
+                <FileInput
+                  label="Upload Video (akan otomatis diupload ke YouTube)"
+                  accept="video/mp4,video/webm"
+                  leftSection={<IconUpload size={16} />}
+                  {...form.getInputProps("content_file")}
+                  description="Video akan diupload ke YouTube channel Anda"
+                />
+                {isUploading && <Progress value={uploadProgress} animated />}
+              </>
+            )}
+
+            {/* TIPE 2: PDF Upload */}
+            {showPDFUpload && (
               <FileInput
-                label={
-                  selectedType === "1"
-                    ? "Upload Video (.mp4, .webm)"
-                    : "Upload PDF (.pdf)"
-                }
-                description="Ukuran maksimal 50MB"
-                placeholder={
-                  isEditing
-                    ? "Pilih file baru jika ingin mengganti"
-                    : "Pilih file"
-                }
-                accept={
-                  selectedType === "1"
-                    ? "video/mp4,video/webm"
-                    : "application/pdf"
-                }
+                label="Upload PDF"
+                accept="application/pdf"
+                leftSection={<IconUpload size={16} />}
                 {...form.getInputProps("content_file")}
               />
             )}
 
-            {showUrlInput && (
+            {/* TIPE 3: YouTube URL Manual */}
+            {showYouTubeInput && (
               <TextInput
                 label="URL YouTube"
                 placeholder="https://www.youtube.com/watch?v=..."
                 type="url"
-                {...form.getInputProps("materi_detail_url")}
+                required
+                {...form.getInputProps("youtube_url")}
               />
             )}
 
+            {/* TIPE 4: Assignment */}
             {showAssignmentFields && (
               <>
                 <FileInput
                   label="Template Tugas (Opsional)"
                   placeholder="Upload file template (.pdf, .docx, .zip)"
                   accept=".pdf,.doc,.docx,.zip"
-                  onChange={setTemplateFile}
+                  leftSection={<IconUpload size={16} />}
+                  {...form.getInputProps("template_file")}
                   clearable
-                  description="File ini bisa diunduh oleh mahasiswa"
+                  description="File template yang akan didownload oleh siswa"
                 />
                 <NumberInput
-                  label="Skor Lulus Tugas (%)"
+                  label="Skor Lulus (%)"
                   placeholder="Contoh: 75"
                   min={0}
                   max={100}
-                  allowDecimal={false}
                   {...form.getInputProps("passing_score")}
-                  description="Skor minimum agar tugas dianggap lulus (opsional)"
+                  description="Skor minimum agar tugas dianggap lulus (0-100)"
                 />
               </>
             )}
 
             <Switch
-              label="Konten Gratis (Dapat diakses tanpa login)"
+              label="Konten Gratis (dapat diakses tanpa membeli kursus)"
               {...form.getInputProps("is_free", { type: "checkbox" })}
+              description={
+                selectedType === "1"
+                  ? "Video akan di-set public di YouTube jika gratis"
+                  : ""
+              }
             />
 
-            <Button type="submit" mt="md" loading={isPending}>
-              {isEditing ? "Update Konten" : "Simpan Konten"}
+            <Button
+              type="submit"
+              mt="md"
+              loading={isPending || isUploading}
+              disabled={isUploading}
+            >
+              {isUploading
+                ? "Mengupload..."
+                : isEditing
+                  ? "Update Konten"
+                  : "Simpan Konten"}
             </Button>
           </Stack>
         </form>
       </Modal>
 
+      {/* DELETE MODAL */}
       <Modal
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}
@@ -446,7 +504,7 @@ export function MaterialDetailManager({
       >
         <Stack>
           <Text>
-            Apakah Anda yakin ingin menghapus konten{" "}
+            Apakah Anda yakin ingin menghapus{" "}
             <b>{selectedDetail?.material_detail_name}</b>?
           </Text>
           <Group justify="flex-end">
@@ -460,26 +518,33 @@ export function MaterialDetailManager({
         </Stack>
       </Modal>
 
+      {/* BUTTONS */}
       <Group justify="flex-end" mb="md">
         <Button
           leftSection={<IconPlus size={16} />}
           onClick={handleOpenCreateModal}
         >
-          Tambah Konten (Materi/Tugas)
+          Tambah Konten
         </Button>
         <Button
           variant="outline"
           leftSection={<IconQuestionMark size={16} />}
-          onClick={() => router.push(addQuizUrl)}
+          onClick={() =>
+            router.push(
+              `/lecturer/dashboard/courses/${courseId}/quizzes/add?materialId=${materialId}`
+            )
+          }
         >
           Tambah Quiz
         </Button>
       </Group>
 
+      {/* LIST KONTEN MATERI */}
       <Title order={5} c="dimmed">
         Konten Materi & Tugas
       </Title>
       <Divider my="xs" />
+
       {records.length > 0 ? (
         <Stack>
           {records.map((detail) => (
@@ -504,6 +569,12 @@ export function MaterialDetailManager({
                         )?.label
                       }
                     </Text>
+                    {detail.material_detail_type === 4 &&
+                      detail.passing_score && (
+                        <Text size="xs" c="blue">
+                          Passing Score: {detail.passing_score}%
+                        </Text>
+                      )}
                   </Stack>
                   {detail.is_free && (
                     <Badge color="teal" variant="light" size="sm">
@@ -512,11 +583,6 @@ export function MaterialDetailManager({
                   )}
                 </Group>
                 <Group gap="xs">
-                  <Tooltip label="Lihat Konten">
-                    <ActionIcon variant="subtle" color="gray">
-                      <IconEye size={16} />
-                    </ActionIcon>
-                  </Tooltip>
                   <Tooltip label="Edit Konten">
                     <ActionIcon
                       variant="light"
@@ -542,14 +608,16 @@ export function MaterialDetailManager({
         </Stack>
       ) : (
         <Text ta="center" c="dimmed" my="md">
-          Belum ada konten (video, PDF, link, tugas) di dalam bab ini.
+          Belum ada konten di bab ini.
         </Text>
       )}
 
+      {/* LIST QUIZ */}
       <Title order={5} c="dimmed" mt="xl">
         Quiz
       </Title>
       <Divider my="xs" />
+
       {quizRecords.length > 0 ? (
         <Stack>
           {quizRecords.map((quiz) => (
@@ -572,7 +640,7 @@ export function MaterialDetailManager({
                   </Stack>
                 </Group>
                 <Group gap="xs">
-                  <Tooltip label="Edit Quiz & Pertanyaan">
+                  <Tooltip label="Edit Quiz">
                     <ActionIcon
                       variant="light"
                       color="blue"
@@ -585,11 +653,6 @@ export function MaterialDetailManager({
                       <IconPencil size={16} />
                     </ActionIcon>
                   </Tooltip>
-                  <Tooltip label="Hapus Quiz">
-                    <ActionIcon variant="light" color="red">
-                      <IconTrash size={16} />
-                    </ActionIcon>
-                  </Tooltip>
                 </Group>
               </Group>
             </Paper>
@@ -597,7 +660,7 @@ export function MaterialDetailManager({
         </Stack>
       ) : (
         <Text ta="center" c="dimmed" my="md">
-          Belum ada quiz di dalam bab ini.
+          Belum ada quiz di bab ini.
         </Text>
       )}
     </Box>
