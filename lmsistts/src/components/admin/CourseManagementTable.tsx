@@ -85,14 +85,20 @@ type CourseData = UpdateCourseInput & {
 const PAGE_SIZE = 10;
 
 const getMaterialIcon = (type: number) => {
-    switch (type) {
-        case 1: return <IconVideo size={16} />;
-        case 2: return <IconFileText size={16} />;
-        case 3: return <IconLink size={16} />;
-        case 4: return <IconFileText size={16} />; // Tugas
-        case 5: return <IconQuestionMark size={16}/>; // Jika Quiz dianggap tipe konten
-        default: return null;
-    }
+  switch (type) {
+    case 1:
+      return <IconVideo size={16} />;
+    case 2:
+      return <IconFileText size={16} />;
+    case 3:
+      return <IconLink size={16} />;
+    case 4:
+      return <IconFileText size={16} />; // Tugas
+    case 5:
+      return <IconQuestionMark size={16} />; // Jika Quiz dianggap tipe konten
+    default:
+      return null;
+  }
 };
 
 export function CourseManagementTable({
@@ -125,6 +131,11 @@ export function CourseManagementTable({
   const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
     useDisclosure(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+
+  const [originalThumbnailUrl, setOriginalThumbnailUrl] = useState<
+    string | null
+  >(null);
+
   const isEditing = !!selectedCourse;
 
   const [selectedCourseForApproval, setSelectedCourseForApproval] =
@@ -192,6 +203,9 @@ export function CourseManagementTable({
           ? courseDetails.course_price
           : 0;
 
+      setOriginalThumbnailUrl(courseDetails.thumbnail_url || null);
+      setThumbnailPreview(courseDetails.thumbnail_url || null);
+
       // Set values: Konversi ID ke string untuk Select
       form.setValues({
         course_title: courseDetails.course_title ?? "",
@@ -234,7 +248,7 @@ export function CourseManagementTable({
       reader.onloadend = () => setThumbnailPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
-      setThumbnailPreview(selectedCourse?.thumbnail_url || null);
+      setThumbnailPreview(originalThumbnailUrl);
     }
   };
 
@@ -403,13 +417,13 @@ export function CourseManagementTable({
           <Badge color="yellow" variant="light">
             Menunggu Persetujuan
           </Badge>
-        ); // [cite: 1913-1914]
+        );
       case "rejected":
         return (
           <Badge color="red" variant="light">
             Ditolak
           </Badge>
-        ); // [cite: 1914-1915]
+        );
       default: // 'none' atau null
         return <Badge color="gray">Draft</Badge>; // [cite: 1915-1916]
     }
@@ -483,12 +497,23 @@ export function CourseManagementTable({
               description="Ukuran maks 5MB"
             />
             {thumbnailPreview && (
-              <Image
-                src={thumbnailPreview}
-                maw={200}
-                mt="xs"
-                alt="Thumbnail Preview"
-              />
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>
+                  Preview Thumbnail:
+                </Text>
+                <Image
+                  src={thumbnailPreview}
+                  maw={200}
+                  alt="Thumbnail Preview"
+                  radius="sm"
+
+                />
+                {isEditing && thumbnailPreview === originalThumbnailUrl && (
+                  <Text size="xs" c="dimmed">
+                    Thumbnail saat ini (tidak ada perubahan)
+                  </Text>
+                )}
+              </Stack>
             )}
             <Switch
               label="Publikasikan Kursus"

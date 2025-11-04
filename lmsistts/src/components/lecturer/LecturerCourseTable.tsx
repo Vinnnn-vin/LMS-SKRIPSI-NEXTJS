@@ -21,6 +21,11 @@ import {
   LoadingOverlay,
   FileInput,
   Alert,
+  List,
+  ListItem,
+  Anchor,
+  Paper,
+  NumberInput,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -36,6 +41,9 @@ import {
   IconAlertCircle,
   IconX,
   IconClipboardList,
+  IconPhoto,
+  IconExternalLink,
+  IconClock,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
@@ -63,7 +71,16 @@ interface LecturerCourseData {
   publish_status: number | null;
   publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
   rejection_reason?: string | null;
+  course_duration?: number | null; // ✅ PERUBAHAN: Nama kolom sesuai database
   category?: { category_name?: string | null };
+  materials?: Array<{
+    material_id: number;
+    material_name: string | null;
+    details?: Array<{
+      material_detail_id: number;
+      material_detail_name: string | null;
+    }>;
+  }>;
 }
 
 const PAGE_SIZES = [5, 10, 20, 50, 100];
@@ -79,20 +96,35 @@ export function LecturerCourseTable({
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<LecturerCourseData>>({ 
-    columnAccessor: "course_title", 
-    direction: "asc" 
+  const [sortStatus, setSortStatus] = useState<
+    DataTableSortStatus<LecturerCourseData>
+  >({
+    columnAccessor: "course_title",
+    direction: "asc",
   });
   const [query, setQuery] = useState("");
   const [records, setRecords] = useState<LecturerCourseData[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  const [selectedCourse, setSelectedCourse] = useState<LecturerCourseData | null>(null);
-  const [formModalOpened, { open: openForm, close: closeForm }] = useDisclosure(false);
-  const [deleteModalOpened, { open: openDelete, close: closeDelete }] = useDisclosure(false);
-  const [publishModalOpened, { open: openPublish, close: closePublish }] = useDisclosure(false);
-  const [cancelModalOpened, { open: openCancel, close: closeCancel }] = useDisclosure(false);
+  const [selectedCourse, setSelectedCourse] =
+    useState<LecturerCourseData | null>(null);
+  const [formModalOpened, { open: openForm, close: closeForm }] =
+    useDisclosure(false);
+  const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
+    useDisclosure(false);
+  const [publishModalOpened, { open: openPublish, close: closePublish }] =
+    useDisclosure(false);
+  const [cancelModalOpened, { open: openCancel, close: closeCancel }] =
+    useDisclosure(false);
+
+  const [
+    validationErrorModalOpened,
+    { open: openValidationError, close: closeValidationError },
+  ] = useDisclosure(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
+  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string | null>(null);
   const isEditing = !!selectedCourse;
 
   const form = useForm({
@@ -102,6 +134,7 @@ export function LecturerCourseTable({
       course_level: "Beginner" as const,
       category_id: null as string | null,
       thumbnail_file: undefined as File | undefined,
+      course_duration: null as number | null, // ✅ PERUBAHAN: Field name sesuai database
     },
     validate: zod4Resolver(
       isEditing ? lecturerUpdateCourseSchema : lecturerCreateCourseSchema
@@ -129,8 +162,10 @@ export function LecturerCourseTable({
       course_level: course.course_level ?? "Beginner",
       category_id: course.category_id ? String(course.category_id) : null,
       thumbnail_file: undefined,
+      course_duration: course.course_duration ?? null, // ✅ PERUBAHAN
     });
     setThumbnailPreview(course.thumbnail_url || null);
+    setExistingThumbnailUrl(course.thumbnail_url || null);
     openForm();
   };
 
@@ -138,6 +173,7 @@ export function LecturerCourseTable({
     setSelectedCourse(null);
     form.reset();
     setThumbnailPreview(null);
+    setExistingThumbnailUrl(null);
     openForm();
   };
 
@@ -148,7 +184,7 @@ export function LecturerCourseTable({
       reader.onloadend = () => setThumbnailPreview(reader.result as string);
       reader.readAsDataURL(file);
     } else {
-      setThumbnailPreview(null);
+      setThumbnailPreview(existingThumbnailUrl);
     }
   };
 
@@ -171,7 +207,9 @@ export function LecturerCourseTable({
       if (result.success) {
         notifications.show({
           title: "Sukses",
-          message: isEditing ? "Kursus berhasil diperbarui." : "Kursus berhasil dibuat.",
+          message: isEditing
+            ? "Kursus berhasil diperbarui."
+            : "Kursus berhasil dibuat.",
           color: "green",
         });
         closeForm();
@@ -208,7 +246,48 @@ export function LecturerCourseTable({
     });
   };
 
+  const validateCourseBeforePublish = (
+    course: LecturerCourseData
+  ): { valid: boolean; errors: string[] } => {
+    const errors: string[] = [];
+
+    if (!course.materials || course.materials.length === 0) {
+      errors.push(
+        "Kursus belum memiliki Bab materi. Silakan tambahkan minimal 1 Bab."
+      );
+      return { valid: false, errors };
+    }
+
+    const emptyMaterials: string[] = [];
+    course.materials.forEach((material) => {
+      if (!material.details || material.details.length === 0) {
+        emptyMaterials.push(
+          material.material_name || `Bab ${material.material_id}`
+        );
+      }
+    });
+
+    if (emptyMaterials.length > 0) {
+      errors.push(`Beberapa Bab belum memiliki konten:`);
+      emptyMaterials.forEach((name) => {
+        errors.push(`• ${name}`);
+      });
+      errors.push(
+        "Silakan tambahkan minimal 1 konten (video, PDF, link, atau tugas) untuk setiap Bab."
+      );
+    }
+    return { valid: errors.length === 0, errors };
+  };
+
   const handleRequestPublish = (course: LecturerCourseData) => {
+    const validation = validateCourseBeforePublish(course);
+
+    if (!validation.valid) {
+      setValidationErrors(validation.errors);
+      openValidationError();
+      return;
+    }
+
     setSelectedCourse(course);
     openPublish();
   };
@@ -298,6 +377,12 @@ export function LecturerCourseTable({
     }
   };
 
+  const getFileNameFromUrl = (url: string | null): string => {
+    if (!url) return "";
+    const parts = url.split("/");
+    return parts[parts.length - 1] || "";
+  };
+
   return (
     <Box pos="relative">
       <LoadingOverlay visible={isPending} />
@@ -336,20 +421,102 @@ export function LecturerCourseTable({
                 clearable
               />
             </Group>
+
+            {/* ✅ PERUBAHAN: Input dengan field name course_duration */}
+            <NumberInput
+              label="Durasi Kursus (Jam)"
+              placeholder="e.g., 10"
+              description="Estimasi waktu untuk menyelesaikan kursus ini"
+              min={0}
+              max={1000}
+              step={0.5}
+              decimalScale={1}
+              leftSection={<IconClock size={16} />}
+              {...form.getInputProps("course_duration")}
+            />
+
+            {isEditing && existingThumbnailUrl && !form.values.thumbnail_file && (
+              <Paper p="sm" withBorder bg="gray.0">
+                <Stack gap="xs">
+                  <Group gap="xs">
+                    <IconPhoto size={16} />
+                    <Text size="sm" fw={500}>
+                      Thumbnail Saat Ini:
+                    </Text>
+                  </Group>
+                  <Group gap="xs">
+                    <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>
+                      {getFileNameFromUrl(existingThumbnailUrl)}
+                    </Text>
+                    <Anchor
+                      href={existingThumbnailUrl}
+                      target="_blank"
+                      size="xs"
+                    >
+                      <Group gap={4}>
+                        Lihat <IconExternalLink size={12} />
+                      </Group>
+                    </Anchor>
+                  </Group>
+                </Stack>
+              </Paper>
+            )}
+
             <FileInput
-              label="Thumbnail"
-              accept="image/*"
+              label={isEditing && existingThumbnailUrl ? "Ganti Thumbnail (opsional)" : "Thumbnail"}
+              placeholder="Pilih file gambar..."
+              accept="image/jpeg,image/jpg,image/png,image/webp"
               onChange={handleThumbnailChange}
               clearable
+              leftSection={<IconPhoto size={16} />}
             />
+
             {thumbnailPreview && (
-              <Image src={thumbnailPreview} maw={200} mt="xs" />
+              <Stack gap="xs">
+                <Text size="sm" fw={500}>Preview:</Text>
+                <Image 
+                  src={thumbnailPreview} 
+                  maw={300} 
+                  radius="md"
+                  alt="Thumbnail preview"
+                />
+              </Stack>
             )}
+
             <Button type="submit" mt="md" loading={isPending}>
               {isEditing ? "Update Kursus" : "Simpan Draft"}
             </Button>
           </Stack>
         </form>
+      </Modal>
+
+      <Modal
+        opened={validationErrorModalOpened}
+        onClose={closeValidationError}
+        title="Tidak Dapat Mengirim Permintaan Publikasi"
+        centered
+        size="md"
+      >
+        <Stack>
+          <Alert color="orange" icon={<IconAlertCircle />} title="Kursus Belum Lengkap">
+            Silakan lengkapi kursus Anda terlebih dahulu sebelum meminta publikasi.
+          </Alert>
+
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>Masalah yang ditemukan:</Text>
+            <List size="sm" spacing="xs">
+              {validationErrors.map((error, index) => (
+                <ListItem key={index}>{error}</ListItem>
+              ))}
+            </List>
+          </Stack>
+
+          <Group justify="flex-end" mt="md">
+            <Button variant="default" onClick={closeValidationError}>
+              Tutup
+            </Button>
+          </Group>
+        </Stack>
       </Modal>
 
       {/* Modal Delete */}
@@ -362,7 +529,8 @@ export function LecturerCourseTable({
       >
         <Text size="sm">
           Anda yakin ingin menghapus kursus{" "}
-          <strong>{selectedCourse?.course_title}</strong>? Tindakan ini tidak dapat dibatalkan.
+          <strong>{selectedCourse?.course_title}</strong>? Tindakan ini tidak
+          dapat dibatalkan.
         </Text>
         <Group justify="flex-end" mt="lg">
           <Button variant="default" onClick={closeDelete}>
@@ -388,7 +556,11 @@ export function LecturerCourseTable({
             <strong>{selectedCourse?.course_title}</strong> ke admin?
           </Text>
           {selectedCourse?.rejection_reason && (
-            <Alert color="red" icon={<IconAlertCircle />} title="Alasan Penolakan Sebelumnya">
+            <Alert
+              color="red"
+              icon={<IconAlertCircle />}
+              title="Alasan Penolakan Sebelumnya"
+            >
               {selectedCourse.rejection_reason}
             </Alert>
           )}
@@ -396,7 +568,11 @@ export function LecturerCourseTable({
             <Button variant="default" onClick={closePublish}>
               Batal
             </Button>
-            <Button color="blue" onClick={confirmRequestPublish} loading={isPending}>
+            <Button
+              color="blue"
+              onClick={confirmRequestPublish}
+              loading={isPending}
+            >
               Kirim Permintaan
             </Button>
           </Group>
@@ -419,7 +595,11 @@ export function LecturerCourseTable({
           <Button variant="default" onClick={closeCancel}>
             Tidak
           </Button>
-          <Button color="orange" onClick={confirmCancelRequest} loading={isPending}>
+          <Button
+            color="orange"
+            onClick={confirmCancelRequest}
+            loading={isPending}
+          >
             Ya, Batalkan
           </Button>
         </Group>
@@ -438,7 +618,10 @@ export function LecturerCourseTable({
             }}
           />
           <Select
-            data={PAGE_SIZES.map(size => ({ value: String(size), label: `${size} per halaman` }))}
+            data={PAGE_SIZES.map((size) => ({
+              value: String(size),
+              label: `${size} per halaman`,
+            }))}
             value={String(pageSize)}
             onChange={(value) => {
               setPageSize(Number(value));
@@ -456,11 +639,30 @@ export function LecturerCourseTable({
         idAccessor="course_id"
         records={records}
         columns={[
-          { accessor: "course_title", title: "Judul", sortable: true, width: 200 },
+          {
+            accessor: "course_title",
+            title: "Judul",
+            sortable: true,
+            width: 200,
+          },
           {
             accessor: "category.category_name",
             title: "Kategori",
             sortable: true,
+          },
+          {
+            // ✅ PERUBAHAN: Accessor menggunakan course_duration
+            accessor: "course_duration",
+            title: "Durasi",
+            sortable: true,
+            render: (c) => (
+              <Group gap={4}>
+                <IconClock size={14} />
+                <Text size="sm">
+                  {c.course_duration ? `${c.course_duration} jam` : "-"}
+                </Text>
+              </Group>
+            ),
           },
           {
             accessor: "publish_status",
@@ -477,13 +679,14 @@ export function LecturerCourseTable({
             render: (c) => (
               <Stack gap={4}>
                 {getRequestStatusBadge(c.publish_request_status)}
-                {c.publish_request_status === 'rejected' && c.rejection_reason && (
-                  <Tooltip label={c.rejection_reason} multiline w={220}>
-                    <Text size="xs" c="red" style={{ cursor: 'help' }}>
-                      Lihat alasan
-                    </Text>
-                  </Tooltip>
-                )}
+                {c.publish_request_status === "rejected" &&
+                  c.rejection_reason && (
+                    <Tooltip label={c.rejection_reason} multiline w={220}>
+                      <Text size="xs" c="red" style={{ cursor: "help" }}>
+                        Lihat alasan
+                      </Text>
+                    </Tooltip>
+                  )}
               </Stack>
             ),
           },
@@ -498,19 +701,23 @@ export function LecturerCourseTable({
                     variant="light"
                     color="indigo"
                     onClick={() =>
-                      router.push(`/lecturer/dashboard/courses/${course.course_id}/assignments`)
+                      router.push(
+                        `/lecturer/dashboard/courses/${course.course_id}/assignments`
+                      )
                     }
                   >
                     <IconClipboardList size={16} />
                   </ActionIcon>
                 </Tooltip>
-                
+
                 <Tooltip label="Lihat Mahasiswa Terdaftar">
                   <ActionIcon
                     variant="light"
                     color="teal"
                     onClick={() =>
-                      router.push(`/lecturer/dashboard/courses/${course.course_id}/enrollments`)
+                      router.push(
+                        `/lecturer/dashboard/courses/${course.course_id}/enrollments`
+                      )
                     }
                   >
                     <IconUsers size={16} />
@@ -522,14 +729,16 @@ export function LecturerCourseTable({
                     variant="light"
                     color="cyan"
                     onClick={() =>
-                      router.push(`/lecturer/dashboard/courses/${course.course_id}/materials`)
+                      router.push(
+                        `/lecturer/dashboard/courses/${course.course_id}/materials`
+                      )
                     }
                   >
                     <IconListDetails size={16} />
                   </ActionIcon>
                 </Tooltip>
 
-                {course.publish_request_status === 'pending' ? (
+                {course.publish_request_status === "pending" ? (
                   <Tooltip label="Batalkan Permintaan">
                     <ActionIcon
                       variant="light"
@@ -540,13 +749,13 @@ export function LecturerCourseTable({
                     </ActionIcon>
                   </Tooltip>
                 ) : (
-                  <Tooltip 
+                  <Tooltip
                     label={
-                      course.publish_status === 1 
-                        ? "Kursus sudah dipublikasikan" 
-                        : course.publish_request_status === 'rejected'
-                        ? "Ajukan Ulang"
-                        : "Minta Publikasi"
+                      course.publish_status === 1
+                        ? "Kursus sudah dipublikasikan"
+                        : course.publish_request_status === "rejected"
+                          ? "Ajukan Ulang"
+                          : "Minta Publikasi"
                     }
                   >
                     <ActionIcon

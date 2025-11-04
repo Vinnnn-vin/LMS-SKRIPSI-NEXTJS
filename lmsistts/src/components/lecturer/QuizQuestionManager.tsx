@@ -23,6 +23,7 @@ import {
   Radio,
   Accordion,
   Badge,
+  Alert,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -131,6 +132,27 @@ export function QuizQuestionManager({
 
   // ✅ Tambah Pertanyaan
   const handleSubmit = (values: CreateQuestionInput) => {
+    if (!validateMinimumOptions()) {
+      notifications.show({
+        title: "Validasi Gagal",
+        message: "Minimal harus ada 2 pilihan jawaban yang terisi",
+        color: "orange",
+      });
+      return;
+    }
+
+    if (!hasCorrectAnswer()) {
+      notifications.show({
+        title: "Validasi Gagal",
+        message:
+          form.values.question_type === "multiple_choice"
+            ? "Pilih 1 jawaban yang benar"
+            : "Pilih minimal 1 jawaban yang benar",
+        color: "orange",
+      });
+      return;
+    }
+
     startTransition(async () => {
       const result = await addQuestionToQuiz(quizId, values);
       if (result.success && result.data) {
@@ -182,6 +204,27 @@ export function QuizQuestionManager({
 
   const handleSubmitEdit = (values: CreateQuestionInput) => {
     if (!editingQuestionId) return;
+
+    if (!validateMinimumOptions()) {
+      notifications.show({
+        title: "Validasi Gagal",
+        message: "Minimal harus ada 2 pilihan jawaban yang terisi",
+        color: "orange",
+      });
+      return;
+    }
+
+    if (!hasCorrectAnswer()) {
+      notifications.show({
+        title: "Validasi Gagal",
+        message:
+          form.values.question_type === "multiple_choice"
+            ? "Pilih 1 jawaban yang benar"
+            : "Pilih minimal 1 jawaban yang benar",
+        color: "orange",
+      });
+      return;
+    }
 
     startTransition(async () => {
       const result = await updateQuestionInQuiz(editingQuestionId, values);
@@ -250,12 +293,17 @@ export function QuizQuestionManager({
     });
   };
 
-  // ✅ Helper: Cek apakah ada jawaban benar
+  const validateMinimumOptions = () => {
+    const validOptions = form.values.options.filter(
+      (opt) => opt.option_text.trim().length > 0
+    );
+    return validOptions.length >= 2;
+  };
+
   const hasCorrectAnswer = () => {
     return form.values.options.some((opt) => opt.is_correct);
   };
 
-  // ✅ Helper: Handle perubahan jawaban benar untuk multiple choice (radio behavior)
   const handleCorrectAnswerChange = (index: number, checked: boolean) => {
     if (form.values.question_type === "multiple_choice") {
       // Untuk multiple choice: uncheck semua, lalu check yang dipilih
@@ -349,7 +397,12 @@ export function QuizQuestionManager({
 
             <Divider label="Pilihan Jawaban" my="xs" />
 
-            {/* ✅ Warning jika belum ada jawaban benar */}
+            {!validateMinimumOptions() && form.values.options.length > 0 && (
+              <Alert color="orange" icon={<IconAlertCircle />}>
+                Minimal harus ada 2 pilihan jawaban yang terisi
+              </Alert>
+            )}
+
             {!hasCorrectAnswer() && form.values.options.length > 0 && (
               <Text
                 size="sm"

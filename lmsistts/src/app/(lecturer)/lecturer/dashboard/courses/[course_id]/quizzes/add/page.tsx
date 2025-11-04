@@ -1,8 +1,6 @@
-// lmsistts\src\app\(lecturer)\lecturer\dashboard\courses\[course_id]\quizzes\add\page.tsx
-
 'use client';
 
-import { useState, useTransition } from 'react';
+import { use, useState, useTransition } from 'react';
 import { Container, Title, Text, Paper, TextInput, Button, Stack, Alert, LoadingOverlay, NumberInput, Textarea, Group } from '@mantine/core';
 import { useForm, zodResolver } from '@mantine/form';
 import { IconAlertCircle, IconArrowLeft } from '@tabler/icons-react';
@@ -13,11 +11,13 @@ import { notifications } from '@mantine/notifications';
 import Link from 'next/link';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 
-export default function AddQuizPage({ params }: { params: { course_id: string } }) {
+export default function AddQuizPage({ params }: { params: Promise<{ course_id: string }> }) {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const courseId = parseInt(params.course_id, 10);
-    const materialId = parseInt(searchParams.get('materialId') || '', 10); // Ambil materialId dari URL
+    
+    const { course_id } = use(params);
+    const courseId = parseInt(course_id, 10);
+    const materialId = parseInt(searchParams.get('materialId') || '', 10);
 
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState<string | null>(null);
@@ -50,7 +50,6 @@ export default function AddQuizPage({ params }: { params: { course_id: string } 
                      message: 'Quiz berhasil dibuat. Sekarang, tambahkan pertanyaan.',
                      color: 'green',
                  });
-                 // Arahkan ke halaman edit quiz yang baru dibuat
                  router.push(`/lecturer/dashboard/courses/${courseId}/quizzes/${result.data.quiz_id}/edit`);
             }
         });

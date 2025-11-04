@@ -197,19 +197,19 @@ export function MaterialManager({
       <Modal
         opened={formModalOpened}
         onClose={closeFormModal}
-        title={isEditing ? "Edit Bab/Seksi Materi" : "Tambah Bab/Seksi Materi"}
+        title={isEditing ? "Edit Bab Materi" : "Tambah Bab Materi"}
         centered
       >
         <form onSubmit={form.onSubmit((values) => handleSubmit(values))}>
           <TextInput
-            label="Nama Bab/Seksi"
-            placeholder="Masukkan nama bab/seksi materi"
+            label="Nama Bab"
+            placeholder="Masukkan nama Bab materi"
             withAsterisk
             {...form.getInputProps("material_name")}
           />
           <Textarea
-            label="Deskripsi Bab/Seksi"
-            placeholder="Masukkan deskripsi bab/seksi materi"
+            label="Deskripsi Bab"
+            placeholder="Masukkan deskripsi Bab materi"
             mt="md"
             {...form.getInputProps("material_description")}
           />
@@ -218,7 +218,7 @@ export function MaterialManager({
               Batal
             </Button>
             <Button type="submit">
-              {isEditing ? "Simpan Perubahan" : "Tambah Bab/Seksi"}
+              {isEditing ? "Simpan Perubahan" : "Tambah Bab"}
             </Button>
           </Group>
         </form>
@@ -228,11 +228,11 @@ export function MaterialManager({
       <Modal
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}
-        title="Konfirmasi Hapus Bab/Seksi Materi"
+        title="Konfirmasi Hapus Bab Materi"
         centered
       >
         <Text>
-          Apakah Anda yakin ingin menghapus bab/seksi materi "
+          Apakah Anda yakin ingin menghapus Bab materi "
           {selectedMaterial?.material_name}"? Tindakan ini tidak dapat
           dibatalkan.
         </Text>
@@ -252,7 +252,7 @@ export function MaterialManager({
           leftSection={<IconPlus size={16} />}
           onClick={handleOpenCreateModal}
         >
-          Tambah Bab/Seksi
+          Tambah Bab
         </Button>
       </Group>
 
@@ -552,7 +552,7 @@ export function MaterialManager({
         </Accordion>
       ) : (
         <Text ta="center" c="dimmed">
-          Belum ada bab/seksi materi untuk kursus ini.
+          Belum ada Bab materi untuk kursus ini.
         </Text>
       )}
     </Box>

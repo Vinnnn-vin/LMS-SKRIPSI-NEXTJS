@@ -23,7 +23,7 @@ import {
   IconLogout,
   IconUserEdit,
 } from "@tabler/icons-react";
-import { useDisclosure } from "@mantine/hooks";
+import { useDisclosure, useWindowScroll } from "@mantine/hooks";
 import classes from "./Header.module.css";
 
 export function Header() {
@@ -31,10 +31,12 @@ export function Header() {
   const router = useRouter();
   const [opened, { toggle }] = useDisclosure(false);
 
+  const [scroll, scrollTo] = useWindowScroll();
+  const isScrolled = scroll.y > 0;
+
   const user = session?.user;
   const isLoading = status === "loading";
 
-  // Fungsi untuk mendapatkan link dashboard berdasarkan role
   const getDashboardLink = () => {
     if (!user?.role) return "/";
 
@@ -53,20 +55,21 @@ export function Header() {
   const dashboardLink = getDashboardLink();
   const editProfileLink = "/profile/edit";
 
-  // Handler untuk navigasi dashboard
   const handleDashboardClick = (e: React.MouseEvent) => {
     e.preventDefault();
     router.push(dashboardLink);
   };
 
-  // Handler untuk navigasi edit profile
   const handleEditProfileClick = (e: React.MouseEvent) => {
     e.preventDefault();
     router.push(editProfileLink);
   };
 
   return (
-    <Box component="header" className={classes.header}>
+    <Box
+      component="header"
+      className={`${classes.header} ${isScrolled ? classes.scrolled : ""}`}
+    >
       <Container size="xl" py="sm">
         <Group justify="space-between" align="center">
           {/* Kiri: Logo + Navigasi */}
@@ -81,7 +84,9 @@ export function Header() {
                 component={Link}
                 href="/courses"
                 variant="subtle"
-                className={classes.navButton}
+                className={`${classes.navButton} ${
+                  isScrolled ? classes.navButtonScrolled : ""
+                }`}
               >
                 Courses
               </Button>
@@ -89,7 +94,9 @@ export function Header() {
                 component={Link}
                 href="/categories"
                 variant="subtle"
-                className={classes.navButton}
+                className={`${classes.navButton} ${
+                  isScrolled ? classes.navButtonScrolled : ""
+                }`}
               >
                 Categories
               </Button>
@@ -97,7 +104,9 @@ export function Header() {
                 component={Link}
                 href="/about"
                 variant="subtle"
-                className={classes.navButton}
+                className={`${classes.navButton} ${
+                  isScrolled ? classes.navButtonScrolled : ""
+                }`}
               >
                 About Us
               </Button>
@@ -107,13 +116,18 @@ export function Header() {
           {/* Kanan: Menu Akun */}
           <Group visibleFrom="sm">
             {isLoading ? (
-              <Text size="sm" c="dimmed">
+              <Text 
+                size="sm" 
+                className={isScrolled ? classes.textScrolled : classes.textNormal}
+              >
                 Memuat...
               </Text>
             ) : user ? (
               <Menu shadow="md" width={220}>
                 <Menu.Target>
-                  <UnstyledButton className={classes.userMenu}>
+                  <UnstyledButton className={`${classes.userMenu} ${
+                    isScrolled ? classes.userMenuScrolled : ""
+                  }`}>
                     <Group gap="sm">
                       <Avatar
                         src={user.image}
@@ -121,10 +135,21 @@ export function Header() {
                         radius="xl"
                         size={32}
                       />
-                      <Text size="sm" className={classes.userName}>
+                      <Text 
+                        size="sm" 
+                        className={`${classes.userName} ${
+                          isScrolled ? classes.userNameScrolled : ""
+                        }`}
+                      >
                         {user.name || user.email}
                       </Text>
-                      <IconChevronDown size={14} stroke={1.5} color="#cbd5e1" />
+                      <IconChevronDown 
+                        size={14} 
+                        stroke={1.5} 
+                        className={`${classes.chevron} ${
+                          isScrolled ? classes.chevronScrolled : ""
+                        }`}
+                      />
                     </Group>
                   </UnstyledButton>
                 </Menu.Target>
@@ -169,14 +194,18 @@ export function Header() {
                   component={Link}
                   href="/login"
                   variant="outline"
-                  className={classes.loginButton}
+                  className={`${classes.loginButton} ${
+                    isScrolled ? classes.loginButtonScrolled : ""
+                  }`}
                 >
                   Log in
                 </Button>
                 <Button
                   component={Link}
                   href="/register"
-                  className={classes.signupButton}
+                  className={`${classes.signupButton} ${
+                    isScrolled ? classes.signupButtonScrolled : ""
+                  }`}
                 >
                   Sign up
                 </Button>
@@ -190,13 +219,15 @@ export function Header() {
             onClick={toggle}
             hiddenFrom="sm"
             size="sm"
-            color="#cbd5e1"
+            className={isScrolled ? classes.burgerScrolled : classes.burgerNormal}
           />
         </Group>
 
         {/* Menu mobile */}
         {opened && (
-          <Box className={classes.mobileMenu} hiddenFrom="sm">
+          <Box className={`${classes.mobileMenu} ${
+            isScrolled ? classes.mobileMenuScrolled : ""
+          }`} hiddenFrom="sm">
             <Group dir="column" align="stretch" gap="xs">
               <Button
                 component={Link}

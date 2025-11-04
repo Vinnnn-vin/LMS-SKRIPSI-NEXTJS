@@ -52,7 +52,7 @@ export async function uploadToYouTube(
         snippet: {
           title,
           description,
-          categoryId: '27', // Education category
+          categoryId: '27',
         },
         status: {
           privacyStatus,

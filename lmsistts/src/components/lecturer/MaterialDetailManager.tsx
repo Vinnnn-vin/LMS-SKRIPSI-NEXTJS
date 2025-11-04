@@ -23,6 +23,7 @@ import {
   ThemeIcon,
   NumberInput,
   Progress,
+  Alert,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -37,12 +38,9 @@ import {
   IconClipboardText,
   IconQuestionMark,
   IconUpload,
+  IconAlertCircle,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
-import {
-  MaterialDetailData,
-  QuizData,
-} from "@/lib/schemas/materialDetail.schema";
 import {
   createMaterialDetail,
   updateMaterialDetail,
@@ -70,16 +68,11 @@ const typeOptions = [
 
 const getMaterialIcon = (type: number) => {
   switch (type) {
-    case 1:
-      return <IconVideo size={18} />;
-    case 2:
-      return <IconFileText size={18} />;
-    case 3:
-      return <IconLink size={18} />;
-    case 4:
-      return <IconClipboardText size={18} />;
-    default:
-      return null;
+    case 1: return <IconVideo size={18} />;
+    case 2: return <IconFileText size={18} />;
+    case 3: return <IconLink size={18} />;
+    case 4: return <IconClipboardText size={18} />;
+    default: return null;
   }
 };
 
@@ -89,27 +82,25 @@ export function MaterialDetailManager({
   materialId,
   courseId,
 }: {
-  details?: MaterialDetailData[];
-  quizzes?: QuizData[];
+  details?: any[];
+  quizzes?: any[];
   materialId: number;
   courseId: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [records, setRecords] = useState(initialDetails);
-  const [quizRecords] = useState(initialQuizzes);
-  const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
-  const [selectedDetail, setSelectedDetail] =
-    useState<MaterialDetailData | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
-  const [
-    deleteConfirmOpened,
-    { open: openDeleteConfirm, close: closeDeleteConfirm },
-  ] = useDisclosure(false);
-  const [formModalOpened, { open: openFormModal, close: closeFormModal }] =
-    useDisclosure(false);
+  const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
+  const [selectedDetail, setSelectedDetail] = useState<any | null>(null);
+  
+  // ✅ PERBAIKAN: Track original URLs untuk preserve saat edit
+  const [originalContentUrl, setOriginalContentUrl] = useState<string | null>(null);
+  const [originalTemplateUrl, setOriginalTemplateUrl] = useState<string | null>(null);
+  
+  const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] = useDisclosure(false);
+  const [formModalOpened, { open: openFormModal, close: closeFormModal }] = useDisclosure(false);
 
   const isEditing = modalMode === "edit";
 
@@ -130,51 +121,46 @@ export function MaterialDetailManager({
   const handleOpenCreateModal = () => {
     setModalMode("create");
     setSelectedDetail(null);
+    setOriginalContentUrl(null);
+    setOriginalTemplateUrl(null);
     form.reset();
     openFormModal();
   };
 
-  const handleOpenEditModal = (detail: MaterialDetailData) => {
+  const handleOpenEditModal = (detail: any) => {
     setModalMode("edit");
     setSelectedDetail(detail);
+    
+    // ✅ PERBAIKAN: Simpan URL asli untuk preserve
+    setOriginalContentUrl(detail.materi_detail_url || null);
+    setOriginalTemplateUrl(detail.assignment_template_url || null);
+    
     form.setValues({
       material_detail_name: detail.material_detail_name ?? "",
       material_detail_description: detail.material_detail_description ?? "",
-      material_detail_type: String(detail.material_detail_type) as
-        | "1"
-        | "2"
-        | "3"
-        | "4",
+      material_detail_type: String(detail.material_detail_type) as "1" | "2" | "3" | "4",
       is_free: detail.is_free ?? false,
       materi_detail_url: detail.materi_detail_url ?? "",
-      youtube_url:
-        detail.material_detail_type === 3
-          ? (detail.materi_detail_url ?? "")
-          : "",
-      content_file: null,
+      youtube_url: detail.material_detail_type === 3 ? (detail.materi_detail_url ?? "") : "",
+      content_file: null, // Reset file input saat edit
       template_file: null,
       passing_score: detail.passing_score ?? null,
     });
     openFormModal();
   };
 
-  const handleOpenDeleteConfirm = (detail: MaterialDetailData) => {
+  const handleOpenDeleteConfirm = (detail: any) => {
     setSelectedDetail(detail);
     openDeleteConfirm();
   };
 
-  // Upload file biasa (PDF/Template)
-  const uploadFile = async (
-    file: File,
-    fileType: "pdfs" | "assignments"
-  ): Promise<string | null> => {
+  const uploadFile = async (file: File, fileType: "pdfs" | "assignments"): Promise<string | null> => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("fileType", fileType);
 
     try {
       const response = await fetch("/api/upload/file", {
-        // ✅ endpoint baru
         method: "POST",
         body: formData,
       });
@@ -191,7 +177,6 @@ export function MaterialDetailManager({
     }
   };
 
-  // Upload video ke YouTube
   const uploadVideoToYoutube = async (
     file: File,
     title: string,
@@ -208,7 +193,6 @@ export function MaterialDetailManager({
       setIsUploading(true);
       setUploadProgress(0);
 
-      // Simulasi progress (karena YouTube API tidak support progress event)
       const progressInterval = setInterval(() => {
         setUploadProgress((prev) => {
           if (prev >= 90) {
@@ -239,7 +223,7 @@ export function MaterialDetailManager({
         color: "green",
       });
 
-      return result.url; // Return YouTube URL
+      return result.url;
     } catch (error: any) {
       notifications.show({
         title: "Upload YouTube Gagal",
@@ -255,14 +239,12 @@ export function MaterialDetailManager({
 
   const handleSubmit = async (values: MaterialDetailFormValues) => {
     startTransition(async () => {
-      let materiUrl: string | null = values.materi_detail_url || null;
-      let assignmentUrl: string | null = null;
+      // ✅ PERBAIKAN: Gunakan URL asli jika tidak ada perubahan
+      let materiUrl: string | null = isEditing ? originalContentUrl : null;
+      let assignmentUrl: string | null = isEditing ? originalTemplateUrl : null;
 
       // TIPE 1: Upload video ke YouTube
-      if (
-        values.material_detail_type === "1" &&
-        values.content_file instanceof File
-      ) {
+      if (values.material_detail_type === "1" && values.content_file instanceof File) {
         const youtubeUrl = await uploadVideoToYoutube(
           values.content_file,
           values.material_detail_name,
@@ -271,16 +253,19 @@ export function MaterialDetailManager({
         );
         if (!youtubeUrl) return;
         materiUrl = youtubeUrl;
+      } else if (values.material_detail_type === "1" && !values.content_file && isEditing) {
+        // Tidak ada file baru, gunakan URL lama
+        materiUrl = originalContentUrl;
       }
 
       // TIPE 2: Upload PDF
-      if (
-        values.material_detail_type === "2" &&
-        values.content_file instanceof File
-      ) {
+      if (values.material_detail_type === "2" && values.content_file instanceof File) {
         const uploaded = await uploadFile(values.content_file, "pdfs");
         if (!uploaded) return;
         materiUrl = uploaded;
+      } else if (values.material_detail_type === "2" && !values.content_file && isEditing) {
+        // Tidak ada file baru, gunakan URL lama
+        materiUrl = originalContentUrl;
       }
 
       // TIPE 3: YouTube URL manual
@@ -289,13 +274,13 @@ export function MaterialDetailManager({
       }
 
       // TIPE 4: Upload template assignment (opsional)
-      if (
-        values.material_detail_type === "4" &&
-        values.template_file instanceof File
-      ) {
+      if (values.material_detail_type === "4" && values.template_file instanceof File) {
         const uploaded = await uploadFile(values.template_file, "assignments");
         if (!uploaded) return;
         assignmentUrl = uploaded;
+      } else if (values.material_detail_type === "4" && !values.template_file && isEditing) {
+        // Tidak ada file baru, gunakan URL lama
+        assignmentUrl = originalTemplateUrl;
       }
 
       const dataToSend = {
@@ -305,16 +290,12 @@ export function MaterialDetailManager({
         is_free: values.is_free,
         materi_detail_url: materiUrl,
         assignment_template_url: assignmentUrl,
-        passing_score:
-          values.material_detail_type === "4" ? values.passing_score : null,
+        passing_score: values.material_detail_type === "4" ? values.passing_score : null,
       };
 
       try {
         const res = isEditing
-          ? await updateMaterialDetail(
-              selectedDetail!.material_detail_id,
-              dataToSend
-            )
+          ? await updateMaterialDetail(selectedDetail!.material_detail_id, dataToSend)
           : await createMaterialDetail(materialId, dataToSend);
 
         if (res?.success) {
@@ -323,6 +304,8 @@ export function MaterialDetailManager({
             message: res.success,
             color: "green",
           });
+          
+          // ✅ PERBAIKAN: Tutup modal dan refresh
           closeFormModal();
           form.reset();
           router.refresh();
@@ -346,9 +329,7 @@ export function MaterialDetailManager({
   const handleDelete = () => {
     if (!selectedDetail) return;
     startTransition(async () => {
-      const result = await deleteMaterialDetail(
-        selectedDetail.material_detail_id
-      );
+      const result = await deleteMaterialDetail(selectedDetail.material_detail_id);
       if (result?.success) {
         notifications.show({
           title: "Sukses",
@@ -356,11 +337,7 @@ export function MaterialDetailManager({
           color: "teal",
         });
         closeDeleteConfirm();
-        setRecords((prev) =>
-          prev.filter(
-            (r) => r.material_detail_id !== selectedDetail.material_detail_id
-          )
-        );
+        router.refresh(); // ✅ Auto refresh setelah delete
       } else {
         notifications.show({
           title: "Gagal",
@@ -384,12 +361,15 @@ export function MaterialDetailManager({
       {/* FORM MODAL */}
       <Modal
         opened={formModalOpened}
-        onClose={closeFormModal}
+        onClose={() => {
+          closeFormModal();
+          form.reset();
+        }}
         title={isEditing ? "Edit Konten" : "Tambah Konten Baru"}
         centered
         size="lg"
       >
-        <form onSubmit={form.onSubmit(handleSubmit)}>
+        <Box component="form" onSubmit={form.onSubmit(handleSubmit)}>
           <Stack>
             <Select
               label="Tipe Konten"
@@ -410,31 +390,71 @@ export function MaterialDetailManager({
               {...form.getInputProps("material_detail_description")}
             />
 
-            {/* TIPE 1: Video Upload */}
             {showVideoUpload && (
               <>
+                {/* ✅ Tampilkan URL Video yang sudah ada */}
+                {isEditing && originalContentUrl && (
+                  <Paper withBorder p="sm" bg="blue.0" mb="xs">
+                    <Stack gap="xs">
+                      <Text size="sm" fw={500}>Video saat ini:</Text>
+                      <Group gap="xs" wrap="nowrap">
+                        <IconVideo size={16} />
+                        <Text size="xs" c="dimmed" style={{ wordBreak: "break-all", flex: 1 }}>
+                          {originalContentUrl}
+                        </Text>
+                      </Group>
+                      {originalContentUrl.includes('youtube.com') && (
+                        <Button
+                          size="xs"
+                          variant="light"
+                          component="a"
+                          href={originalContentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          Lihat di YouTube
+                        </Button>
+                      )}
+                    </Stack>
+                  </Paper>
+                )}
+                
                 <FileInput
-                  label="Upload Video (akan otomatis diupload ke YouTube)"
+                  label={isEditing ? "Upload Video Baru (opsional)" : "Upload Video"}
                   accept="video/mp4,video/webm"
                   leftSection={<IconUpload size={16} />}
                   {...form.getInputProps("content_file")}
-                  description="Video akan diupload ke YouTube channel Anda"
+                  description={
+                    isEditing && originalContentUrl
+                      ? "Upload file baru hanya jika ingin mengganti video"
+                      : "Video akan diupload ke YouTube channel Anda"
+                  }
                 />
                 {isUploading && <Progress value={uploadProgress} animated />}
               </>
             )}
 
-            {/* TIPE 2: PDF Upload */}
             {showPDFUpload && (
-              <FileInput
-                label="Upload PDF"
-                accept="application/pdf"
-                leftSection={<IconUpload size={16} />}
-                {...form.getInputProps("content_file")}
-              />
+              <>
+                <FileInput
+                  label={isEditing ? "Upload PDF Baru (opsional)" : "Upload PDF"}
+                  accept="application/pdf"
+                  leftSection={<IconUpload size={16} />}
+                  {...form.getInputProps("content_file")}
+                  description={
+                    isEditing && originalContentUrl
+                      ? `PDF saat ini: ${originalContentUrl}`
+                      : undefined
+                  }
+                />
+                {isEditing && originalContentUrl && (
+                  <Alert color="blue" icon={<IconAlertCircle />}>
+                    PDF saat ini sudah tersimpan. Upload file baru hanya jika ingin menggantinya.
+                  </Alert>
+                )}
+              </>
             )}
 
-            {/* TIPE 3: YouTube URL Manual */}
             {showYouTubeInput && (
               <TextInput
                 label="URL YouTube"
@@ -445,17 +465,20 @@ export function MaterialDetailManager({
               />
             )}
 
-            {/* TIPE 4: Assignment */}
             {showAssignmentFields && (
               <>
                 <FileInput
-                  label="Template Tugas (Opsional)"
+                  label={isEditing ? "Template Tugas Baru (opsional)" : "Template Tugas (Opsional)"}
                   placeholder="Upload file template (.pdf, .docx, .zip)"
                   accept=".pdf,.doc,.docx,.zip"
                   leftSection={<IconUpload size={16} />}
                   {...form.getInputProps("template_file")}
                   clearable
-                  description="File template yang akan didownload oleh siswa"
+                  description={
+                    isEditing && originalTemplateUrl
+                      ? `Template saat ini: ${originalTemplateUrl}`
+                      : "File template yang akan didownload oleh siswa"
+                  }
                 />
                 <NumberInput
                   label="Skor Lulus (%)"
@@ -472,67 +495,40 @@ export function MaterialDetailManager({
               label="Konten Gratis (dapat diakses tanpa membeli kursus)"
               {...form.getInputProps("is_free", { type: "checkbox" })}
               description={
-                selectedType === "1"
-                  ? "Video akan di-set public di YouTube jika gratis"
-                  : ""
+                selectedType === "1" ? "Video akan di-set public di YouTube jika gratis" : ""
               }
             />
 
-            <Button
-              type="submit"
-              mt="md"
-              loading={isPending || isUploading}
-              disabled={isUploading}
-            >
-              {isUploading
-                ? "Mengupload..."
-                : isEditing
-                  ? "Update Konten"
-                  : "Simpan Konten"}
+            <Button type="submit" mt="md" loading={isPending || isUploading} disabled={isUploading}>
+              {isUploading ? "Mengupload..." : isEditing ? "Update Konten" : "Simpan Konten"}
             </Button>
           </Stack>
-        </form>
+        </Box>
       </Modal>
 
       {/* DELETE MODAL */}
-      <Modal
-        opened={deleteConfirmOpened}
-        onClose={closeDeleteConfirm}
-        title="Konfirmasi Hapus"
-        centered
-        size="sm"
-      >
+      <Modal opened={deleteConfirmOpened} onClose={closeDeleteConfirm} title="Konfirmasi Hapus" centered size="sm">
         <Stack>
           <Text>
-            Apakah Anda yakin ingin menghapus{" "}
-            <b>{selectedDetail?.material_detail_name}</b>?
+            Apakah Anda yakin ingin menghapus <b>{selectedDetail?.material_detail_name}</b>?
           </Text>
           <Group justify="flex-end">
-            <Button variant="default" onClick={closeDeleteConfirm}>
-              Batal
-            </Button>
-            <Button color="red" onClick={handleDelete} loading={isPending}>
-              Hapus
-            </Button>
+            <Button variant="default" onClick={closeDeleteConfirm}>Batal</Button>
+            <Button color="red" onClick={handleDelete} loading={isPending}>Hapus</Button>
           </Group>
         </Stack>
       </Modal>
 
       {/* BUTTONS */}
       <Group justify="flex-end" mb="md">
-        <Button
-          leftSection={<IconPlus size={16} />}
-          onClick={handleOpenCreateModal}
-        >
+        <Button leftSection={<IconPlus size={16} />} onClick={handleOpenCreateModal}>
           Tambah Konten
         </Button>
         <Button
           variant="outline"
           leftSection={<IconQuestionMark size={16} />}
           onClick={() =>
-            router.push(
-              `/lecturer/dashboard/courses/${courseId}/quizzes/add?materialId=${materialId}`
-            )
+            router.push(`/lecturer/dashboard/courses/${courseId}/quizzes/add?materialId=${materialId}`)
           }
         >
           Tambah Quiz
@@ -540,20 +536,13 @@ export function MaterialDetailManager({
       </Group>
 
       {/* LIST KONTEN MATERI */}
-      <Title order={5} c="dimmed">
-        Konten Materi & Tugas
-      </Title>
+      <Title order={5} c="dimmed">Konten Materi & Tugas</Title>
       <Divider my="xs" />
 
-      {records.length > 0 ? (
+      {initialDetails.length > 0 ? (
         <Stack>
-          {records.map((detail) => (
-            <Paper
-              withBorder
-              p="md"
-              radius="sm"
-              key={detail.material_detail_id}
-            >
+          {initialDetails.map((detail) => (
+            <Paper withBorder p="md" radius="sm" key={detail.material_detail_id}>
               <Group justify="space-between">
                 <Group>
                   <ThemeIcon variant="light" size={36} radius="sm">
@@ -562,42 +551,24 @@ export function MaterialDetailManager({
                   <Stack gap={0}>
                     <Text fw={500}>{detail.material_detail_name}</Text>
                     <Text size="xs" c="dimmed">
-                      {
-                        typeOptions.find(
-                          (opt) =>
-                            opt.value === String(detail.material_detail_type)
-                        )?.label
-                      }
+                      {typeOptions.find((opt) => opt.value === String(detail.material_detail_type))?.label}
                     </Text>
-                    {detail.material_detail_type === 4 &&
-                      detail.passing_score && (
-                        <Text size="xs" c="blue">
-                          Passing Score: {detail.passing_score}%
-                        </Text>
-                      )}
+                    {detail.material_detail_type === 4 && detail.passing_score && (
+                      <Text size="xs" c="blue">Passing Score: {detail.passing_score}%</Text>
+                    )}
                   </Stack>
                   {detail.is_free && (
-                    <Badge color="teal" variant="light" size="sm">
-                      Gratis
-                    </Badge>
+                    <Badge color="teal" variant="light" size="sm">Gratis</Badge>
                   )}
                 </Group>
                 <Group gap="xs">
                   <Tooltip label="Edit Konten">
-                    <ActionIcon
-                      variant="light"
-                      color="blue"
-                      onClick={() => handleOpenEditModal(detail)}
-                    >
+                    <ActionIcon variant="light" color="blue" onClick={() => handleOpenEditModal(detail)}>
                       <IconPencil size={16} />
                     </ActionIcon>
                   </Tooltip>
                   <Tooltip label="Hapus Konten">
-                    <ActionIcon
-                      variant="light"
-                      color="red"
-                      onClick={() => handleOpenDeleteConfirm(detail)}
-                    >
+                    <ActionIcon variant="light" color="red" onClick={() => handleOpenDeleteConfirm(detail)}>
                       <IconTrash size={16} />
                     </ActionIcon>
                   </Tooltip>
@@ -607,36 +578,25 @@ export function MaterialDetailManager({
           ))}
         </Stack>
       ) : (
-        <Text ta="center" c="dimmed" my="md">
-          Belum ada konten di bab ini.
-        </Text>
+        <Text ta="center" c="dimmed" my="md">Belum ada konten di bab ini.</Text>
       )}
 
       {/* LIST QUIZ */}
-      <Title order={5} c="dimmed" mt="xl">
-        Quiz
-      </Title>
+      <Title order={5} c="dimmed" mt="xl">Quiz</Title>
       <Divider my="xs" />
 
-      {quizRecords.length > 0 ? (
+      {initialQuizzes.length > 0 ? (
         <Stack>
-          {quizRecords.map((quiz) => (
+          {initialQuizzes.map((quiz) => (
             <Paper withBorder p="md" radius="sm" key={quiz.quiz_id}>
               <Group justify="space-between">
                 <Group>
-                  <ThemeIcon
-                    variant="light"
-                    color="orange"
-                    size={36}
-                    radius="sm"
-                  >
+                  <ThemeIcon variant="light" color="orange" size={36} radius="sm">
                     <IconQuestionMark size={18} />
                   </ThemeIcon>
                   <Stack gap={0}>
                     <Text fw={500}>{quiz.quiz_title}</Text>
-                    <Text size="xs" c="dimmed">
-                      Quiz
-                    </Text>
+                    <Text size="xs" c="dimmed">Quiz</Text>
                   </Stack>
                 </Group>
                 <Group gap="xs">
@@ -645,9 +605,7 @@ export function MaterialDetailManager({
                       variant="light"
                       color="blue"
                       onClick={() =>
-                        router.push(
-                          `/lecturer/dashboard/courses/${courseId}/quizzes/${quiz.quiz_id}/edit`
-                        )
+                        router.push(`/lecturer/dashboard/courses/${courseId}/quizzes/${quiz.quiz_id}/edit`)
                       }
                     >
                       <IconPencil size={16} />
@@ -659,9 +617,7 @@ export function MaterialDetailManager({
           ))}
         </Stack>
       ) : (
-        <Text ta="center" c="dimmed" my="md">
-          Belum ada quiz di bab ini.
-        </Text>
+        <Text ta="center" c="dimmed" my="md">Belum ada quiz di bab ini.</Text>
       )}
     </Box>
   );

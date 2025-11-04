@@ -1,43 +1,74 @@
 // lmsistts\src\components\landing\HeroBanner.tsx
 
-'use client';
-import { Title, Text, Button, Container, Group } from '@mantine/core';
-import Link from 'next/link';
-import classes from './HeroBanner.module.css';
+"use client";
+
+import { Container, Title, Text, Button, Group, Box } from "@mantine/core";
+import Link from "next/link";
+import classes from "./HeroBanner.module.css";
 
 export function HeroBanner() {
   return (
-    <div className={classes.wrapper}>
-      <Container size="lg" py="xl">
+    <Box className={classes.hero}>
+      {/* 3D Floating Shapes */}
+      <div className={classes.floatingShapes}>
+        <div className={`${classes.shape} ${classes.shape1}`} />
+        <div className={`${classes.shape} ${classes.shape2}`} />
+        <div className={`${classes.shape} ${classes.shape3}`} />
+        <div className={`${classes.shape} ${classes.shape4}`} />
+        <div className={`${classes.shape} ${classes.shape5}`} />
+        <div className={`${classes.shape} ${classes.shape6}`} />
+      </div>
+
+      {/* Animated Grid Background */}
+      <div className={classes.gridBackground} />
+
+      {/* Gradient Orbs */}
+      <div className={classes.orb1} />
+      <div className={classes.orb2} />
+
+      {/* Content */}
+      <Container size="lg" className={classes.content}>
         <div className={classes.inner}>
           <Title className={classes.title}>
-            Tingkatkan Potensi Anda Bersama{' '}
-            <span className={classes.highlight}>iClick</span>
+            Tingkatkan Skill Anda <br />
+            <Text
+              component="span"
+              variant="gradient"
+              gradient={{ from: "yellow", to: "pink", deg: 45 }}
+              inherit
+            >
+              Bersama iClick
+            </Text>
           </Title>
-          <Text className={classes.description}>
-            Pintu gerbang Anda menuju pengetahuan tak terbatas. Belajar dari para ahli industri, 
-            kapan saja, di mana saja, dan capai tujuan karir Anda lebih cepat.
+
+          <Text className={classes.description} size="xl">
+            Platform pembelajaran online terbaik dengan instruktur berpengalaman
+            dan materi berkualitas tinggi
           </Text>
+
           <Group className={classes.controls}>
-            <Button 
-              size="xl" 
-              className={`${classes.control} ${classes.primaryButton}`}
-              component={Link} 
+            <Button
+              component={Link}
               href="/courses"
+              size="xl"
+              variant="gradient"
+              gradient={{ from: "blue", to: "cyan", deg: 45 }}
+              className={classes.ctaButton}
+            >
+              Mulai Belajar Sekarang
+            </Button>
+            <Button
+              component={Link}
+              href="/courses"
+              size="xl"
+              variant="white"
+              className={classes.outlineButton}
             >
               Jelajahi Kursus
-            </Button>
-            <Button 
-              size="xl"
-              className={`${classes.control} ${classes.secondaryButton}`}
-              component={Link} 
-              href="/register"
-            >
-              Daftar Gratis
             </Button>
           </Group>
         </div>
       </Container>
-    </div>
+    </Box>
   );
 }

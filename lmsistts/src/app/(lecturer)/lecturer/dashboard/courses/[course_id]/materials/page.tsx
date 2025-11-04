@@ -38,7 +38,7 @@ export default async function ManageCourseMaterialsPage({ params }: { params: { 
     return (
         <Container fluid>
              <Breadcrumbs mb="lg">{items}</Breadcrumbs>
-             <Title order={3}>Manajemen Bab/Seksi Materi</Title>
+             <Title order={3}>Manajemen Bab Materi</Title>
              <Text c="dimmed" mb="lg">Atur struktur kurikulum untuk kursus: "{courseResult.data?.course_title || 'Kursus Tidak Ditemukan'}".</Text>
 
             {hasError ? (

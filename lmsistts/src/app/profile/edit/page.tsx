@@ -1,5 +1,4 @@
-// lmsistts\src\app\profile\edit\page.tsx
-
+// lmsistts/src/app/profile/edit/page.tsx
 'use client';
 
 import { useState, useTransition } from 'react';
@@ -15,12 +14,12 @@ import {
   Avatar,
   Group,
   Text,
-  FileInput,
   Divider,
-  Center,
   rem,
+  Box,
+  UnstyledButton,
+  Center,
 } from '@mantine/core';
-import { useForm } from '@mantine/form';
 import {
   IconAlertCircle,
   IconUser,
@@ -28,6 +27,7 @@ import {
   IconArrowLeft,
   IconCheck,
 } from '@tabler/icons-react';
+import { useForm } from '@mantine/form';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { updateProfileSchema, UpdateProfileInput } from '@/lib/schemas/user.schema';
@@ -36,23 +36,27 @@ import { notifications } from '@mantine/notifications';
 import type { Session } from 'next-auth';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 
-// --- KOMPONEN FORM TERPISAH ---
-// Komponen ini hanya akan dirender setelah data sesi tersedia.
-function ProfileForm({ session, updateSession }: { session: Session; updateSession: () => Promise<Session | null> }) {
+function ProfileForm({
+  session,
+  updateSession,
+}: {
+  session: Session;
+  updateSession: () => Promise<Session | null>;
+}) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Inisialisasi data untuk form dari props
   const nameParts = session.user?.name?.split(' ') ?? [];
   const initialFirstName = nameParts[0] || '';
   const initialLastName = nameParts.slice(1).join(' ') || '';
 
-  const [imagePreview, setImagePreview] = useState<string | null>(session.user?.image || null);
+  const [imagePreview, setImagePreview] = useState<string | null>(
+    session.user?.image || null
+  );
   const [imageFile, setImageFile] = useState<File | null>(null);
 
   const form = useForm<UpdateProfileInput>({
-    // Inisialisasi form langsung dengan data dari props
     initialValues: {
       first_name: initialFirstName,
       last_name: initialLastName,
@@ -61,26 +65,28 @@ function ProfileForm({ session, updateSession }: { session: Session; updateSessi
   });
 
   const handleImageChange = (file: File | null) => {
-    if (file) {
-      // Validasi ukuran dan tipe file
-      if (file.size > 5 * 1024 * 1024) { // 5MB limit
-        notifications.show({ title: 'File Terlalu Besar', message: 'Maksimal ukuran file 5MB.', color: 'red' });
-        return;
-      }
-      if (!file.type.startsWith('image/')) {
-        notifications.show({ title: 'Format Tidak Valid', message: 'Hanya file gambar yang diperbolehkan.', color: 'red' });
-        return;
-      }
-
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => setImagePreview(reader.result as string);
-      reader.readAsDataURL(file);
-    } else {
-      // Handle jika file di-clear
-      setImageFile(null);
-      setImagePreview(session.user?.image || null);
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      notifications.show({
+        title: 'File Terlalu Besar',
+        message: 'Maksimal ukuran file 5MB.',
+        color: 'red',
+      });
+      return;
     }
+    if (!file.type.startsWith('image/')) {
+      notifications.show({
+        title: 'Format Tidak Valid',
+        message: 'Hanya file gambar yang diperbolehkan.',
+        color: 'red',
+      });
+      return;
+    }
+
+    setImageFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => setImagePreview(reader.result as string);
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (values: UpdateProfileInput) => {
@@ -89,107 +95,156 @@ function ProfileForm({ session, updateSession }: { session: Session; updateSessi
       const formData = new FormData();
       formData.append('first_name', values.first_name);
       formData.append('last_name', values.last_name);
-      if (imageFile) {
-        formData.append('image', imageFile);
-      }
+      if (imageFile) formData.append('image', imageFile);
 
       const result = await updateUserProfile(formData as any);
-
       if (result.error) {
         setError(result.error);
-      } else if (result.success) {
-        // Update session untuk refresh data di seluruh aplikasi (termasuk header)
+        return;
+      }
+
+      if (result.success) {
         await updateSession();
-        
-        notifications.show({ 
-          title: 'Sukses', 
-          message: 'Profil berhasil diperbarui!', 
+        notifications.show({
+          title: 'Sukses',
+          message: 'Profil berhasil diperbarui!',
           color: 'green',
-          icon: <IconCheck size={16} />
+          icon: <IconCheck size={16} />,
         });
-        
-        // Optional: Redirect ke halaman profile atau dashboard setelah beberapa detik
-        setTimeout(() => {
-          router.push('/');
-        }, 1500);
+        setTimeout(() => router.push('/'), 1500);
       }
     });
   };
 
   return (
     <form onSubmit={form.onSubmit(handleSubmit)}>
-      <Paper withBorder shadow="sm" p={40} radius="md" pos="relative">
+      <Paper
+        shadow="sm"
+        radius="xl"
+        p="xl"
+        withBorder
+        pos="relative"
+        style={{
+          border: '1px solid #e9ecef',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
+        }}
+      >
         <LoadingOverlay visible={isPending} overlayProps={{ radius: 'sm', blur: 2 }} />
-        {error && <Alert title="Gagal" color="red" icon={<IconAlertCircle />} mb="lg" withCloseButton onClose={() => setError(null)}>{error}</Alert>}
 
-        <Center mb={40}>
-          <Stack align="center" gap="lg">
-            <Avatar src={imagePreview} size={150} radius="50%" alt="Avatar" />
-            <Stack gap="xs" align="center">
-              <Text fw={600} size="lg">{`${form.values.first_name} ${form.values.last_name}`.trim()}</Text>
-              <Text size="sm" c="dimmed">{session.user?.email}</Text>
-            </Stack>
-          </Stack>
-        </Center>
+        {error && (
+          <Alert
+            title="Gagal"
+            color="red"
+            icon={<IconAlertCircle />}
+            mb="lg"
+            withCloseButton
+            onClose={() => setError(null)}
+          >
+            {error}
+          </Alert>
+        )}
 
-        <Divider my="lg" />
-        
-        <Stack gap="xl">
-            <FileInput
-                label="Ubah Foto Profil"
-                placeholder="Pilih gambar baru"
-                leftSection={<IconCamera size={16} />}
-                accept="image/png,image/jpeg,image/jpg,image/webp"
-                onChange={handleImageChange}
-                clearable
-                description="Ukuran maksimal: 5MB"
+        {/* Avatar Section */}
+        <Center mb="lg">
+          <Box pos="relative">
+            <Avatar
+              src={imagePreview}
+              size={160}
+              radius={100}
+              sx={{
+                border: '3px solid #f1f3f5',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+              }}
             />
 
-            <div>
-                <Text fw={600} mb="xs" size="sm">Informasi Pribadi</Text>
-                <Stack gap="md">
-                    <TextInput
-                        label="Nama Depan"
-                        placeholder="Masukkan nama depan"
-                        leftSection={<IconUser size={16} />}
-                        {...form.getInputProps('first_name')}
-                    />
-                    <TextInput
-                        label="Nama Belakang"
-                        placeholder="Masukkan nama belakang"
-                        leftSection={<IconUser size={16} />}
-                        {...form.getInputProps('last_name')}
-                    />
-                </Stack>
-            </div>
-        
-            <Divider my="md" />
+            {/* Tombol Kamera Overlay */}
+            <UnstyledButton
+              onClick={() => {
+                const input = document.createElement('input');
+                input.type = 'file';
+                input.accept = 'image/*';
+                input.onchange = (e) =>
+                  handleImageChange((e.target as HTMLInputElement).files?.[0] || null);
+                input.click();
+              }}
+              sx={{
+                position: 'absolute',
+                bottom: 4,
+                right: 4,
+                backgroundColor: 'white',
+                borderRadius: '50%',
+                boxShadow: '0 1px 4px rgba(0,0,0,0.15)',
+                padding: rem(6),
+                cursor: 'pointer',
+                transition: '0.2s',
+                '&:hover': { backgroundColor: '#e7f5ff' },
+              }}
+            >
+              <IconCamera size={18} color="#228be6" />
+            </UnstyledButton>
+          </Box>
+        </Center>
 
-            <Group grow>
-                <Button variant="default" onClick={() => router.back()} leftSection={<IconArrowLeft size={16} />}>
-                    Batal
-                </Button>
-                <Button type="submit" loading={isPending} leftSection={<IconCheck size={16} />}>
-                    Simpan Perubahan
-                </Button>
-            </Group>
+        <Stack align="center" gap={4} mb="lg">
+          <Text fw={600} size="lg">
+            {`${form.values.first_name} ${form.values.last_name}`.trim()}
+          </Text>
+          <Text size="sm" c="dimmed">
+            {session.user?.email}
+          </Text>
+          <Text size="xs" c="gray.5">
+            Ukuran maksimal: 5MB
+          </Text>
         </Stack>
+
+        <Divider my="lg" label="Informasi Pribadi" labelPosition="center" />
+
+        {/* Form Fields */}
+        <Stack gap="md" mt="sm">
+          <TextInput
+            label="Nama Depan"
+            placeholder="Masukkan nama depan"
+            leftSection={<IconUser size={16} />}
+            {...form.getInputProps('first_name')}
+          />
+          <TextInput
+            label="Nama Belakang"
+            placeholder="Masukkan nama belakang"
+            leftSection={<IconUser size={16} />}
+            {...form.getInputProps('last_name')}
+          />
+        </Stack>
+
+        <Divider my="xl" />
+
+        <Group justify="space-between" mt="md">
+          <Button
+            variant="default"
+            color="gray"
+            onClick={() => router.back()}
+            leftSection={<IconArrowLeft size={16} />}
+          >
+            Batal
+          </Button>
+          <Button
+            type="submit"
+            loading={isPending}
+            leftSection={<IconCheck size={16} />}
+            color="blue"
+          >
+            Simpan Perubahan
+          </Button>
+        </Group>
       </Paper>
     </form>
   );
 }
 
-
-// --- KOMPONEN HALAMAN UTAMA ---
-// Komponen ini bertindak sebagai "loader" data sesi.
 export default function EditProfilePage() {
   const { data: session, status, update: updateSession } = useSession();
 
-  if (status === 'loading') {
-    return <LoadingOverlay visible />;
-  }
-
-  if (status === 'unauthenticated') {
+  if (status === 'loading') return <LoadingOverlay visible />;
+  if (status === 'unauthenticated')
     return (
       <Container py="xl">
         <Alert color="red" title="Akses Ditolak">
@@ -197,24 +252,22 @@ export default function EditProfilePage() {
         </Alert>
       </Container>
     );
-  }
 
   return (
-    <Container size="md" py="xl">
-      <Group justify="center" mb="lg" pos="relative">
-         <Button
-            variant="subtle"
-            leftSection={<IconArrowLeft size={18} />}
-            onClick={() => history.back()}
-            pos="absolute"
-            left={0}
-          >
-            Kembali
+    <Container size="sm" py="xl">
+      <Group justify="center" mb="xl" pos="relative">
+        <Button
+          variant="subtle"
+          leftSection={<IconArrowLeft size={18} />}
+          onClick={() => history.back()}
+          pos="absolute"
+          left={0}
+        >
+          Kembali
         </Button>
         <Title order={2}>Edit Profil</Title>
       </Group>
 
-      {/* Render komponen form HANYA jika sesi sudah ada */}
       {session && <ProfileForm session={session} updateSession={updateSession} />}
     </Container>
   );

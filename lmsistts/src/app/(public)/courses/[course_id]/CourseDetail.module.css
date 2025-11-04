@@ -1,0 +1,237 @@
+/* lmsistts\src\app\(public)\courses\[course_id]\CourseDetail.module.css */
+
+.heroSection {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  padding: 4rem 0 3rem;
+  margin-bottom: 2rem;
+}
+
+.courseTitle {
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  font-weight: 800;
+  line-height: 1.2;
+  color: var(--mantine-color-dark-9);
+}
+
+.courseDescription {
+  line-height: 1.6;
+}
+
+/* Price Card */
+.priceCard {
+  position: sticky;
+  top: 20px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.priceCard:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+.thumbnailWrapper {
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.thumbnailWrapper img {
+  transition: transform 0.3s ease;
+}
+
+.thumbnailWrapper:hover img {
+  transform: scale(1.05);
+}
+
+.playOverlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.thumbnailWrapper:hover .playOverlay {
+  opacity: 1;
+}
+
+.playButton {
+  transition: transform 0.2s ease;
+}
+
+.thumbnailWrapper:hover .playButton {
+  transform: scale(1.1);
+}
+
+.price {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.enrollButton {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.enrollButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 123, 255, 0.3);
+}
+
+/* Stats Section */
+.statsSection {
+  background: white;
+  padding: 2rem 0;
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.statCard {
+  border: 1px solid var(--mantine-color-gray-2);
+  transition: all 0.2s ease;
+}
+
+.statCard:hover {
+  border-color: var(--mantine-color-blue-3);
+  background: var(--mantine-color-blue-0);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+/* Curriculum Accordion */
+
+
+.accordionItem {
+  border: 1px solid var(--mantine-color-gray-2) !important;
+  transition: all 0.2s ease;
+}
+
+.accordionItem:hover {
+  border-color: var(--mantine-color-blue-3) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.accordionControl {
+  padding: 1rem 1.25rem;
+  transition: background-color 0.2s ease;
+}
+
+.accordionControl:hover {
+  background-color: var(--mantine-color-gray-0);
+}
+
+.accordionControl[data-active] {
+  background-color: var(--mantine-color-blue-0);
+}
+
+/* Material Items */
+.materialItem {
+  transition: all 0.2s ease;
+  cursor: pointer;
+  border: 1px solid var(--mantine-color-gray-2);
+}
+
+.materialItem:hover {
+  border-color: var(--mantine-color-cyan-3);
+  background-color: var(--mantine-color-cyan-0);
+  transform: translateX(4px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* CTA Card */
+.ctaCard {
+  background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+  border: 2px dashed var(--mantine-color-blue-3);
+  transition: all 0.3s ease;
+}
+
+.ctaCard:hover {
+  background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%);
+  border-color: var(--mantine-color-blue-5);
+  transform: scale(1.02);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .heroSection {
+    padding: 2rem 0 1.5rem;
+  }
+
+  .priceCard {
+    position: relative;
+    top: 0;
+  }
+
+  .courseTitle {
+    font-size: 1.75rem;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  .heroSection {
+    background: linear-gradient(135deg, #1a1b1e 0%, #2c2e33 100%);
+  }
+
+  .courseTitle {
+    color: var(--mantine-color-gray-0);
+  }
+
+  .statsSection {
+    background: var(--mantine-color-dark-7);
+    border-color: var(--mantine-color-dark-5);
+  }
+
+  .statCard {
+    background: var(--mantine-color-dark-6);
+    border-color: var(--mantine-color-dark-5);
+  }
+
+  .statCard:hover {
+    background: var(--mantine-color-dark-5);
+    border-color: var(--mantine-color-blue-7);
+  }
+
+  .accordionItem {
+    border-color: var(--mantine-color-dark-5) !important;
+  }
+
+  .accordionItem:hover {
+    border-color: var(--mantine-color-blue-7) !important;
+  }
+
+  .accordionControl:hover {
+    background-color: var(--mantine-color-dark-5);
+  }
+
+  .accordionControl[data-active] {
+    background-color: var(--mantine-color-dark-5);
+  }
+
+  .materialItem {
+    background: var(--mantine-color-dark-6);
+    border-color: var(--mantine-color-dark-5);
+  }
+
+  .materialItem:hover {
+    background: var(--mantine-color-dark-5);
+    border-color: var(--mantine-color-cyan-7);
+  }
+
+  .ctaCard {
+    background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+    border-color: var(--mantine-color-blue-7);
+  }
+
+  .ctaCard:hover {
+    background: linear-gradient(135deg, #667eea25 0%, #764ba225 100%);
+    border-color: var(--mantine-color-blue-5);
+  }
+}

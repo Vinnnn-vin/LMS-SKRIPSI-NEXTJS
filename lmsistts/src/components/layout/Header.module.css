@@ -1,13 +1,33 @@
 /* lmsistts\src\components\layout\Header.module.css */
 
 .header {
-  border-bottom: 1px solid rgba(203, 213, 225, 0.2);
-  background: linear-gradient(to bottom, #0f172a 0%, #1e293b 100%);
-  backdrop-filter: blur(10px);
+  /* Diubah: Latar belakang transparan saat di atas */
+  background: transparent;
+  border-bottom: 1px solid transparent; /* Border juga transparan */
+  box-shadow: none; /* Tidak ada shadow saat di atas */
+
+  /* Properti yang sudah ada */
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+
+  /* Ditambahkan: Transisi mulus untuk semua perubahan */
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease,
+    box-shadow 0.3s ease,
+    backdrop-filter 0.3s ease;
+}
+
+.scrolled {
+  background: linear-gradient(
+    to bottom,
+    rgba(15, 23, 42, 0.9) 0%,
+    rgba(30, 41, 59, 0.9) 100%
+  );
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(203, 213, 225, 0.2); /* Border asli Anda */
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1); /* Shadow asli Anda */
 }
 
 .logo {
@@ -33,7 +53,7 @@
 }
 
 .navButton::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: -4px;
   left: 50%;
@@ -52,6 +72,15 @@
   width: 80%;
 }
 
+/* Style untuk navButton saat scrolled */
+.scrolled .navButton {
+  color: #e2e8f0;
+}
+
+.scrolled .navButton:hover {
+  color: #ffffff;
+}
+
 .loginButton {
   border: 2px solid #3b82f6;
   color: #3b82f6;
@@ -65,6 +94,18 @@
   color: white;
   transform: translateY(-2px);
   box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+/* Style untuk loginButton saat scrolled */
+.scrolled .loginButton {
+  border: 2px solid #ffffff;
+  color: #ffffff;
+}
+
+.scrolled .loginButton:hover {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: #ffffff;
 }
 
 .signupButton {
@@ -85,18 +126,32 @@
   padding: rem(8px) rem(12px);
   border-radius: rem(12px);
   transition: all 0.3s ease;
-  background: rgba(59, 130, 246, 0.1);
-  border: 1px solid rgba(59, 130, 246, 0.2);
 }
 
-.userMenu:hover {
-  background: rgba(59, 130, 246, 0.2);
-  border-color: rgba(59, 130, 246, 0.4);
-}
 
 .userName {
-  color: #ffffff;
+  color: #000000;
   font-weight: 600;
+  transition: color 0.3s ease;
+}
+
+/* Style baru untuk userName saat scrolled */
+.userNameScrolled {
+  color: #ffffff !important;
+}
+
+.chevron {
+  color: #111111;
+  transition: color 0.3s ease;
+}
+
+/* Style baru untuk chevron saat scrolled */
+.chevronScrolled {
+  color: #ffffff !important;
+}
+
+.burgerScrolled {
+  color: #ffffff !important;
 }
 
 .mobileMenu {

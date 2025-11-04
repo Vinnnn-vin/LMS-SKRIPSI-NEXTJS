@@ -1,6 +1,6 @@
 // lmsistts\src\lib\uploadHelper.ts
 
-import { writeFile, mkdir, unlink } from 'fs/promises';
+import { writeFile, mkdir, unlink, rm } from 'fs/promises';
 import { existsSync } from 'fs';
 import path from 'path';
 import { sanitizeFilename } from './fileUtils';
@@ -8,12 +8,12 @@ import { sanitizeFilename } from './fileUtils';
 /**
  * Upload file ke folder public
  * @param file - File object dari form
- * @param subFolder - Subfolder tujuan (videos, pdfs, assignments)
+ * @param subFolder - Subfolder tujuan (videos, pdfs, assignments, thumbnails)
  * @returns Path relatif file atau error
  */
 export async function uploadToPublic(
   file: File,
-  subFolder: 'videos' | 'pdfs' | 'assignments'
+  subFolder: 'videos' | 'pdfs' | 'assignments' | 'thumbnails' | string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const buffer = await file.arrayBuffer();
@@ -66,6 +66,30 @@ export async function deleteFromPublic(
 }
 
 /**
+ * Hapus folder beserta isinya dari public
+ * @param folderPath - Path folder relatif dari public (e.g., 'thumbnails/course-123')
+ * @returns Success status
+ */
+export async function deleteFolderFromPublic(
+  folderPath: string
+): Promise<boolean> {
+  try {
+    const fullPath = path.join(process.cwd(), 'public', folderPath);
+    
+    if (existsSync(fullPath)) {
+      await rm(fullPath, { recursive: true, force: true });
+      console.log('🗑️ Folder deleted:', folderPath);
+      return true;
+    }
+    
+    return false;
+  } catch (error: any) {
+    console.error('❌ Delete folder error:', error);
+    return false;
+  }
+}
+
+/**
  * Validasi file sebelum upload
  * @param file - File object
  * @param maxSizeMB - Ukuran maksimal dalam MB
@@ -97,6 +121,21 @@ export function validateFile(
 }
 
 /**
+ * Validasi khusus untuk file gambar thumbnail
+ * @param file - File object
+ * @returns Validation result
+ */
+export function validateImageFile(file: File): {
+  valid: boolean;
+  error?: string;
+} {
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const maxSize = 5; // 5MB
+  
+  return validateFile(file, maxSize, allowedTypes);
+}
+
+/**
  * Get file extension from filename
  */
 export function getFileExtension(filename: string): string {
@@ -114,4 +153,96 @@ export function generateUniqueFilename(originalName: string): string {
   const sanitized = sanitizeFilename(nameWithoutExt);
   
   return `${timestamp}_${random}_${sanitized}${ext}`;
+}
+
+/**
+ * Generate nama folder untuk course thumbnail
+ * @param courseName - Nama course
+ * @param courseId - ID course
+ * @returns Nama folder yang sudah di-sanitize
+ */
+export function generateCourseThumbnailFolder(
+  courseName: string,
+  courseId: number
+): string {
+  // Sanitize nama course untuk nama folder
+  let folderName = courseName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-') // Ganti spasi & karakter khusus dengan dash
+    .replace(/^-|-$/g, ''); // Hapus dash di awal/akhir
+
+  // Batasi panjang folder name (max 50 karakter)
+  if (folderName.length > 50) {
+    folderName = folderName.substring(0, 50).replace(/-$/, '');
+  }
+
+  // Format: thumbnails/course-{id}-{nama}
+  return `thumbnails/course-${courseId}-${folderName}`;
+}
+
+/**
+ * Upload thumbnail untuk course
+ * @param file - File thumbnail
+ * @param courseName - Nama course
+ * @param courseId - ID course
+ * @returns Upload result dengan URL
+ */
+export async function uploadCourseThumbnail(
+  file: File,
+  courseName: string,
+  courseId: number
+): Promise<{ success: boolean; url?: string; error?: string }> {
+  try {
+    // 1. Validasi file gambar
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      return { success: false, error: validation.error };
+    }
+
+    // 2. Generate folder path
+    const folderPath = generateCourseThumbnailFolder(courseName, courseId);
+
+    // 3. Generate unique filename
+    const uniqueFileName = generateUniqueFilename(file.name);
+
+    // 4. Create full path
+    const publicDir = path.join(process.cwd(), 'public', folderPath);
+    
+    if (!existsSync(publicDir)) {
+      await mkdir(publicDir, { recursive: true });
+    }
+
+    // 5. Save file
+    const buffer = await file.arrayBuffer();
+    const filePath = path.join(publicDir, uniqueFileName);
+    await writeFile(filePath, Buffer.from(buffer));
+
+    // 6. Return relative URL
+    const relativePath = `/${folderPath}/${uniqueFileName}`;
+    
+    console.log('✅ Thumbnail uploaded:', relativePath);
+    return { success: true, url: relativePath };
+  } catch (error: any) {
+    console.error('❌ Upload thumbnail error:', error);
+    return { success: false, error: error.message || 'Failed to upload thumbnail' };
+  }
+}
+
+/**
+ * Delete course thumbnail folder
+ * @param courseId - ID course
+ * @param courseName - Nama course
+ * @returns Success status
+ */
+export async function deleteCourseThumbnailFolder(
+  courseId: number,
+  courseName: string
+): Promise<boolean> {
+  try {
+    const folderPath = generateCourseThumbnailFolder(courseName, courseId);
+    return await deleteFolderFromPublic(folderPath);
+  } catch (error: any) {
+    console.error('❌ Delete course thumbnail folder error:', error);
+    return false;
+  }
 }

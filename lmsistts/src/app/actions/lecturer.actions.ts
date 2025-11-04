@@ -47,12 +47,15 @@ import {
   CreateQuestionInput,
   createQuestionSchema,
 } from "@/lib/schemas/quizQuestion.schema";
-import { deleteFromPublic, uploadToPublic } from "@/lib/uploadHelper";
+import { deleteCourseThumbnailFolder, deleteFromPublic, uploadCourseThumbnail, uploadToPublic } from "@/lib/uploadHelper";
 import { base64ToBuffer, sanitizeFilename } from "@/lib/fileUtils";
 import path from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
-import { ReviewAssignmentInput, reviewAssignmentSchema } from "@/lib/schemas/assignmentSubmission.schema";
+import {
+  ReviewAssignmentInput,
+  reviewAssignmentSchema,
+} from "@/lib/schemas/assignmentSubmission.schema";
 
 // Helper function untuk memeriksa sesi dosen
 async function getLecturerSession() {
@@ -64,115 +67,168 @@ async function getLecturerSession() {
 }
 
 // --- FUNGSI BARU UNTUK MENGAMBIL TUGAS YANG PERLU DIREVIEW ---
-export async function getAssignmentsToReviewByLecturer(options?: { page?: number, limit?: number, sortBy?: string, sortOrder?: 'ASC' | 'DESC', statusFilter?: string }) {
-    try {
-        const { userId } = await getLecturerSession();
+export async function getAssignmentsToReviewByLecturer(options?: {
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "ASC" | "DESC";
+  statusFilter?: string;
+}) {
+  try {
+    const { userId } = await getLecturerSession();
 
-        // 1. Ambil ID kursus milik dosen
-        const lecturerCourseIds = await Course.findAll({
-            where: { user_id: userId },
-            attributes: ['course_id'],
-            raw: true,
-        }).then(courses => courses.map(c => c.course_id));
+    // 1. Ambil ID kursus milik dosen
+    const lecturerCourseIds = await Course.findAll({
+      where: { user_id: userId },
+      attributes: ["course_id"],
+      raw: true,
+    }).then((courses) => courses.map((c) => c.course_id));
 
-        if (lecturerCourseIds.length === 0) {
-            return { success: true, data: [], total: 0 }; // Tidak ada kursus, tidak ada tugas
-        }
-
-        // 2. Siapkan kondisi pencarian
-        const page = options?.page || 1;
-        const limit = options?.limit || 10;
-        const offset = (page - 1) * limit;
-        const sortBy = options?.sortBy || 'submitted_at';
-        const sortOrder = options?.sortOrder || 'DESC';
-
-        const whereClause: any = {
-            course_id: { [Op.in]: lecturerCourseIds },
-            // Prioritaskan yang belum direview atau sedang direview
-            status: { [Op.in]: ['submitted', 'under_review'] }
-        };
-
-        // Tambahkan filter status jika ada
-        if (options?.statusFilter && ['submitted', 'under_review', 'approved', 'rejected'].includes(options.statusFilter)) {
-            whereClause.status = options.statusFilter;
-        }
-
-
-        // 3. Ambil data submission
-        const { count, rows: submissions } = await AssignmentSubmission.findAndCountAll({
-            where: whereClause,
-            include: [
-                { model: User, as: 'student', attributes: ['user_id', 'first_name', 'last_name', 'email'] },
-                { model: MaterialDetail, as: 'assignment', attributes: ['material_detail_id', 'material_detail_name'] },
-                { model: Course, as: 'course', attributes: ['course_id', 'course_title'] },
-                 // Bisa tambahkan 'reviewer' jika ingin menampilkan siapa yg mereview
-                 // { model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name']}
-            ],
-            order: [[sortBy, sortOrder]],
-            limit: limit,
-            offset: offset,
-        });
-
-        return { success: true, data: submissions.map(s => s.toJSON()), total: count };
-
-    } catch (error: any) {
-        console.error("[GET_ASSIGNMENTS_TO_REVIEW_ERROR]", error);
-        return { success: false, error: error.message || 'Gagal mengambil data tugas.' };
+    if (lecturerCourseIds.length === 0) {
+      return { success: true, data: [], total: 0 }; // Tidak ada kursus, tidak ada tugas
     }
+
+    // 2. Siapkan kondisi pencarian
+    const page = options?.page || 1;
+    const limit = options?.limit || 10;
+    const offset = (page - 1) * limit;
+    const sortBy = options?.sortBy || "submitted_at";
+    const sortOrder = options?.sortOrder || "DESC";
+
+    const whereClause: any = {
+      course_id: { [Op.in]: lecturerCourseIds },
+      // Prioritaskan yang belum direview atau sedang direview
+      status: { [Op.in]: ["submitted", "under_review"] },
+    };
+
+    // Tambahkan filter status jika ada
+    if (
+      options?.statusFilter &&
+      ["submitted", "under_review", "approved", "rejected"].includes(
+        options.statusFilter
+      )
+    ) {
+      whereClause.status = options.statusFilter;
+    }
+
+    // 3. Ambil data submission
+    const { count, rows: submissions } =
+      await AssignmentSubmission.findAndCountAll({
+        where: whereClause,
+        include: [
+          {
+            model: User,
+            as: "student",
+            attributes: ["user_id", "first_name", "last_name", "email"],
+          },
+          {
+            model: MaterialDetail,
+            as: "assignment",
+            attributes: ["material_detail_id", "material_detail_name"],
+          },
+          {
+            model: Course,
+            as: "course",
+            attributes: ["course_id", "course_title"],
+          },
+          // Bisa tambahkan 'reviewer' jika ingin menampilkan siapa yg mereview
+          // { model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name']}
+        ],
+        order: [[sortBy, sortOrder]],
+        limit: limit,
+        offset: offset,
+      });
+
+    return {
+      success: true,
+      data: submissions.map((s) => s.toJSON()),
+      total: count,
+    };
+  } catch (error: any) {
+    console.error("[GET_ASSIGNMENTS_TO_REVIEW_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal mengambil data tugas.",
+    };
+  }
 }
 
-
 // --- FUNGSI BARU UNTUK MENILAI TUGAS ---
-export async function gradeAssignmentByLecturer(submissionId: number, values: ReviewAssignmentInput) {
-    try {
-        const { userId } = await getLecturerSession();
+export async function gradeAssignmentByLecturer(
+  submissionId: number,
+  values: ReviewAssignmentInput
+) {
+  try {
+    const { userId } = await getLecturerSession();
 
-        // 1. Validasi input penilaian
-        const validatedFields = reviewAssignmentSchema.safeParse(values);
-        if (!validatedFields.success) {
-            const firstError = Object.values(validatedFields.error.flatten().fieldErrors)[0]?.[0];
-            return { success: false, error: firstError || "Input penilaian tidak valid!" };
-        }
-        const { status, score, feedback } = validatedFields.data;
-
-        // 2. Cari submission dan validasi kepemilikan kursus
-        const submission = await AssignmentSubmission.findOne({
-            where: { submission_id: submissionId },
-            include: [{ model: Course, as: 'course', where: { user_id: userId }, attributes: [] }] // Cek kepemilikan via course
-        });
-
-        if (!submission) {
-            return { success: false, error: 'Submission tidak ditemukan atau Anda tidak berhak menilainya.' };
-        }
-
-        // Optional: Validasi skor hanya jika status 'approved'
-        if (status === 'approved' && (score === null || score === undefined || score < 0 || score > 100)) {
-            return { success: false, error: 'Skor harus diisi (0-100) jika status Approved.' };
-        }
-         // Optional: Set skor jadi null jika ditolak
-         const finalScore = status === 'rejected' ? null : score;
-
-
-        // 3. Update data submission
-        await submission.update({
-            status: status,
-            score: finalScore,
-            feedback: feedback || null, // Pastikan feedback bisa null
-            reviewed_by: userId,
-            reviewed_at: new Date(),
-        });
-
-        // Revalidate path halaman review tugas (jika diperlukan refresh otomatis)
-        revalidatePath('/lecturer/dashboard/assignments');
-
-        // TODO: Kirim notifikasi ke mahasiswa (jika ada sistem notifikasi)
-
-        return { success: true, message: 'Tugas berhasil dinilai.' };
-
-    } catch (error: any) {
-        console.error("[GRADE_ASSIGNMENT_ERROR]", error);
-        return { success: false, error: error.message || 'Gagal menyimpan penilaian.' };
+    // 1. Validasi input penilaian
+    const validatedFields = reviewAssignmentSchema.safeParse(values);
+    if (!validatedFields.success) {
+      const firstError = Object.values(
+        validatedFields.error.flatten().fieldErrors
+      )[0]?.[0];
+      return {
+        success: false,
+        error: firstError || "Input penilaian tidak valid!",
+      };
     }
+    const { status, score, feedback } = validatedFields.data;
+
+    // 2. Cari submission dan validasi kepemilikan kursus
+    const submission = await AssignmentSubmission.findOne({
+      where: { submission_id: submissionId },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          where: { user_id: userId },
+          attributes: [],
+        },
+      ], // Cek kepemilikan via course
+    });
+
+    if (!submission) {
+      return {
+        success: false,
+        error: "Submission tidak ditemukan atau Anda tidak berhak menilainya.",
+      };
+    }
+
+    // Optional: Validasi skor hanya jika status 'approved'
+    if (
+      status === "approved" &&
+      (score === null || score === undefined || score < 0 || score > 100)
+    ) {
+      return {
+        success: false,
+        error: "Skor harus diisi (0-100) jika status Approved.",
+      };
+    }
+    // Optional: Set skor jadi null jika ditolak
+    const finalScore = status === "rejected" ? null : score;
+
+    // 3. Update data submission
+    await submission.update({
+      status: status,
+      score: finalScore,
+      feedback: feedback || null, // Pastikan feedback bisa null
+      reviewed_by: userId,
+      reviewed_at: new Date(),
+    });
+
+    // Revalidate path halaman review tugas (jika diperlukan refresh otomatis)
+    revalidatePath("/lecturer/dashboard/assignments");
+
+    // TODO: Kirim notifikasi ke mahasiswa (jika ada sistem notifikasi)
+
+    return { success: true, message: "Tugas berhasil dinilai." };
+  } catch (error: any) {
+    console.error("[GRADE_ASSIGNMENT_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal menyimpan penilaian.",
+    };
+  }
 }
 
 // --- FUNGSI BARU UNTUK OVERVIEW DASHBOARD LECTURER ---
@@ -237,7 +293,25 @@ export async function getCoursesByLecturer() {
     const courses = await Course.findAll({
       where: { user_id: userId },
       include: [
-        { model: Category, as: "category", attributes: ["category_name"] },
+        {
+          model: Category,
+          as: "category",
+          attributes: ["category_name"],
+        },
+        // ✅ TAMBAHKAN INI: Include materials dan details
+        {
+          model: Material,
+          as: "materials",
+          required: false,
+          include: [
+            {
+              model: MaterialDetail,
+              as: "details",
+              required: false,
+              attributes: ["material_detail_id", "material_detail_name"],
+            },
+          ],
+        },
       ],
       order: [["created_at", "DESC"]],
     });
@@ -250,11 +324,11 @@ export async function getCoursesByLecturer() {
   }
 }
 
-// Dosen membuat kursus baru
 export async function createCourseByLecturer(formData: FormData) {
   try {
     const { userId } = await getLecturerSession();
     const rawData = Object.fromEntries(formData.entries());
+    
     const validatedFields = lecturerCreateCourseSchema.safeParse({
       ...rawData,
       thumbnail_file:
@@ -271,26 +345,50 @@ export async function createCourseByLecturer(formData: FormData) {
     }
 
     const { thumbnail_file, ...courseData } = validatedFields.data;
-    let thumbnailUrl = null;
-    if (thumbnail_file)
-      thumbnailUrl = `https://placeholder.com/temp/${thumbnail_file.name}`; // Placeholder
 
-    await Course.create({
+    // ✅ PERBAIKAN 1: Buat course dulu untuk dapat courseId
+    const newCourse = await Course.create({
       ...courseData,
-      user_id: userId, // Set user_id ke ID dosen yang login
-      publish_status: 0, // Selalu draft
-      publish_request_status: "none", // Status permintaan awal
-      thumbnail_url: thumbnailUrl,
+      user_id: userId,
+      publish_status: 0,
+      publish_request_status: "none",
+      thumbnail_url: null, // Set null dulu
     });
 
+    // ✅ PERBAIKAN 2: Upload thumbnail setelah course dibuat
+    let thumbnailUrl = null;
+    if (thumbnail_file) {
+      const uploadResult = await uploadCourseThumbnail(
+        thumbnail_file,
+        courseData.course_title,
+        newCourse.course_id
+      );
+
+      if (!uploadResult.success) {
+        // Rollback: hapus course jika upload gagal
+        await newCourse.destroy();
+        return { error: uploadResult.error || "Gagal mengupload thumbnail." };
+      }
+
+      thumbnailUrl = uploadResult.url;
+
+      // Update course dengan thumbnail URL
+      await newCourse.update({ thumbnail_url: thumbnailUrl });
+    }
+
     revalidatePath("/lecturer/dashboard/courses");
-    return { success: "Kursus berhasil dibuat sebagai draft!" };
+    
+    return { 
+      success: "Kursus berhasil dibuat sebagai draft!",
+      courseId: newCourse.course_id 
+    };
   } catch (error: any) {
+    console.error("[CREATE_COURSE_BY_LECTURER_ERROR]", error);
     return { error: error.message || "Gagal membuat kursus." };
   }
 }
 
-// Dosen memperbarui kursus miliknya
+// ============= UPDATE COURSE =============
 export async function updateCourseByLecturer(
   courseId: number,
   formData: FormData
@@ -298,6 +396,7 @@ export async function updateCourseByLecturer(
   try {
     const { userId } = await getLecturerSession();
     const rawData = Object.fromEntries(formData.entries());
+
     const validatedFields = lecturerUpdateCourseSchema.safeParse({
       ...rawData,
       thumbnail_file:
@@ -318,60 +417,110 @@ export async function updateCourseByLecturer(
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
-    if (!course)
+
+    if (!course) {
       return {
         error: "Kursus tidak ditemukan atau Anda tidak berhak mengeditnya.",
       };
+    }
 
-    const { thumbnail_file, ...courseData } = validatedFields.data;
+    const { thumbnail_file, course_title, ...restCourseData } = validatedFields.data;
     let newThumbnailUrl: string | null | undefined = undefined;
-    if (thumbnail_file instanceof File)
-      newThumbnailUrl = `https://placeholder.com/new_${thumbnail_file.name}`;
-    else if (thumbnail_file === null) newThumbnailUrl = null;
 
-    const updateData: any = { ...courseData };
-    if (newThumbnailUrl !== undefined)
+    // ✅ PERBAIKAN: Handle upload thumbnail dengan benar
+    if (thumbnail_file instanceof File) {
+      // 1. Hapus thumbnail lama jika ada
+      if (course.thumbnail_url) {
+        await deleteFromPublic(course.thumbnail_url);
+      }
+
+      // 2. Upload thumbnail baru
+      const courseTitleForUpload = course_title || course.course_title;
+      const uploadResult = await uploadCourseThumbnail(
+        thumbnail_file,
+        courseTitleForUpload,
+        courseId
+      );
+
+      if (!uploadResult.success) {
+        return { error: uploadResult.error || "Gagal mengupload thumbnail." };
+      }
+
+      newThumbnailUrl = uploadResult.url;
+    } else if (thumbnail_file === null) {
+      // User explicitly cleared the thumbnail
+      if (course.thumbnail_url) {
+        await deleteFromPublic(course.thumbnail_url);
+      }
+      newThumbnailUrl = null;
+    }
+    // else: undefined = tidak ada perubahan, gunakan nilai lama
+
+    // 3. Prepare update data
+    const updateData: any = { ...restCourseData };
+    
+    if (course_title !== undefined) {
+      updateData.course_title = course_title;
+    }
+    
+    if (newThumbnailUrl !== undefined) {
       updateData.thumbnail_url = newThumbnailUrl;
+    }
 
-    // Reset status permintaan jika ada perubahan signifikan (opsional)
-    // updateData.publish_request_status = 'none';
-
+    // 4. Update course
     await course.update(updateData);
+
     revalidatePath("/lecturer/dashboard/courses");
+    revalidatePath(`/lecturer/dashboard/courses/${courseId}`);
+
     return { success: "Kursus berhasil diperbarui!" };
   } catch (error: any) {
+    console.error("[UPDATE_COURSE_BY_LECTURER_ERROR]", error);
     return { error: error.message || "Gagal memperbarui kursus." };
   }
 }
 
-// Dosen menghapus kursus miliknya
+// ============= DELETE COURSE =============
 export async function deleteCourseByLecturer(courseId: number) {
   try {
     const { userId } = await getLecturerSession();
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
-    if (!course)
+    
+    if (!course) {
       return {
         error: "Kursus tidak ditemukan atau Anda tidak berhak menghapusnya.",
       };
+    }
 
     const enrollmentCount = await Enrollment.count({
       where: { course_id: courseId },
     });
-    if (enrollmentCount > 0)
+    
+    if (enrollmentCount > 0) {
       return {
         error: `Tidak dapat menghapus. Ada ${enrollmentCount} siswa terdaftar.`,
       };
+    }
+
+    // ✅ PERBAIKAN: Hapus thumbnail dan folder course sebelum hapus course
+    if (course.thumbnail_url) {
+      await deleteFromPublic(course.thumbnail_url);
+    }
+
+    // Hapus seluruh folder course thumbnail
+    await deleteCourseThumbnailFolder(courseId, course.course_title);
 
     await course.destroy();
     revalidatePath("/lecturer/dashboard/courses");
+    
     return { success: "Kursus berhasil dihapus!" };
   } catch (error: any) {
+    console.error("[DELETE_COURSE_BY_LECTURER_ERROR]", error);
     return { error: error.message || "Gagal menghapus kursus." };
   }
 }
-
 // Dosen meminta publish kursus
 export async function requestCoursePublish(courseId: number) {
   try {
@@ -379,22 +528,87 @@ export async function requestCoursePublish(courseId: number) {
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
+
     if (!course) return { error: "Kursus tidak ditemukan." };
 
-    if (course.publish_status === 1)
+    if (course.publish_status === 1) {
       return { error: "Kursus sudah dipublikasikan." };
-    if (course.publish_request_status === "pending")
-      return { error: "Permintaan publish sudah dikirim." };
+    }
 
+    if (course.publish_request_status === "pending") {
+      return { error: "Permintaan publish sudah dikirim." };
+    }
+
+    // ✅ PERBAIKAN 1: Cek apakah ada material (Bab)
+    const materialCount = await Material.count({
+      where: { course_id: courseId },
+    });
+
+    if (materialCount === 0) {
+      return {
+        error:
+          "Gagal: Kursus belum memiliki Bab materi. Silakan tambahkan minimal 1 Bab terlebih dahulu.",
+      };
+    }
+
+    // ✅ PERBAIKAN 2: Cek apakah setiap material memiliki konten (MaterialDetail)
+    const materialsWithoutContent = await Material.findAll({
+      where: { course_id: courseId },
+      include: [
+        {
+          model: MaterialDetail,
+          as: "details",
+          required: false,
+        },
+      ],
+    });
+
+    const emptyMaterials = materialsWithoutContent.filter(
+      (mat) => !mat.details || mat.details.length === 0
+    );
+
+    if (emptyMaterials.length > 0) {
+      const emptyMaterialNames = emptyMaterials
+        .map((m) => `"${m.material_name}"`)
+        .join(", ");
+
+      return {
+        error: `Gagal: Beberapa Bab belum memiliki konten: ${emptyMaterialNames}. Silakan tambahkan minimal 1 konten (video, PDF, link, atau tugas) untuk setiap Bab.`,
+      };
+    }
+
+    // ✅ PERBAIKAN 3: Cek apakah ada minimal 1 konten yang bukan gratis (untuk monetisasi)
+    const paidContentCount = await MaterialDetail.count({
+      include: [
+        {
+          model: Material,
+          as: "material",
+          where: { course_id: courseId },
+          required: true,
+        },
+      ],
+      where: { is_free: false },
+    });
+
+    if (paidContentCount === 0) {
+      return {
+        error:
+          "Gagal: Semua konten bersifat gratis. Silakan set minimal 1 konten sebagai berbayar agar kursus dapat dipublikasikan.",
+      };
+    }
+
+    // Semua validasi lolos, set status pending
     course.publish_request_status = "pending";
     await course.save();
 
     revalidatePath("/lecturer/dashboard/courses");
 
     return {
-      success: "Permintaan publikasi kursus berhasil dikirim ke admin.",
+      success:
+        "Permintaan publikasi kursus berhasil dikirim ke admin untuk direview.",
     };
   } catch (error: any) {
+    console.error("[REQUEST_COURSE_PUBLISH_ERROR]", error);
     return { error: error.message || "Gagal mengirim permintaan publish." };
   }
 }
@@ -478,7 +692,7 @@ export async function createMaterial(
     });
 
     revalidatePath(`/lecturer/dashboard/courses/${courseId}/materials`);
-    return { success: "Bab/Seksi materi berhasil ditambahkan!" };
+    return { success: "Bab materi berhasil ditambahkan!" };
   } catch (error: any) {
     return { error: error.message || "Gagal menambahkan materi." };
   }
@@ -516,7 +730,7 @@ export async function updateMaterial(
     revalidatePath(
       `/lecturer/dashboard/courses/${material.course_id}/materials`
     );
-    return { success: "Bab/Seksi materi berhasil diperbarui!" };
+    return { success: "Bab materi berhasil diperbarui!" };
   } catch (error: any) {
     return { error: error.message || "Gagal memperbarui materi." };
   }
@@ -551,13 +765,13 @@ export async function deleteMaterial(materialId: number) {
 
     if (courseId)
       revalidatePath(`/lecturer/dashboard/courses/${courseId}/materials`);
-    return { success: "Bab/Seksi materi berhasil dihapus!" };
+    return { success: "Bab materi berhasil dihapus!" };
   } catch (error: any) {
     return { error: error.message || "Gagal menghapus materi." };
   }
 }
 
-// Mengambil semua MaterialDetail untuk satu Material (Bab/Seksi)
+// Mengambil semua MaterialDetail untuk satu Material (Bab)
 export async function getMaterialDetailsForLecturer(materialId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -580,7 +794,7 @@ export async function getMaterialDetailsForLecturer(materialId: number) {
       ],
     });
     if (!material)
-      throw new Error("Bab/Seksi tidak ditemukan atau Anda tidak berhak.");
+      throw new Error("Bab tidak ditemukan atau Anda tidak berhak.");
 
     const details = material.details?.map((d) => d.toJSON()) || [];
     const quizzes = material.quizzes?.map((q) => q.toJSON()) || [];
@@ -624,7 +838,7 @@ export async function createMaterialDetail(
       ],
     });
 
-    if (!material) throw new Error("Bab/Seksi tidak ditemukan.");
+    if (!material) throw new Error("Bab tidak ditemukan.");
 
     // Validasi
     if (
@@ -633,6 +847,7 @@ export async function createMaterialDetail(
     ) {
       return { error: "Nama konten minimal 3 karakter" };
     }
+
     if (
       !values.material_detail_description ||
       values.material_detail_description.length < 10
@@ -640,17 +855,10 @@ export async function createMaterialDetail(
       return { error: "Deskripsi minimal 10 karakter" };
     }
 
-    // Konversi tipe ke number
     const detailType = parseInt(values.material_detail_type, 10);
     if (isNaN(detailType) || detailType < 1 || detailType > 4) {
       return { error: "Tipe konten tidak valid." };
     }
-
-    // Validasi URL berdasarkan tipe
-    // Tipe 1 (Video) = URL YouTube hasil upload
-    // Tipe 2 (PDF) = URL file hasil upload ke /public/pdfs
-    // Tipe 3 (YouTube) = URL YouTube yang diinput manual
-    // Tipe 4 (Assignment) = bisa kosong, template opsional
 
     if (
       (detailType === 1 || detailType === 2 || detailType === 3) &&
@@ -659,7 +867,6 @@ export async function createMaterialDetail(
       return { error: "URL konten wajib diisi." };
     }
 
-    // Validasi passing score untuk assignment
     if (
       detailType === 4 &&
       values.passing_score !== null &&
@@ -670,7 +877,6 @@ export async function createMaterialDetail(
       }
     }
 
-    // Simpan ke database
     await MaterialDetail.create({
       material_detail_name: values.material_detail_name,
       material_detail_description: values.material_detail_description,
@@ -682,9 +888,15 @@ export async function createMaterialDetail(
       material_id: materialId,
     });
 
-    revalidatePath(
-      `/lecturer/dashboard/courses/${material.course?.course_id}/materials/${materialId}`
-    );
+    // ✅ PERBAIKAN: Revalidate semua path terkait
+    const courseId = material.course?.course_id;
+    if (courseId) {
+      revalidatePath(`/lecturer/dashboard/courses/${courseId}/materials`);
+      revalidatePath(
+        `/lecturer/dashboard/courses/${courseId}/materials/${materialId}`
+      );
+    }
+
     return { success: "Konten berhasil ditambahkan!" };
   } catch (error: any) {
     console.error("❌ Create MaterialDetail action error:", error);
@@ -726,12 +938,12 @@ export async function updateMaterialDetail(
       ],
     });
 
-    if (!detail)
+    if (!detail) {
       throw new Error("Konten tidak ditemukan atau Anda tidak berhak.");
+    }
 
     const updateData: any = {};
 
-    // Validasi dan siapkan data update
     if (values.material_detail_name !== undefined) {
       if (values.material_detail_name.length < 3) {
         return { error: "Nama minimal 3 karakter." };
@@ -761,7 +973,7 @@ export async function updateMaterialDetail(
       updateData.is_free = values.is_free;
     }
 
-    // Handle URL konten
+    // ✅ PERBAIKAN: Handle URL dengan benar - jika undefined, gunakan nilai lama
     if (values.materi_detail_url !== undefined) {
       if (
         (detailType === 1 || detailType === 2 || detailType === 3) &&
@@ -772,13 +984,11 @@ export async function updateMaterialDetail(
       updateData.materi_detail_url = values.materi_detail_url || "";
     }
 
-    // Handle URL template (assignment only)
     if (detailType === 4 && values.assignment_template_url !== undefined) {
       updateData.assignment_template_url =
         values.assignment_template_url || null;
     }
 
-    // Handle passing score (assignment only)
     if (detailType === 4 && values.passing_score !== undefined) {
       if (
         values.passing_score !== null &&
@@ -789,13 +999,15 @@ export async function updateMaterialDetail(
       updateData.passing_score = values.passing_score ?? null;
     }
 
-    // Lakukan update
     await detail.update(updateData);
 
+    // ✅ PERBAIKAN: Revalidate semua path terkait
     const courseId = detail.material?.course?.course_id;
-    if (courseId) {
+    const materialId = detail.material_id;
+    if (courseId && materialId) {
+      revalidatePath(`/lecturer/dashboard/courses/${courseId}/materials`);
       revalidatePath(
-        `/lecturer/dashboard/courses/${courseId}/materials/${detail.material_id}`
+        `/lecturer/dashboard/courses/${courseId}/materials/${materialId}`
       );
     }
 
@@ -805,7 +1017,6 @@ export async function updateMaterialDetail(
     return { error: error.message || "Gagal memperbarui konten." };
   }
 }
-
 // Dosen menghapus MaterialDetail
 export async function deleteMaterialDetail(materialDetailId: number) {
   try {
@@ -901,7 +1112,7 @@ export async function getQuizForEditPage(quizId: number) {
           required: true,
         },
         {
-          model: Material, // Ambil info bab/seksi
+          model: Material, // Ambil info Bab
           as: "material",
           attributes: ["material_id", "material_name"],
         },

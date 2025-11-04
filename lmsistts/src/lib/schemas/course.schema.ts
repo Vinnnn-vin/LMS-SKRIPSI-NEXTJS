@@ -184,7 +184,7 @@ export const courseCardSchema = z.object({
     .nullable()
     .optional()
     .refine(
-      (val) => !val || /^https?:\/\//.test(val) || /^\/uploads\//.test(val),
+      (val) => !val || /^https?:\/\//.test(val) || /^\/thumbnails\//.test(val),
       { message: "thumbnail_url harus berupa URL atau path lokal" }
     ),
   course_price: z.number().nullable(),
