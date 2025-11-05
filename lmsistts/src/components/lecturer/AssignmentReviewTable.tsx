@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\AssignmentReviewTable.tsx
+
 "use client";
 
 import { useState, useTransition } from "react";
@@ -13,11 +15,15 @@ import {
   Button,
   LoadingOverlay,
   Select,
+  ThemeIcon,
 } from "@mantine/core";
 import {
   IconSearch,
   IconPencilCheck,
   IconExternalLink,
+  IconFile,
+  IconFileText,
+  IconLink,
 } from "@tabler/icons-react";
 import { useDisclosure } from "@mantine/hooks";
 import sortBy from "lodash/sortBy";
@@ -38,11 +44,15 @@ interface AssignmentRow {
   assignment: {
     material_detail_id: number;
     material_detail_name?: string | null;
+    passing_score?: number | null; // ✅ FIXED: Tambahkan passing_score
   };
-  course: { course_id: number; course_title?: string | null };
+  course: {
+    course_id: number;
+    course_title?: string | null;
+  };
   score?: number | null;
   feedback?: string | null;
-  submission_type: "file" | "url" | "text";
+  submission_type: "file" | "url" | "text" | "both";
   file_path?: string | null;
   submission_url?: string | null;
   submission_text?: string | null;
@@ -92,8 +102,14 @@ export function AssignmentReviewTable({
         email: item.student?.email || item.student_email || null,
       },
       assignment: {
-        material_detail_id: item.assignment?.material_detail_id || item.material_detail_id,
-        material_detail_name: item.assignment?.material_detail_name || item.material_detail_name || null,
+        material_detail_id:
+          item.assignment?.material_detail_id || item.material_detail_id,
+        material_detail_name:
+          item.assignment?.material_detail_name ||
+          item.material_detail_name ||
+          null,
+        passing_score:
+          item.assignment?.passing_score || item.passing_score || null, // ✅ FIXED
       },
       course: {
         course_id: item.course?.course_id || item.course_id,
@@ -209,6 +225,64 @@ export function AssignmentReviewTable({
     }
   };
 
+  // ✅ FIXED: Helper untuk icon submission type
+  const getSubmissionTypeIcon = (submission: AssignmentRow) => {
+    const type = submission.submission_type;
+
+    if (type === "both") {
+      return (
+        <Group gap={4}>
+          <Tooltip label="File + Text">
+            <ThemeIcon size="xs" color="blue" variant="light">
+              <IconFile size={12} />
+            </ThemeIcon>
+          </Tooltip>
+          <Tooltip label="File + Text">
+            <ThemeIcon size="xs" color="violet" variant="light">
+              <IconFileText size={12} />
+            </ThemeIcon>
+          </Tooltip>
+        </Group>
+      );
+    }
+
+    if (type === "file") {
+      return (
+        <Tooltip label="File Only">
+          <ThemeIcon size="xs" color="blue" variant="light">
+            <IconFile size={12} />
+          </ThemeIcon>
+        </Tooltip>
+      );
+    }
+
+    if (type === "text") {
+      return (
+        <Tooltip label="Text Only">
+          <ThemeIcon size="xs" color="violet" variant="light">
+            <IconFileText size={12} />
+          </ThemeIcon>
+        </Tooltip>
+      );
+    }
+
+    if (type === "url") {
+      return (
+        <Tooltip label="URL">
+          <ThemeIcon size="xs" color="teal" variant="light">
+            <IconLink size={12} />
+          </ThemeIcon>
+        </Tooltip>
+      );
+    }
+
+    return (
+      <Text size="xs" c="dimmed">
+        -
+      </Text>
+    );
+  };
+
   return (
     <Box pos="relative">
       <LoadingOverlay
@@ -283,6 +357,12 @@ export function AssignmentReviewTable({
             sortable: true,
             render: ({ submitted_at }) =>
               dayjs(submitted_at).format("DD MMM YYYY, HH:mm"),
+          },
+          {
+            accessor: "submission_type",
+            title: "Tipe",
+            textAlign: "center",
+            render: (submission) => getSubmissionTypeIcon(submission),
           },
           {
             accessor: "status",

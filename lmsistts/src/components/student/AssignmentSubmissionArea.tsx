@@ -46,7 +46,6 @@ interface AssignmentSubmissionAreaProps {
   enrollmentId: number;
   existingSubmission: any | null;
   submissionHistory?: any[];
-  // ✅ REMOVED: canSubmit prop - dihitung di dalam komponen
   onSubmit: () => void;
 }
 
@@ -65,25 +64,25 @@ export function AssignmentSubmissionArea({
   const [text, setText] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ FIXED: Hitung canSubmit di dalam komponen berdasarkan status
+  // ✅ Hitung canSubmit berdasarkan status
   const status = existingSubmission?.status;
   const isApproved = status === "approved";
-  const canSubmit = !isApproved; // Boleh submit selama belum approved
+  const canSubmit = !isApproved;
 
   const handleSubmit = () => {
     setError(null);
-    if (!file && !text) {
-      setError("Anda harus memilih file atau mengisi jawaban teks.");
+    
+    // ✅ CHANGED: Validasi - minimal salah satu harus diisi
+    if (!file && !text.trim()) {
+      setError("Anda harus memilih file ATAU mengisi jawaban teks (atau keduanya).");
       return;
     }
 
     startTransition(async () => {
       let uploadedFilePath: string | null = null;
-      let submissionType: "file" | "text" = "text";
 
       // Step 1: Upload File jika ada
       if (file) {
-        submissionType = "file";
         setIsUploading(true);
         console.log("📤 Uploading assignment file:", file.name);
         const uploadFormData = new FormData();
@@ -116,15 +115,28 @@ export function AssignmentSubmissionArea({
       formData.append("materialDetailId", String(materialDetailId));
       formData.append("courseId", String(courseId));
       formData.append("enrollmentId", String(enrollmentId));
+
+      // ✅ CHANGED: Tentukan tipe submission
+      // - "both" jika ada file DAN text
+      // - "file" jika hanya file
+      // - "text" jika hanya text
+      let submissionType: "file" | "text" | "both";
+      if (uploadedFilePath && text.trim()) {
+        submissionType = "both";
+      } else if (uploadedFilePath) {
+        submissionType = "file";
+      } else {
+        submissionType = "text";
+      }
+
       formData.append("submission_type", submissionType);
 
-      if (submissionType === "file" && uploadedFilePath) {
+      if (uploadedFilePath) {
         formData.append("file_path", uploadedFilePath);
-      } else if (submissionType === "text") {
-        formData.append("submission_text", text);
-      } else {
-        setError("Konten submission tidak ditemukan setelah upload.");
-        return;
+      }
+      
+      if (text.trim()) {
+        formData.append("submission_text", text.trim());
       }
 
       try {
@@ -161,11 +173,11 @@ export function AssignmentSubmissionArea({
     ? dayjs(existingSubmission.submitted_at).fromNow()
     : null;
   const submissionFileUrl =
-    existingSubmission?.submission_type === "file"
+    existingSubmission?.submission_type === "file" || existingSubmission?.submission_type === "both"
       ? existingSubmission.file_path
       : null;
   const submissionText =
-    existingSubmission?.submission_type === "text"
+    existingSubmission?.submission_type === "text" || existingSubmission?.submission_type === "both"
       ? existingSubmission.submission_text
       : null;
   const isProcessing = isPending || isUploading;
@@ -404,31 +416,39 @@ export function AssignmentSubmissionArea({
                 ? "Kumpulkan Ulang Jawaban"
                 : "Kumpulkan Jawaban"}
             </Title>
+            
+            <Alert variant="light" color="blue" icon={<IconAlertCircle />}>
+              Anda bisa mengisi <strong>file saja</strong>, <strong>teks saja</strong>, atau <strong>keduanya</strong>.
+            </Alert>
+
             <FileInput
-              label="Upload File Jawaban"
+              label="Upload File Jawaban (Opsional)"
               placeholder={
                 file ? file.name : "Pilih file (.pdf, .docx, .zip, .jpg, .png)"
               }
               onChange={setFile}
               clearable
               accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png"
-              disabled={!!text || isProcessing}
+              disabled={isProcessing}
               leftSection={<IconUpload size={16} />}
             />
-            <Divider label="ATAU" labelPosition="center" />
+            
+            <Divider label="DAN/ATAU" labelPosition="center" />
+            
             <Textarea
-              label="Tulis Jawaban Teks"
+              label="Tulis Jawaban Teks (Opsional)"
               placeholder="Ketik jawaban Anda di sini..."
               minRows={4}
               onChange={(e) => setText(e.currentTarget.value)}
               value={text}
-              disabled={!!file || isProcessing}
+              disabled={isProcessing}
             />
+            
             <Button
               onClick={handleSubmit}
               loading={isProcessing}
               leftSection={<IconUpload size={16} />}
-              disabled={(!file && !text) || isProcessing}
+              disabled={(!file && !text.trim()) || isProcessing}
               mt="md"
             >
               {isUploading

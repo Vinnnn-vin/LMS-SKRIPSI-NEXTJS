@@ -23,16 +23,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { revalidatePath } from "next/cache";
 import dayjs from "dayjs";
-import { deleteFromPublic } from "@/lib/uploadHelper"; // Pastikan fungsi ini ada
+import { deleteFromPublic } from "@/lib/uploadHelper";
 
-// ============================================================================
-// HELPER FUNCTIONS
-// ============================================================================
-
-/**
- * Helper function untuk mendapatkan sesi mahasiswa
- * Memastikan user sudah login dan memiliki role 'student'
- */
 async function getStudentSession() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "student") {
@@ -41,15 +33,10 @@ async function getStudentSession() {
   return { userId: parseInt(session.user.id, 10), session };
 }
 
-/**
- * Helper function untuk menghitung total items dan completed items dalam course
- * Digunakan untuk mengecek apakah course sudah selesai 100%
- */
 async function calculateCourseCompletion(
   userId: number,
   courseId: number
 ): Promise<{ totalItems: number; completedCount: number }> {
-  // Hitung total item (details, quizzes, assignments)
   let totalDetailsCount = 0;
   let totalQuizzesCount = 0;
   let totalAssignmentsCount = 0;
@@ -76,8 +63,6 @@ async function calculateCourseCompletion(
   const totalItems =
     totalDetailsCount + totalQuizzesCount + totalAssignmentsCount;
 
-  // Hitung item yang sudah selesai
-  // 1. Details yang completed (tipe 1, 2, 3)
   const completedDetails = await StudentProgress.count({
     where: {
       user_id: userId,
@@ -91,14 +76,12 @@ async function calculateCourseCompletion(
     },
   });
 
-  // 2. Quizzes yang passed
   const completedQuizzes = await StudentQuizAnswer.count({
     where: { user_id: userId, course_id: courseId, status: "passed" },
     distinct: true,
     col: "quiz_id",
   });
 
-  // 3. Assignments yang approved
   const completedAssignments = await AssignmentSubmission.count({
     where: { user_id: userId, course_id: courseId, status: "approved" },
     distinct: true,
@@ -111,16 +94,6 @@ async function calculateCourseCompletion(
   return { totalItems, completedCount };
 }
 
-// ============================================================================
-// DASHBOARD STATS
-// ============================================================================
-
-/**
- * Mengambil statistik ringkas untuk kartu di dashboard mahasiswa
- * - Jumlah kursus aktif
- * - Jumlah kursus selesai
- * - Jumlah sertifikat
- */
 export async function getStudentDashboardStats() {
   try {
     const { userId } = await getStudentSession();
@@ -147,19 +120,10 @@ export async function getStudentDashboardStats() {
   }
 }
 
-// ============================================================================
-// ENROLLED COURSES
-// ============================================================================
-
-/**
- * Mengambil semua kursus yang diikuti mahasiswa beserta progresnya
- * Hanya menampilkan kursus dengan status 'active'
- */
 export async function getMyEnrolledCourses() {
   try {
     const { userId } = await getStudentSession();
 
-    // Ambil semua kursus yang terdaftar dengan status active
     const enrollments = await Enrollment.findAll({
       where: { user_id: userId, status: "active" },
       include: [
@@ -185,7 +149,6 @@ export async function getMyEnrolledCourses() {
 
     const courseIds = enrollments.map((e) => e.course_id);
 
-    // Hitung total materi untuk setiap kursus
     const totalMaterialsResult = await Material.findAll({
       where: { course_id: { [Op.in]: courseIds } },
       include: [
@@ -197,7 +160,6 @@ export async function getMyEnrolledCourses() {
       ],
     });
 
-    // Buat map: { course_id: total_materi }
     const totalMaterialsMap = totalMaterialsResult.reduce(
       (acc, material) => {
         const courseId = material.course_id;
@@ -208,7 +170,6 @@ export async function getMyEnrolledCourses() {
       {} as { [key: number]: number }
     );
 
-    // Hitung progres (materi selesai) untuk setiap kursus
     const progressResult = await StudentProgress.findAll({
       where: {
         user_id: userId,
@@ -234,7 +195,6 @@ export async function getMyEnrolledCourses() {
       {} as { [key: number]: number }
     );
 
-    // Gabungkan data
     const coursesWithProgress = enrollments.map((enrollment) => {
       const course = (enrollment.course as Course).toJSON();
       const total = totalMaterialsMap[course.course_id] || 0;
@@ -255,10 +215,6 @@ export async function getMyEnrolledCourses() {
   }
 }
 
-/**
- * Mengambil kursus yang diikuti dengan progress lengkap
- * Menampilkan kursus aktif dan completed secara terpisah
- */
 export async function getMyEnrolledCoursesWithProgress() {
   try {
     const { userId } = await getStudentSession();
@@ -280,27 +236,24 @@ export async function getMyEnrolledCoursesWithProgress() {
     }
 
     const processedCoursesPromises = enrollments.map(async (enrollment) => {
-      // Buat jadi async map
       const course = (enrollment.course as Course).toJSON();
 
-      // --- PANGGIL HELPER ---
       const { totalItems, completedCount } = await calculateCourseCompletion(
         userId,
         course.course_id
-      ); //
+      );
       const progress =
         totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
-      // --------------------
 
       return {
         ...course,
         enrollment_id: enrollment.enrollment_id,
         status: enrollment.status,
-        progress: progress > 100 ? 100 : progress, // Pastikan tidak > 100
+        progress: progress > 100 ? 100 : progress,
       };
     });
 
-    const processedCourses = await Promise.all(processedCoursesPromises); //
+    const processedCourses = await Promise.all(processedCoursesPromises);
 
     return {
       success: true,
@@ -315,32 +268,23 @@ export async function getMyEnrolledCoursesWithProgress() {
   }
 }
 
-// ============================================================================
-// COURSE LEARNING PAGE
-// ============================================================================
-
-/**
- * Mengambil data lengkap untuk halaman belajar kursus
- * Termasuk: course info, materials, progress, quiz attempts, assignment submissions
- */
-/**
- * Mengambil data lengkap untuk halaman belajar kursus
- * Termasuk: course info, materials, progress, quiz attempts, assignment submissions
- * ✅ FIXED: Duration check dengan auto-reset progress jika expired
- * ✅ FIXED: Return structure untuk accessExpiresAt & enrolledAt
- * ✅ FIXED: Filter quiz attempts untuk remove status "pending"
- */
 export async function getCourseLearningData(courseId: number) {
   try {
     const { userId } = await getStudentSession();
 
-    // Cek apakah user terdaftar
     let enrollment = await Enrollment.findOne({
       where: {
         course_id: courseId,
         user_id: userId,
         status: "active",
       },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_duration"],
+        },
+      ],
     });
 
     if (!enrollment) {
@@ -349,58 +293,15 @@ export async function getCourseLearningData(courseId: number) {
       });
 
       if (completedEnrollment) {
-        enrollment = completedEnrollment; // Izinkan akses untuk review
+        enrollment = completedEnrollment;
       } else {
         throw new Error("Anda tidak terdaftar di kursus ini.");
       }
     }
-
-    // ✅ FIXED: Cek Waktu Akses Habis & Reset Progress
-    if (
+    const isAccessExpired =
       enrollment.access_expires_at &&
-      dayjs().isAfter(dayjs(enrollment.access_expires_at))
-    ) {
-      console.log(`⏰ Access expired for user ${userId}, course ${courseId}. Resetting progress...`);
-      
-      // Reset semua progress
-      await sequelize.transaction(async (t) => {
-        // 1. Hapus student progress
-        await StudentProgress.destroy({
-          where: { user_id: userId, course_id: courseId },
-          transaction: t,
-        });
+      dayjs().isAfter(dayjs(enrollment.access_expires_at));
 
-        // 2. Hapus quiz answers
-        await StudentQuizAnswer.destroy({
-          where: { user_id: userId, course_id: courseId },
-          transaction: t,
-        });
-
-        // 3. Hapus assignment submissions
-        await AssignmentSubmission.destroy({
-          where: { user_id: userId, course_id: courseId },
-          transaction: t,
-        });
-
-        // 4. Hapus certificates jika ada
-        await Certificate.destroy({
-          where: { user_id: userId, course_id: courseId },
-          transaction: t,
-        });
-
-        // 5. Update enrollment status ke expired/inactive
-        await enrollment!.update(
-          { status: "expired" }, // Atau bisa gunakan status khusus
-          { transaction: t }
-        );
-      });
-
-      console.log(`✅ Progress reset completed for user ${userId}, course ${courseId}`);
-      
-      throw new Error("Akses Anda ke kursus ini telah berakhir.");
-    }
-
-    // 1. Ambil data kursus, bab, konten, dan quiz
     const course = await Course.findByPk(courseId, {
       include: [
         {
@@ -443,7 +344,6 @@ export async function getCourseLearningData(courseId: number) {
 
     if (!course) throw new Error("Kursus tidak ditemukan.");
 
-    // 2. Ambil progres materi
     const progressDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
       attributes: ["material_detail_id"],
@@ -453,7 +353,6 @@ export async function getCourseLearningData(courseId: number) {
       progressDetails.map((p) => p.material_detail_id)
     );
 
-    // 3. Ambil progres kuis (HANYA passed)
     const passedQuizzes = await StudentQuizAnswer.findAll({
       where: {
         user_id: userId,
@@ -467,7 +366,6 @@ export async function getCourseLearningData(courseId: number) {
     });
     const completedQuizSet = new Set(passedQuizzes.map((q: any) => q.quiz_id));
 
-    // 4. Ambil SEMUA submission assignments (untuk history)
     const allAssignmentSubmissions = await AssignmentSubmission.findAll({
       where: {
         user_id: userId,
@@ -483,12 +381,15 @@ export async function getCourseLearningData(courseId: number) {
         {
           model: MaterialDetail,
           as: "assignment",
-          attributes: ["passing_score"],
+          attributes: [
+            "material_detail_id",
+            "material_detail_name",
+            "passing_score",
+          ],
         },
       ],
     });
 
-    // Proses untuk mendapatkan latest submission & approved assignments
     const latestSubmissionsMap = new Map<number, any>();
     const approvedAssignmentSet = new Set<number>();
     const submissionHistoryMap = new Map<number, any[]>();
@@ -496,17 +397,14 @@ export async function getCourseLearningData(courseId: number) {
     allAssignmentSubmissions.forEach((sub) => {
       const detailId = sub.material_detail_id;
 
-      // Latest submission per assignment
       if (!latestSubmissionsMap.has(detailId)) {
         latestSubmissionsMap.set(detailId, sub.toJSON());
       }
 
-      // Track approved assignments
       if (sub.status === "approved") {
         approvedAssignmentSet.add(detailId);
       }
 
-      // Build history map
       if (!submissionHistoryMap.has(detailId)) {
         submissionHistoryMap.set(detailId, []);
       }
@@ -515,25 +413,22 @@ export async function getCourseLearningData(courseId: number) {
 
     const initialSubmissionData = Array.from(latestSubmissionsMap.values());
 
-    // Convert history map to object for JSON serialization
     const submissionHistoryObj: Record<number, any[]> = {};
     submissionHistoryMap.forEach((history, detailId) => {
       submissionHistoryObj[detailId] = history;
     });
 
-    // 5. ✅ FIXED: Ambil semua attempt kuis DAN filter yang pending
     const allQuizAttempts = await StudentQuizAnswer.findAll({
-      where: { 
-        user_id: userId, 
+      where: {
+        user_id: userId,
         course_id: courseId,
-        status: { [Op.in]: ["passed", "failed"] } // ✅ ONLY get completed attempts
+        status: { [Op.in]: ["passed", "failed"] },
       },
       order: [["attempt_session", "DESC"]],
     });
 
     const initialQuizAttempts = allQuizAttempts.map((a) => a.toJSON());
 
-    // 6. Hitung Total Item dan Progress
     let totalDetailsCount = 0;
     let totalQuizzesCount = 0;
     let totalAssignmentsCount = 0;
@@ -558,7 +453,6 @@ export async function getCourseLearningData(courseId: number) {
     const totalProgress =
       totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
 
-    // 7. ✅ FIXED: Return struktur data dengan accessExpiresAt & enrolledAt di root level
     return {
       success: true,
       data: {
@@ -571,10 +465,13 @@ export async function getCourseLearningData(courseId: number) {
         enrollment_id: enrollment.enrollment_id,
         totalProgress: totalProgress > 100 ? 100 : totalProgress,
         initialSubmissionData: initialSubmissionData,
-        initialQuizAttempts: initialQuizAttempts, // ✅ Already filtered
+        initialQuizAttempts: initialQuizAttempts,
         submissionHistoryMap: submissionHistoryObj,
-        accessExpiresAt: enrollment.access_expires_at, // ✅ ROOT LEVEL
-        enrolledAt: enrollment.enrolled_at, // ✅ ROOT LEVEL
+        accessExpiresAt: enrollment.access_expires_at,
+        enrolledAt: enrollment.enrolled_at,
+        learningStartedAt: enrollment.learning_started_at,
+        courseDuration: (course as any).course_duration || 0,
+        isAccessExpired: isAccessExpired,
       },
     };
   } catch (error: any) {
@@ -582,14 +479,7 @@ export async function getCourseLearningData(courseId: number) {
     return { success: false, error: error.message };
   }
 }
-// ============================================================================
-// MARK MATERIAL AS COMPLETE
-// ============================================================================
 
-/**
- * Menandai materi sebagai selesai (hanya untuk tipe 1, 2, 3)
- * Tipe 4 (assignment) dan quiz memiliki alur sendiri
- */
 export async function markMaterialAsComplete(
   materialDetailId: number,
   courseId: number,
@@ -598,7 +488,6 @@ export async function markMaterialAsComplete(
   try {
     const { userId } = await getStudentSession();
 
-    // 1. Validasi: Pastikan materialDetailId adalah tipe 1, 2, atau 3
     const materialDetail = await MaterialDetail.findByPk(materialDetailId, {
       attributes: ["material_detail_type"],
     });
@@ -613,7 +502,6 @@ export async function markMaterialAsComplete(
       };
     }
 
-    // 2. Catat progres (findOrCreate untuk menghindari duplikat)
     const [progress, created] = await StudentProgress.findOrCreate({
       where: {
         user_id: userId,
@@ -629,7 +517,6 @@ export async function markMaterialAsComplete(
       },
     });
 
-    // Jika sudah ada tapi belum complete, update
     if (!created && !progress.is_completed) {
       await progress.update({
         is_completed: true,
@@ -637,7 +524,6 @@ export async function markMaterialAsComplete(
       });
     }
 
-    // 3. Cek apakah kursus selesai
     const { totalItems, completedCount } = await calculateCourseCompletion(
       userId,
       courseId
@@ -647,9 +533,7 @@ export async function markMaterialAsComplete(
     if (totalItems > 0 && completedCount >= totalItems) {
       const enrollment = await Enrollment.findByPk(enrollmentId);
 
-      // Hanya update jika statusnya masih 'active'
       if (enrollment && enrollment.status === "active") {
-        // Cek apakah sertifikat sudah ada
         const existingCert = await Certificate.findOne({
           where: { user_id: userId, course_id: courseId },
         });
@@ -672,7 +556,6 @@ export async function markMaterialAsComplete(
 
           certificateGranted = true;
         } else {
-          // Jika sertifikat sudah ada tapi status enrollment belum completed
           await enrollment.update({
             status: "completed",
             completed_at: new Date(),
@@ -692,18 +575,11 @@ export async function markMaterialAsComplete(
   }
 }
 
-// ============================================================================
-// QUIZ SUBMISSION
-// ============================================================================
-
-/**
- * Submit jawaban quiz dan hitung skornya
- */
 export async function submitQuizAttempt(payload: {
   quizId: number;
   courseId: number;
   enrollmentId: number;
-  answers: Record<number, number | number[]>; // Terima format ini dari player baru
+  answers: Record<number, number | number[]>;
   timeTaken: number;
   attemptSession: number;
 }) {
@@ -717,7 +593,7 @@ export async function submitQuizAttempt(payload: {
       timeTaken,
       attemptSession,
     } = payload;
-    console.log("🔵 [SERVER ACTION] submitQuizAttempt called"); // Log awal
+    console.log("🔵 [SERVER ACTION] submitQuizAttempt called");
     console.log("📊 Payload:", {
       quizId,
       courseId,
@@ -727,9 +603,8 @@ export async function submitQuizAttempt(payload: {
     });
     console.log("📊 Answers:", answers);
 
-    // 1. Ambil data Quiz (termasuk max_attempts)
     const quiz = await Quiz.findByPk(quizId, {
-      attributes: ["quiz_id", "quiz_title", "max_attempts", "passing_score"], // Ambil atribut yg relevan
+      attributes: ["quiz_id", "quiz_title", "max_attempts", "passing_score"],
       include: [
         {
           model: QuizQuestion,
@@ -745,15 +620,13 @@ export async function submitQuizAttempt(payload: {
     const maxAttempts = quiz.max_attempts || 1;
     console.log(`📊 Max attempts: ${maxAttempts}`);
 
-    // --- PENGECEKAN LEBIH AWAL ---
-    // Cek apakah attempt session INI sudah ada di DB
     const existingRecordForSession = await StudentQuizAnswer.findOne({
       where: {
         user_id: userId,
         quiz_id: quizId,
-        attempt_session: attemptSession, // Cek session spesifik ini
+        attempt_session: attemptSession,
       },
-      attributes: ["answer_id"], // Hanya perlu cek keberadaan
+      attributes: ["answer_id"],
     });
 
     if (existingRecordForSession) {
@@ -766,41 +639,20 @@ export async function submitQuizAttempt(payload: {
       };
     }
     console.log(`✅ Attempt session ${attemptSession} is new.`);
-    // --- AKHIR PENGECEKAN AWAL ---
 
-    // (Pengecekan jumlah attempt sebelumnya bisa dihapus dari sini jika pengecekan di atas sudah cukup,
-    //  atau dipertahankan sebagai sanity check tambahan sebelum menyimpan)
-    /*
-        const previousAttemptsCount = await StudentQuizAnswer.count({
-             where: { user_id: userId, quiz_id: quizId },
-             distinct: true,
-             col: 'attempt_session'
-        });
-        console.log(`📊 Previous attempts count: ${previousAttemptsCount}`);
-        console.log(`📊 Current attempt session being submitted: ${attemptSession}`);
-        console.log(`📊 Max attempts allowed: ${maxAttempts}`);
-
-        // PENTING: Cek apakah attemptSession yg *akan dimasukkan* valid
-        if (attemptSession > maxAttempts) {
-             console.warn(`⚠️ Attempt session ${attemptSession} exceeds max attempts ${maxAttempts}.`);
-             return { success: false, error: `Batas maksimal ${maxAttempts} percobaan telah terlampaui.` };
-        }
-        */
-
-    // 2. Hitung Skor (Logika tetap sama)
     let correctAnswers = 0;
     const totalQuestions = quiz.questions.length;
     const answerRecords = [];
 
     for (const question of quiz.questions) {
-      const studentAnswerRaw = answers[question.question_id]; // Bisa number, array, atau undefined
+      const studentAnswerRaw = answers[question.question_id];
       const correctOptions =
         question.options
           ?.filter((opt) => opt.is_correct)
           .map((opt) => opt.option_id) || [];
       let isQuestionCorrect = false;
       let selectedOptionId: number | null = null;
-      let answerText: string | null = null; // Untuk array checkbox
+      let answerText: string | null = null;
 
       if (
         question.question_type === "multiple_choice" &&
@@ -813,8 +665,7 @@ export async function submitQuizAttempt(payload: {
         question.question_type === "checkbox" &&
         Array.isArray(studentAnswerRaw)
       ) {
-        // Konversi array number ke array string ID untuk disimpan
-        answerText = JSON.stringify(studentAnswerRaw.sort()); // Simpan sebagai JSON
+        answerText = JSON.stringify(studentAnswerRaw.sort());
         const studentAnswerSet = new Set(studentAnswerRaw);
         const correctOptionsSet = new Set(correctOptions);
         isQuestionCorrect =
@@ -830,7 +681,7 @@ export async function submitQuizAttempt(payload: {
         course_id: courseId,
         question_id: question.question_id,
         selected_option_id: selectedOptionId,
-        answer_text: answerText, // Simpan JSON array checkbox
+        answer_text: answerText,
         is_correct: isQuestionCorrect,
         attempt_session: attemptSession,
         answered_at: new Date(),
@@ -844,7 +695,6 @@ export async function submitQuizAttempt(payload: {
     const status = score >= (quiz.passing_score ?? 0) ? "passed" : "failed";
     console.log(`📊 Calculated score: ${score}, status: ${status}`);
 
-    // 3. Simpan Jawaban (Transaksi tetap bagus)
     console.log(
       `💾 Saving ${answerRecords.length} answer records for session ${attemptSession}...`
     );
@@ -852,16 +702,15 @@ export async function submitQuizAttempt(payload: {
       await StudentQuizAnswer.bulkCreate(
         answerRecords.map((rec) => ({
           ...rec,
-          score: score, // Simpan skor akhir di setiap record
-          status: status, // Simpan status akhir
-          completed_at: new Date(), // Waktu selesai quiz
+          score: score,
+          status: status,
+          completed_at: new Date(),
         })),
         { transaction: t }
       );
     });
     console.log(`✅ Answers saved successfully.`);
 
-    // 4. Cek Kelulusan Kursus (Logika tetap sama)
     const { totalItems, completedCount } = await calculateCourseCompletion(
       userId,
       courseId
@@ -869,10 +718,8 @@ export async function submitQuizAttempt(payload: {
     let certificateGranted = false;
     console.log(`📊 Course completion check: ${completedCount}/${totalItems}`);
     if (status === "passed" && totalItems > 0 && completedCount >= totalItems) {
-      // ... (logika buat sertifikat dan update enrollment) ...
       console.log("🎉 Course completed! Checking/Granting certificate...");
-      // ...
-      certificateGranted = true; // Set flag jika sertifikat dibuat
+      certificateGranted = true;
     }
 
     revalidatePath(`/student/courses/${courseId}/learn`);
@@ -886,10 +733,6 @@ export async function submitQuizAttempt(payload: {
   }
 }
 
-/**
- * Mengambil detail jawaban dari attempt quiz tertentu
- * Untuk keperluan review jawaban
- */
 export async function getQuizAttemptDetails(
   quizId: number,
   attemptSession: number
@@ -897,7 +740,6 @@ export async function getQuizAttemptDetails(
   try {
     const { userId } = await getStudentSession();
 
-    // Ambil semua jawaban untuk attempt ini
     const answers = await StudentQuizAnswer.findAll({
       where: {
         user_id: userId,
@@ -926,17 +768,14 @@ export async function getQuizAttemptDetails(
       };
     }
 
-    // Convert ke format yang mudah digunakan
     const studentAnswers: Record<number, number | number[]> = {};
-    
+
     answers.forEach((answer) => {
       const questionId = answer.question_id;
-      
+
       if (answer.selected_option_id !== null) {
-        // Multiple choice
         studentAnswers[questionId] = answer.selected_option_id;
       } else if (answer.answer_text) {
-        // Checkbox - parse JSON array
         try {
           studentAnswers[questionId] = JSON.parse(answer.answer_text);
         } catch {
@@ -960,28 +799,23 @@ export async function getQuizAttemptDetails(
   }
 }
 
-// ============================================================================
-// ASSIGNMENT SUBMISSION
-// ============================================================================
-
-/**
- * Submit atau update assignment submission
- */
 export async function createOrUpdateAssignmentSubmission(formData: FormData) {
   try {
     const { userId } = await getStudentSession();
 
-    // Baca data dari FormData
     const materialDetailId = parseInt(
       formData.get("materialDetailId") as string,
       10
     );
     const courseId = parseInt(formData.get("courseId") as string, 10);
     const enrollmentId = parseInt(formData.get("enrollmentId") as string, 10);
+
     const submission_type = formData.get("submission_type") as
       | "file"
       | "text"
+      | "both"
       | "url";
+
     const file_path = formData.get("file_path") as string | null;
     const submission_text = formData.get("submission_text") as string | null;
 
@@ -989,18 +823,43 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       return { success: false, error: "Data ID tidak valid." };
     }
 
-    if (
-      !submission_type ||
-      (submission_type === "file" && !file_path) ||
-      (submission_type === "text" && !submission_text)
-    ) {
+    if (!submission_type) {
       return {
         success: false,
-        error: "Konten submission (file atau teks) wajib diisi.",
+        error: "Tipe submission wajib diisi.",
       };
     }
 
-    // Cari submission yang ada
+    if (submission_type === "file" && !file_path) {
+      return {
+        success: false,
+        error: "File wajib diupload untuk tipe submission 'file'.",
+      };
+    }
+
+    if (submission_type === "text" && !submission_text?.trim()) {
+      return {
+        success: false,
+        error: "Teks jawaban wajib diisi untuk tipe submission 'text'.",
+      };
+    }
+
+    if (submission_type === "both") {
+      if (!file_path || !submission_text?.trim()) {
+        return {
+          success: false,
+          error: "File dan teks wajib diisi untuk tipe submission 'both'.",
+        };
+      }
+    }
+
+    if (!file_path && !submission_text?.trim()) {
+      return {
+        success: false,
+        error: "Minimal file atau teks jawaban harus diisi.",
+      };
+    }
+
     const existingSubmission = await AssignmentSubmission.findOne({
       where: { user_id: userId, material_detail_id: materialDetailId },
     });
@@ -1011,9 +870,15 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       course_id: courseId,
       enrollment_id: enrollmentId,
       submission_type: submission_type,
-      file_path: submission_type === "file" ? file_path : null,
+      file_path:
+        submission_type === "file" || submission_type === "both"
+          ? file_path
+          : null,
       submission_url: null,
-      submission_text: submission_type === "text" ? submission_text : null,
+      submission_text:
+        submission_type === "text" || submission_type === "both"
+          ? submission_text?.trim()
+          : null,
       submitted_at: new Date(),
       status: "submitted" as const,
       score: null,
@@ -1023,7 +888,6 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
     };
 
     if (existingSubmission) {
-      // Cek apakah sudah dinilai lulus
       if (existingSubmission.status === "approved") {
         return {
           success: false,
@@ -1031,31 +895,32 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
         };
       }
 
-      // Hapus file lama jika ada dan diganti
-      if (
-        existingSubmission.submission_type === "file" &&
-        existingSubmission.file_path &&
-        submission_type === "file" &&
-        file_path !== existingSubmission.file_path
-      ) {
-        await deleteFromPublic(existingSubmission.file_path);
+      const oldHasFile =
+        existingSubmission.submission_type === "file" ||
+        existingSubmission.submission_type === "both";
+
+      const newHasFile =
+        submission_type === "file" || submission_type === "both";
+
+      if (oldHasFile && existingSubmission.file_path) {
+        const shouldDeleteFile =
+          (newHasFile && file_path !== existingSubmission.file_path) ||
+          !newHasFile;
+
+        if (shouldDeleteFile) {
+          try {
+            await deleteFromPublic(existingSubmission.file_path);
+            console.log("✅ Old file deleted:", existingSubmission.file_path);
+          } catch (deleteError) {
+            console.error("⚠️ Failed to delete old file:", deleteError);
+          }
+        }
       }
 
-      // Jika tipe berubah dari file ke text, hapus file lama
-      if (
-        existingSubmission.submission_type === "file" &&
-        existingSubmission.file_path &&
-        submission_type === "text"
-      ) {
-        await deleteFromPublic(existingSubmission.file_path);
-      }
-
-      // Update submission yang ada
       await existingSubmission.update(submissionData);
       revalidatePath(`/student/courses/${courseId}/learn`);
       return { success: true, message: "Tugas berhasil dikumpulkan ulang." };
     } else {
-      // Buat submission baru
       await AssignmentSubmission.create(submissionData);
       revalidatePath(`/student/courses/${courseId}/learn`);
       return { success: true, message: "Tugas berhasil dikumpulkan." };
@@ -1069,13 +934,6 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
   }
 }
 
-// ============================================================================
-// CERTIFICATES
-// ============================================================================
-
-/**
- * Mengambil semua sertifikat yang dimiliki mahasiswa
- */
 export async function getMyCertificates() {
   try {
     const { userId } = await getStudentSession();
@@ -1096,5 +954,89 @@ export async function getMyCertificates() {
   } catch (error: any) {
     console.error("[GET_MY_CERTIFICATES_ERROR]", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function resetCourseProgressAndExtendAccess(
+  courseId: number,
+  enrollmentId: number
+) {
+  try {
+    const { userId } = await getStudentSession();
+
+    const enrollment = await Enrollment.findOne({
+      where: {
+        enrollment_id: enrollmentId,
+        user_id: userId,
+        course_id: courseId,
+      },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_duration"],
+        },
+      ],
+    });
+
+    if (!enrollment) {
+      throw new Error("Enrollment tidak ditemukan.");
+    }
+
+    const course = enrollment.course as any;
+    const courseDuration = course?.course_duration || 0;
+
+    await sequelize.transaction(async (t) => {
+      await StudentProgress.destroy({
+        where: { user_id: userId, course_id: courseId },
+        transaction: t,
+      });
+
+      await StudentQuizAnswer.destroy({
+        where: { user_id: userId, course_id: courseId },
+        transaction: t,
+      });
+
+      await AssignmentSubmission.destroy({
+        where: { user_id: userId, course_id: courseId },
+        transaction: t,
+      });
+
+      await Certificate.destroy({
+        where: { user_id: userId, course_id: courseId },
+        transaction: t,
+      });
+
+      const updateData: any = {
+        status: "active",
+        completed_at: null,
+        learning_started_at: new Date(),
+      };
+
+      if (courseDuration > 0) {
+        updateData.access_expires_at = dayjs()
+          .add(courseDuration, "hour")
+          .toDate();
+      } else {
+        updateData.access_expires_at = null;
+      }
+
+      await enrollment.update(updateData, { transaction: t });
+    });
+
+    console.log(
+      `✅ Progress reset & access extended for user ${userId}, course ${courseId}`
+    );
+
+    return {
+      success: true,
+      message: "Progress direset. Anda dapat memulai pembelajaran kembali!",
+    };
+  } catch (error: any) {
+    console.error("[RESET_PROGRESS_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal mereset progress.",
+    };
   }
 }

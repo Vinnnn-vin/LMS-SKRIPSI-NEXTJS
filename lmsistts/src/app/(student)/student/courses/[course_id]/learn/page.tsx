@@ -1,4 +1,4 @@
-// lmsistts\src\app\(student)\student\courses\[course_id]\learn\page.tsx
+// UPDATE learn/page.tsx
 
 import {
   Container,
@@ -20,7 +20,6 @@ import Link from "next/link";
 import {
   IconAlertCircle,
   IconArrowLeft,
-  IconClockCancel,
 } from "@tabler/icons-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -36,6 +35,9 @@ export default async function LearnCoursePage({
   const result = await getCourseLearningData(courseId);
 
   if (!result.success) {
+    // ✅ HAPUS ATAU KOMENTAR BLOCK EXPIRED INI
+    // Karena sekarang handling expired ada di client side (GlobalTimer)
+    /*
     if (result.error === "Akses Anda ke kursus ini telah berakhir.") {
       return (
         <Container size="sm" py={100}>
@@ -69,6 +71,7 @@ export default async function LearnCoursePage({
         </Container>
       );
     }
+    */
 
     if (result.error?.includes("Anda tidak terdaftar")) {
       return (
@@ -123,8 +126,11 @@ export default async function LearnCoursePage({
     totalProgress,
     initialSubmissionData,
     initialQuizAttempts,
-    accessExpiresAt, // Direct destructure
-    enrolledAt, // Direct destructure
+    accessExpiresAt,
+    enrolledAt,
+    learningStartedAt, // ✅ Tambahkan
+    courseDuration, // ✅ Tambahkan
+    isAccessExpired, // ✅ Tambahkan
     submissionHistoryMap,
   } = result.data;
 
@@ -165,6 +171,9 @@ export default async function LearnCoursePage({
         initialQuizAttempts={validQuizAttempts}
         accessExpiresAt={accessExpiresAt}
         enrolledAt={enrolledAt}
+        learningStartedAt={learningStartedAt} // ✅ Pass ke client
+        courseDuration={courseDuration} // ✅ Pass ke client
+        isAccessExpired={isAccessExpired} // ✅ Pass ke client
         submissionHistoryMap={submissionHistoryMap || {}}
       />
     </Suspense>

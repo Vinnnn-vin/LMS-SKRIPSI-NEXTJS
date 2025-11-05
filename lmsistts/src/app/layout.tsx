@@ -1,4 +1,4 @@
-// lmsistts\src\app\layout.tsx
+// lmsistts/src/app/layout.tsx
 import type { Metadata } from "next";
 import { MantineProvider, ColorSchemeScript } from "@mantine/core";
 import "@mantine/core/styles.css";
@@ -10,6 +10,9 @@ import { Footer } from "@/components/layout/Footer";
 export const metadata: Metadata = {
   title: "LMS",
   description: "Learning Management System",
+  icons: {
+    icon: "/icon.png", // atau "/favicon.ico" kalau nanti kamu punya file valid
+  },
 };
 
 export default function RootLayout({

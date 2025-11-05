@@ -2,8 +2,39 @@
 "use client";
 
 import React, { useState } from "react";
-import { Stack, Title, Group, Badge, Paper, Card, List, ThemeIcon, Alert, Button, Text, Box, Progress, Timeline, Divider, RingProgress, Center } from "@mantine/core";
-import { IconTrophy, IconInfoCircle, IconCheck, IconAlertCircle, IconX, IconPlayerPlay, IconRefresh, IconClock, IconTarget, IconChartBar, IconEye } from "@tabler/icons-react";
+import {
+  Stack,
+  Title,
+  Group,
+  Badge,
+  Paper,
+  Card,
+  List,
+  ThemeIcon,
+  Alert,
+  Button,
+  Text,
+  Box,
+  Progress,
+  Timeline,
+  Divider,
+  RingProgress,
+  Center,
+  TimelineItem,
+} from "@mantine/core";
+import {
+  IconTrophy,
+  IconInfoCircle,
+  IconCheck,
+  IconAlertCircle,
+  IconX,
+  IconPlayerPlay,
+  IconRefresh,
+  IconClock,
+  IconTarget,
+  IconChartBar,
+  IconEye,
+} from "@tabler/icons-react";
 import { CountdownTimer } from "@/components/student/CountdownTimer";
 import { ActiveQuizPlayer } from "@/components/student/ActiveQuizPlayer";
 import { QuizReviewModal } from "@/components/student/QuizReviewModal";
@@ -43,7 +74,9 @@ export function QuizContent({
   } | null>(null);
 
   const maxAttempts = quiz.max_attempts || 1;
-  const uniqueAttempts = new Set(currentQuizAttempts.map((a: any) => a.attempt_session));
+  const uniqueAttempts = new Set(
+    currentQuizAttempts.map((a: any) => a.attempt_session)
+  );
   const attemptsMade = uniqueAttempts.size;
   const isPassed = completedQuizzes.has(quiz.quiz_id);
   const canRetry = attemptsMade < maxAttempts && !isPassed;
@@ -52,9 +85,10 @@ export function QuizContent({
   // Handle review button click
   const handleReviewAttempt = async (attempt: any) => {
     try {
-      // Import the server action at the top of the file
-      const { getQuizAttemptDetails } = await import("@/app/actions/student.actions");
-      
+      const { getQuizAttemptDetails } = await import(
+        "@/app/actions/student.actions"
+      );
+
       const result = await getQuizAttemptDetails(
         quiz.quiz_id,
         attempt.attempt_session
@@ -86,7 +120,12 @@ export function QuizContent({
     return (
       <Stack gap="lg">
         {accessExpiresAt && (
-          <CountdownTimer expiresAt={accessExpiresAt} type="course" showProgress={false} startedAt={enrolledAt} />
+          <CountdownTimer
+            expiresAt={accessExpiresAt}
+            type="course"
+            showProgress={false}
+            startedAt={enrolledAt}
+          />
         )}
         <ActiveQuizPlayer
           quizData={quiz}
@@ -104,13 +143,20 @@ export function QuizContent({
     <Stack gap="lg">
       {/* Countdown Timer */}
       {accessExpiresAt && (
-        <CountdownTimer expiresAt={accessExpiresAt} type="course" showProgress={true} startedAt={enrolledAt} />
+        <CountdownTimer
+          expiresAt={accessExpiresAt}
+          type="course"
+          showProgress={true}
+          startedAt={enrolledAt}
+        />
       )}
 
       {/* Title & Status Badge */}
       <Group justify="space-between" align="flex-start">
         <Box>
-          <Title order={3} mb="xs">{quiz.quiz_title}</Title>
+          <Title order={3} mb="xs">
+            {quiz.quiz_title}
+          </Title>
           {quiz.quiz_description && (
             <Text size="sm" c="dimmed" lineClamp={2}>
               {quiz.quiz_description}
@@ -118,12 +164,12 @@ export function QuizContent({
           )}
         </Box>
         {isPassed && (
-          <Badge 
-            color="green" 
-            size="xl" 
+          <Badge
+            color="green"
+            size="xl"
             leftSection={<IconTrophy size={18} />}
             variant="gradient"
-            gradient={{ from: 'teal', to: 'green', deg: 45 }}
+            gradient={{ from: "teal", to: "green", deg: 45 }}
           >
             LULUS
           </Badge>
@@ -137,9 +183,10 @@ export function QuizContent({
           padding="xl"
           radius="md"
           style={{
-            background: latestQuizAttempt.status === "passed" 
-              ? "linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)"
-              : "linear-gradient(135deg, #ffebee 0%, #fce4ec 100%)",
+            background:
+              latestQuizAttempt.status === "passed"
+                ? "linear-gradient(135deg, #e8f5e9 0%, #f1f8e9 100%)"
+                : "linear-gradient(135deg, #ffebee 0%, #fce4ec 100%)",
           }}
         >
           <Stack gap="md">
@@ -149,7 +196,9 @@ export function QuizContent({
                 <ThemeIcon
                   size={60}
                   radius="xl"
-                  color={latestQuizAttempt.status === "passed" ? "green" : "red"}
+                  color={
+                    latestQuizAttempt.status === "passed" ? "green" : "red"
+                  }
                   variant="light"
                 >
                   {latestQuizAttempt.status === "passed" ? (
@@ -160,10 +209,13 @@ export function QuizContent({
                 </ThemeIcon>
                 <Box>
                   <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
-                    Hasil Percobaan Terakhir (Percobaan ke-{latestQuizAttempt.attempt_session})
+                    Hasil Percobaan Terakhir (Percobaan ke-
+                    {latestQuizAttempt.attempt_session})
                   </Text>
                   <Title order={4} mt={4}>
-                    {latestQuizAttempt.status === "passed" ? "Quiz Lulus!" : "Belum Lulus"}
+                    {latestQuizAttempt.status === "passed"
+                      ? "Quiz Lulus!"
+                      : "Belum Lulus"}
                   </Title>
                 </Box>
               </Group>
@@ -173,10 +225,11 @@ export function QuizContent({
                 size={100}
                 thickness={10}
                 sections={[
-                  { 
-                    value: latestQuizAttempt.score, 
-                    color: latestQuizAttempt.status === "passed" ? "green" : "red" 
-                  }
+                  {
+                    value: latestQuizAttempt.score,
+                    color:
+                      latestQuizAttempt.status === "passed" ? "green" : "red",
+                  },
                 ]}
                 label={
                   <Center>
@@ -184,7 +237,9 @@ export function QuizContent({
                       <Text size="xl" fw={700}>
                         {latestQuizAttempt.score}%
                       </Text>
-                      <Text size="xs" c="dimmed">Skor</Text>
+                      <Text size="xs" c="dimmed">
+                        Skor
+                      </Text>
                     </Stack>
                   </Center>
                 }
@@ -201,8 +256,12 @@ export function QuizContent({
                     <IconTarget size={14} />
                   </ThemeIcon>
                   <Box>
-                    <Text size="xs" c="dimmed">Skor Anda</Text>
-                    <Text size="lg" fw={700}>{latestQuizAttempt.score}%</Text>
+                    <Text size="xs" c="dimmed">
+                      Skor Anda
+                    </Text>
+                    <Text size="lg" fw={700}>
+                      {latestQuizAttempt.score}%
+                    </Text>
                   </Box>
                 </Group>
               </Paper>
@@ -213,8 +272,12 @@ export function QuizContent({
                     <IconChartBar size={14} />
                   </ThemeIcon>
                   <Box>
-                    <Text size="xs" c="dimmed">Minimum</Text>
-                    <Text size="lg" fw={700}>{quiz.passing_score}%</Text>
+                    <Text size="xs" c="dimmed">
+                      Minimum
+                    </Text>
+                    <Text size="lg" fw={700}>
+                      {quiz.passing_score}%
+                    </Text>
                   </Box>
                 </Group>
               </Paper>
@@ -225,9 +288,13 @@ export function QuizContent({
                     <IconClock size={14} />
                   </ThemeIcon>
                   <Box>
-                    <Text size="xs" c="dimmed">Selesai</Text>
+                    <Text size="xs" c="dimmed">
+                      Selesai
+                    </Text>
                     <Text size="sm" fw={500}>
-                      {new Date(latestQuizAttempt.completed_at).toLocaleDateString("id-ID")}
+                      {new Date(
+                        latestQuizAttempt.completed_at
+                      ).toLocaleDateString("id-ID")}
                     </Text>
                   </Box>
                 </Group>
@@ -238,16 +305,24 @@ export function QuizContent({
             <Alert
               color={latestQuizAttempt.status === "passed" ? "green" : "red"}
               variant="light"
-              icon={latestQuizAttempt.status === "passed" ? <IconCheck /> : <IconAlertCircle />}
+              icon={
+                latestQuizAttempt.status === "passed" ? (
+                  <IconCheck />
+                ) : (
+                  <IconAlertCircle />
+                )
+              }
             >
               {latestQuizAttempt.status === "passed" ? (
                 <Text size="sm" fw={500}>
-                  ✓ Selamat! Anda telah lulus quiz ini dengan skor {latestQuizAttempt.score}%
+                  ✓ Selamat! Anda telah lulus quiz ini dengan skor{" "}
+                  {latestQuizAttempt.score}%
                 </Text>
               ) : (
                 <Text size="sm" fw={500}>
-                  ✗ Skor belum mencapai nilai minimum ({quiz.passing_score}%). 
-                  {canRetry && ` Anda masih memiliki ${attemptsRemaining} kesempatan lagi.`}
+                  ✗ Skor belum mencapai nilai minimum ({quiz.passing_score}%).
+                  {canRetry &&
+                    ` Anda masih memiliki ${attemptsRemaining} kesempatan lagi.`}
                 </Text>
               )}
             </Alert>
@@ -270,8 +345,8 @@ export function QuizContent({
       <Card withBorder padding="lg" radius="md" shadow="sm">
         <Group justify="space-between" mb="md">
           <Title order={5}>Peraturan Quiz</Title>
-          <Badge 
-            size="lg" 
+          <Badge
+            size="lg"
             color={attemptsRemaining > 0 ? "blue" : "orange"}
             variant="light"
             leftSection={<IconInfoCircle size={14} />}
@@ -298,19 +373,25 @@ export function QuizContent({
           <List.Item>
             <Group gap="xs">
               <Text>Skor Kelulusan Minimum:</Text>
-              <Badge color="green" variant="light">{quiz.passing_score}%</Badge>
+              <Badge color="green" variant="light">
+                {quiz.passing_score}%
+              </Badge>
             </Group>
           </List.Item>
           <List.Item>
             <Group gap="xs">
               <Text>Batas Waktu Pengerjaan:</Text>
-              <Badge color="orange" variant="light">{quiz.time_limit} Menit</Badge>
+              <Badge color="orange" variant="light">
+                {quiz.time_limit} Menit
+              </Badge>
             </Group>
           </List.Item>
           <List.Item>
             <Group gap="xs">
               <Text>Maksimal Percobaan:</Text>
-              <Badge color="grape" variant="light">{maxAttempts} kali</Badge>
+              <Badge color="grape" variant="light">
+                {maxAttempts} kali
+              </Badge>
             </Group>
           </List.Item>
         </List>
@@ -325,20 +406,31 @@ export function QuizContent({
               {attemptsMade} dari {maxAttempts} percobaan
             </Badge>
           </Group>
-          
-          <Progress 
-            value={(attemptsMade / maxAttempts) * 100} 
-            size="sm" 
-            radius="xl" 
+
+          <Progress
+            value={(attemptsMade / maxAttempts) * 100}
+            size="sm"
+            radius="xl"
             mb="lg"
             color={attemptsMade >= maxAttempts ? "red" : "blue"}
           />
 
-          <Timeline active={currentQuizAttempts.length} bulletSize={24} lineWidth={2}>
+          <Timeline
+            active={currentQuizAttempts.length}
+            bulletSize={24}
+            lineWidth={2}
+          >
             {[...currentQuizAttempts]
+              .filter(
+                (attempt: any, index: number, self: any[]) =>
+                  index ===
+                  self.findIndex(
+                    (a: any) => a.attempt_session === attempt.attempt_session
+                  )
+              )
               .sort((a: any, b: any) => b.attempt_session - a.attempt_session)
               .map((attempt: any, index: number) => (
-                <Timeline.Item
+                <TimelineItem
                   key={`${attempt.quiz_id}-${attempt.attempt_session}-${index}`}
                   bullet={
                     attempt.status === "passed" ? (
@@ -349,16 +441,22 @@ export function QuizContent({
                   }
                   title={
                     <Group gap="sm">
-                      <Text fw={500}>Percobaan ke-{attempt.attempt_session}</Text>
-                      <Badge 
-                        color={attempt.status === "passed" ? "green" : "red"} 
+                      <Text fw={500}>
+                        Percobaan ke-{attempt.attempt_session}
+                      </Text>
+                      <Badge
+                        color={attempt.status === "passed" ? "green" : "red"}
                         variant="filled"
                         size="lg"
                       >
                         {attempt.score}%
                       </Badge>
                       {attempt.status === "passed" && (
-                        <Badge color="green" variant="light" leftSection={<IconTrophy size={12} />}>
+                        <Badge
+                          color="green"
+                          variant="light"
+                          leftSection={<IconTrophy size={12} />}
+                        >
                           LULUS
                         </Badge>
                       )}
@@ -368,17 +466,25 @@ export function QuizContent({
                 >
                   <Text size="xs" c="dimmed" mt={4}>
                     {new Date(attempt.completed_at).toLocaleString("id-ID", {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit'
+                      weekday: "long",
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
                     })}
                   </Text>
                   <Group gap="xs" mt="xs">
-                    <Badge size="xs" variant="light" color={attempt.score >= quiz.passing_score ? "green" : "red"}>
-                      {attempt.score >= quiz.passing_score ? "Di atas minimum" : "Di bawah minimum"}
+                    <Badge
+                      size="xs"
+                      variant="light"
+                      color={
+                        attempt.score >= quiz.passing_score ? "green" : "red"
+                      }
+                    >
+                      {attempt.score >= quiz.passing_score
+                        ? "Di atas minimum"
+                        : "Di bawah minimum"}
                     </Badge>
                     <Badge size="xs" variant="light" color="gray">
                       Target: {quiz.passing_score}%
@@ -392,7 +498,7 @@ export function QuizContent({
                       Review
                     </Button>
                   </Group>
-                </Timeline.Item>
+                </TimelineItem>
               ))}
           </Timeline>
         </Card>
@@ -404,19 +510,25 @@ export function QuizContent({
           size="xl"
           onClick={onStartQuiz}
           disabled={!canRetry}
-          leftSection={attemptsMade > 0 && canRetry ? <IconRefresh size={20} /> : <IconPlayerPlay size={20} />}
+          leftSection={
+            attemptsMade > 0 && canRetry ? (
+              <IconRefresh size={20} />
+            ) : (
+              <IconPlayerPlay size={20} />
+            )
+          }
           variant="gradient"
           gradient={
-            isPassed 
-              ? { from: 'teal', to: 'green', deg: 45 }
+            isPassed
+              ? { from: "teal", to: "green", deg: 45 }
               : canRetry
-                ? { from: 'blue', to: 'cyan', deg: 45 }
-                : { from: 'gray', to: 'gray', deg: 45 }
+                ? { from: "blue", to: "cyan", deg: 45 }
+                : { from: "gray", to: "gray", deg: 45 }
           }
           style={{
             minWidth: 250,
             height: 60,
-            fontSize: '1.1rem',
+            fontSize: "1.1rem",
           }}
         >
           {isPassed
@@ -431,18 +543,20 @@ export function QuizContent({
 
       {/* Max Attempts Warning - Enhanced */}
       {!canRetry && !isPassed && attemptsMade >= maxAttempts && (
-        <Alert 
-          color="orange" 
+        <Alert
+          color="orange"
           icon={<IconAlertCircle size={20} />}
           title="Batas Percobaan Tercapai"
           variant="light"
         >
           <Stack gap="sm">
             <Text size="sm">
-              Anda telah mencapai batas maksimal <strong>{maxAttempts} percobaan</strong> untuk quiz ini.
+              Anda telah mencapai batas maksimal{" "}
+              <strong>{maxAttempts} percobaan</strong> untuk quiz ini.
             </Text>
             <Text size="sm" c="dimmed">
-              💡 Saran: Hubungi dosen pengampu untuk mendapat kesempatan tambahan atau review materi kembali.
+              💡 Saran: Hubungi dosen pengampu untuk mendapat kesempatan
+              tambahan atau review materi kembali.
             </Text>
           </Stack>
         </Alert>
@@ -450,10 +564,15 @@ export function QuizContent({
 
       {/* Encouragement Message for Non-Passed with Attempts Left */}
       {!isPassed && canRetry && attemptsMade > 0 && (
-        <Alert color="blue" icon={<IconInfoCircle />} title="💪 Jangan Menyerah!">
+        <Alert
+          color="blue"
+          icon={<IconInfoCircle />}
+          title="💪 Jangan Menyerah!"
+        >
           <Text size="sm">
-            Anda masih memiliki <strong>{attemptsRemaining} kesempatan</strong> lagi. 
-            Pelajari kembali materi dan coba lagi untuk mencapai skor minimum {quiz.passing_score}%.
+            Anda masih memiliki <strong>{attemptsRemaining} kesempatan</strong>{" "}
+            lagi. Pelajari kembali materi dan coba lagi untuk mencapai skor
+            minimum {quiz.passing_score}%.
           </Text>
         </Alert>
       )}

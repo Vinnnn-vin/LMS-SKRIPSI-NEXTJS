@@ -131,7 +131,6 @@ export function MaterialDetailManager({
     setModalMode("edit");
     setSelectedDetail(detail);
     
-    // ✅ PERBAIKAN: Simpan URL asli untuk preserve
     setOriginalContentUrl(detail.materi_detail_url || null);
     setOriginalTemplateUrl(detail.assignment_template_url || null);
     

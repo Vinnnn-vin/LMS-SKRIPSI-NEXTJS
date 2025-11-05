@@ -1,4 +1,5 @@
 // lmsistts\src\app\(lecturer)\lecturer\dashboard\layout.tsx
+// Alternative Version: Priority-based matching (lebih robust)
 
 "use client";
 
@@ -8,23 +9,22 @@ import {
   IconBook,
   IconClipboardCheck,
   IconLayoutDashboard,
-} from "@tabler/icons-react"; // Ganti ikon sesuai kebutuhan
+} from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LecturerHeader } from "@/components/lecturer/LecturerHeader"; // Impor header baru
+import { LecturerHeader } from "@/components/lecturer/LecturerHeader";
 
 const navLinks = [
   {
     href: "/lecturer/dashboard",
     label: "Dashboard",
     icon: IconLayoutDashboard,
-  }, // Contoh link
+  },
   {
     href: "/lecturer/dashboard/courses",
     label: "Manajemen Kursus",
     icon: IconBook,
   },
-  // Tambahkan link lain jika perlu (misal: profil, materi, dll.)
   {
     href: "/lecturer/dashboard/assignments",
     label: "Review Tugas",
@@ -39,6 +39,30 @@ export default function LecturerDashboardLayout({
 }) {
   const [navbarOpened, { toggle: toggleNavbar }] = useDisclosure(false);
   const pathname = usePathname();
+
+  // ✅ FIXED: Fungsi untuk menentukan active link dengan prioritas
+  // Link yang lebih spesifik (lebih panjang) akan diprioritaskan
+  const getActiveLink = () => {
+    // Sort links by length (descending) untuk prioritas matching
+    const sortedLinks = [...navLinks].sort(
+      (a, b) => b.href.length - a.href.length
+    );
+
+    // Cari link pertama yang match
+    for (const link of sortedLinks) {
+      if (pathname === link.href) {
+        return link.href; // Exact match
+      }
+      if (pathname.startsWith(link.href + "/")) {
+        return link.href; // Child path match
+      }
+    }
+
+    // Fallback ke dashboard jika tidak ada yang match
+    return "/lecturer/dashboard";
+  };
+
+  const activeHref = getActiveLink();
 
   return (
     <Box
@@ -75,11 +99,12 @@ export default function LecturerDashboardLayout({
               label={link.label}
               leftSection={<link.icon size="1rem" />}
               component={Link}
-              active={pathname.startsWith(link.href)}
+              active={activeHref === link.href} // ✅ FIXED: Hanya satu yang active
               onClick={toggleNavbar}
             />
           ))}
         </Box>
+        
         {/* Sidebar Desktop */}
         <Paper withBorder radius={0} w={250} p="md" visibleFrom="sm">
           {navLinks.map((link) => (
@@ -89,10 +114,11 @@ export default function LecturerDashboardLayout({
               label={link.label}
               leftSection={<link.icon size="1rem" />}
               component={Link}
-              active={pathname.startsWith(link.href)}
+              active={activeHref === link.href} // ✅ FIXED: Hanya satu yang active
             />
           ))}
         </Paper>
+        
         {/* Konten Utama */}
         <Box
           component="main"

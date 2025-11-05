@@ -211,11 +211,11 @@ export function CourseManagementTable({
         course_title: courseDetails.course_title ?? "",
         course_description: courseDetails.course_description ?? "",
         course_level: courseDetails.course_level ?? "Beginner",
-        // Konversi number dari DB ke string untuk Select
         category_id: courseDetails.category_id
-          ? String(courseDetails.category_id)
-          : null, // String | null
-        user_id: courseDetails.user_id ? String(courseDetails.user_id) : null, // String | null
+          ? Number(courseDetails.category_id)
+          : null,
+        user_id: courseDetails.user_id ? Number(courseDetails.user_id) : null,
+
         course_price: priceValue,
         course_duration: courseDetails.course_duration ?? 0,
         publish_status: courseDetails.publish_status === 1 ? 1 : 0,
@@ -464,7 +464,14 @@ export function CourseManagementTable({
                 label="Kategori"
                 placeholder="Pilih kategori"
                 data={categoryOptions}
-                {...form.getInputProps("category_id")}
+                value={
+                  form.values.category_id
+                    ? String(form.values.category_id)
+                    : null
+                }
+                onChange={(val) =>
+                  form.setFieldValue("category_id", val ? Number(val) : null)
+                }
                 clearable
                 required
               />
@@ -506,7 +513,6 @@ export function CourseManagementTable({
                   maw={200}
                   alt="Thumbnail Preview"
                   radius="sm"
-
                 />
                 {isEditing && thumbnailPreview === originalThumbnailUrl && (
                   <Text size="xs" c="dimmed">
@@ -767,7 +773,7 @@ export function CourseManagementTable({
                 thousandSeparator="."
                 decimalSeparator=","
                 value={approvalPrice}
-                onChange={(value) => setApprovalPrice(value)}
+                onChange={(value) => setApprovalPrice(Number(value))}
                 error={
                   approvalError &&
                   (approvalPrice === "" ||

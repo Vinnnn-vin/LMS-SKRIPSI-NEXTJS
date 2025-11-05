@@ -47,13 +47,14 @@ async function uploadImage(file: File, userId: number): Promise<string | null> {
     const ext = file.type.split('/')[1];
     const filename = `user-${userId}-${Date.now()}.${ext}`;
     
-    // Pastikan folder public/uploads ada
+    // Pastikan folder uploads ada
     const uploadsDir = path.join(process.cwd(), 'public', 'uploads', 'profiles');
     await fs.mkdir(uploadsDir, { recursive: true });
 
     const filepath = path.join(uploadsDir, filename);
     await fs.writeFile(filepath, Buffer.from(buffer));
 
+    // Return API route URL instead of public path
     return `/uploads/profiles/${filename}`;
   } catch (error) {
     console.error("UPLOAD_IMAGE_ERROR:", error);
@@ -93,23 +94,39 @@ export async function updateUserProfile(formData: FormData) {
     // Upload gambar jika ada
     if (imageFile && imageFile.size > 0) {
       const imageUrl = await uploadImage(imageFile, userId);
+      
+      // Hapus gambar lama jika ada dan bukan default
+      if (user.image && user.image !== imageUrl && user.image.startsWith('/uploads/')) {
+        try {
+          // Extract filename from old URL
+          const oldFilename = user.image.split('/').pop();
+          const oldImagePath = path.join(
+            process.cwd(), 
+            'public', 
+            'uploads', 
+            'profiles', 
+            oldFilename || ''
+          );
+          await fs.unlink(oldImagePath);
+        } catch (err) {
+          console.log('Old image not found or already deleted');
+        }
+      }
+      
       user.image = imageUrl;
     }
 
     await user.save();
 
-    const fullName = `${user.first_name} ${user.last_name}`.trim();
+    const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
 
-    // PENTING: Revalidate semua path yang menggunakan session
-    // Ini akan memaksa Next.js untuk refresh cache dan NextAuth untuk mengambil data terbaru
+    // Revalidate paths
     revalidatePath('/', 'layout');
-    
-    // Revalidate path spesifik juga
-    revalidatePath('/student/dashboard');
-    revalidatePath('/student/profile/edit');
+    revalidatePath('/profile/edit');
 
     return {
-      success: 'Profil berhasil diperbarui!',
+      success: true,
+      message: 'Profil berhasil diperbarui!',
       user: {
         name: fullName,
         email: user.email,

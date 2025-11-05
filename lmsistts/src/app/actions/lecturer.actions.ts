@@ -47,7 +47,12 @@ import {
   CreateQuestionInput,
   createQuestionSchema,
 } from "@/lib/schemas/quizQuestion.schema";
-import { deleteCourseThumbnailFolder, deleteFromPublic, uploadCourseThumbnail, uploadToPublic } from "@/lib/uploadHelper";
+import {
+  deleteCourseThumbnailFolder,
+  deleteFromPublic,
+  uploadCourseThumbnail,
+  uploadToPublic,
+} from "@/lib/uploadHelper";
 import { base64ToBuffer, sanitizeFilename } from "@/lib/fileUtils";
 import path from "path";
 import { existsSync } from "fs";
@@ -66,7 +71,6 @@ async function getLecturerSession() {
   return { userId: parseInt(session.user.id, 10), session };
 }
 
-// --- FUNGSI BARU UNTUK MENGAMBIL TUGAS YANG PERLU DIREVIEW ---
 export async function getAssignmentsToReviewByLecturer(options?: {
   page?: number;
   limit?: number;
@@ -85,7 +89,7 @@ export async function getAssignmentsToReviewByLecturer(options?: {
     }).then((courses) => courses.map((c) => c.course_id));
 
     if (lecturerCourseIds.length === 0) {
-      return { success: true, data: [], total: 0 }; // Tidak ada kursus, tidak ada tugas
+      return { success: true, data: [], total: 0 };
     }
 
     // 2. Siapkan kondisi pencarian
@@ -97,11 +101,9 @@ export async function getAssignmentsToReviewByLecturer(options?: {
 
     const whereClause: any = {
       course_id: { [Op.in]: lecturerCourseIds },
-      // Prioritaskan yang belum direview atau sedang direview
       status: { [Op.in]: ["submitted", "under_review"] },
     };
 
-    // Tambahkan filter status jika ada
     if (
       options?.statusFilter &&
       ["submitted", "under_review", "approved", "rejected"].includes(
@@ -124,15 +126,18 @@ export async function getAssignmentsToReviewByLecturer(options?: {
           {
             model: MaterialDetail,
             as: "assignment",
-            attributes: ["material_detail_id", "material_detail_name"],
+            // ✅ FIXED: Tambahkan passing_score ke attributes
+            attributes: [
+              "material_detail_id",
+              "material_detail_name",
+              "passing_score" // ✅ INI YANG PENTING
+            ],
           },
           {
             model: Course,
             as: "course",
             attributes: ["course_id", "course_title"],
           },
-          // Bisa tambahkan 'reviewer' jika ingin menampilkan siapa yg mereview
-          // { model: User, as: 'reviewer', attributes: ['user_id', 'first_name', 'last_name']}
         ],
         order: [[sortBy, sortOrder]],
         limit: limit,
@@ -153,7 +158,7 @@ export async function getAssignmentsToReviewByLecturer(options?: {
   }
 }
 
-// --- FUNGSI BARU UNTUK MENILAI TUGAS ---
+// ✅ FIXED: Update gradeAssignmentByLecturer untuk validasi passing_score
 export async function gradeAssignmentByLecturer(
   submissionId: number,
   values: ReviewAssignmentInput
@@ -182,9 +187,15 @@ export async function gradeAssignmentByLecturer(
           model: Course,
           as: "course",
           where: { user_id: userId },
-          attributes: [],
+          attributes: ["course_id"],
         },
-      ], // Cek kepemilikan via course
+        {
+          model: MaterialDetail,
+          as: "assignment",
+          // ✅ FIXED: Include passing_score dari MaterialDetail
+          attributes: ["material_detail_id", "material_detail_name", "passing_score"],
+        },
+      ],
     });
 
     if (!submission) {
@@ -194,32 +205,57 @@ export async function gradeAssignmentByLecturer(
       };
     }
 
-    // Optional: Validasi skor hanya jika status 'approved'
-    if (
-      status === "approved" &&
-      (score === null || score === undefined || score < 0 || score > 100)
-    ) {
+    // ✅ FIXED: Ambil passing_score dari assignment (MaterialDetail)
+    const passingScore = (submission.assignment as any)?.passing_score ?? 0;
+
+    // ✅ FIXED: Validasi skor berdasarkan status dan passing_score
+    if (status === "approved") {
+      if (score === null || score === undefined) {
+        return {
+          success: false,
+          error: "Skor harus diisi untuk status Approved.",
+        };
+      }
+      if (score < passingScore) {
+        return {
+          success: false,
+          error: `Skor harus minimal ${passingScore} untuk status Approved.`,
+        };
+      }
+    }
+
+    if (status === "rejected") {
+      if (score === null || score === undefined) {
+        return {
+          success: false,
+          error: "Skor harus diisi untuk status Rejected.",
+        };
+      }
+      if (score >= passingScore) {
+        return {
+          success: false,
+          error: `Skor harus dibawah ${passingScore} untuk status Rejected.`,
+        };
+      }
+    }
+
+    if (score !== null && (score < 0 || score > 100)) {
       return {
         success: false,
-        error: "Skor harus diisi (0-100) jika status Approved.",
+        error: "Skor harus antara 0-100.",
       };
     }
-    // Optional: Set skor jadi null jika ditolak
-    const finalScore = status === "rejected" ? null : score;
 
     // 3. Update data submission
     await submission.update({
       status: status,
-      score: finalScore,
-      feedback: feedback || null, // Pastikan feedback bisa null
+      score: score,
+      feedback: feedback || null,
       reviewed_by: userId,
       reviewed_at: new Date(),
     });
 
-    // Revalidate path halaman review tugas (jika diperlukan refresh otomatis)
     revalidatePath("/lecturer/dashboard/assignments");
-
-    // TODO: Kirim notifikasi ke mahasiswa (jika ada sistem notifikasi)
 
     return { success: true, message: "Tugas berhasil dinilai." };
   } catch (error: any) {
@@ -230,7 +266,6 @@ export async function gradeAssignmentByLecturer(
     };
   }
 }
-
 // --- FUNGSI BARU UNTUK OVERVIEW DASHBOARD LECTURER ---
 export async function getLecturerDashboardStats() {
   try {
@@ -328,7 +363,7 @@ export async function createCourseByLecturer(formData: FormData) {
   try {
     const { userId } = await getLecturerSession();
     const rawData = Object.fromEntries(formData.entries());
-    
+
     const validatedFields = lecturerCreateCourseSchema.safeParse({
       ...rawData,
       thumbnail_file:
@@ -377,10 +412,10 @@ export async function createCourseByLecturer(formData: FormData) {
     }
 
     revalidatePath("/lecturer/dashboard/courses");
-    
-    return { 
+
+    return {
       success: "Kursus berhasil dibuat sebagai draft!",
-      courseId: newCourse.course_id 
+      courseId: newCourse.course_id,
     };
   } catch (error: any) {
     console.error("[CREATE_COURSE_BY_LECTURER_ERROR]", error);
@@ -424,7 +459,8 @@ export async function updateCourseByLecturer(
       };
     }
 
-    const { thumbnail_file, course_title, ...restCourseData } = validatedFields.data;
+    const { thumbnail_file, course_title, ...restCourseData } =
+      validatedFields.data;
     let newThumbnailUrl: string | null | undefined = undefined;
 
     // ✅ PERBAIKAN: Handle upload thumbnail dengan benar
@@ -458,11 +494,11 @@ export async function updateCourseByLecturer(
 
     // 3. Prepare update data
     const updateData: any = { ...restCourseData };
-    
+
     if (course_title !== undefined) {
       updateData.course_title = course_title;
     }
-    
+
     if (newThumbnailUrl !== undefined) {
       updateData.thumbnail_url = newThumbnailUrl;
     }
@@ -487,7 +523,7 @@ export async function deleteCourseByLecturer(courseId: number) {
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
-    
+
     if (!course) {
       return {
         error: "Kursus tidak ditemukan atau Anda tidak berhak menghapusnya.",
@@ -497,7 +533,7 @@ export async function deleteCourseByLecturer(courseId: number) {
     const enrollmentCount = await Enrollment.count({
       where: { course_id: courseId },
     });
-    
+
     if (enrollmentCount > 0) {
       return {
         error: `Tidak dapat menghapus. Ada ${enrollmentCount} siswa terdaftar.`,
@@ -514,7 +550,7 @@ export async function deleteCourseByLecturer(courseId: number) {
 
     await course.destroy();
     revalidatePath("/lecturer/dashboard/courses");
-    
+
     return { success: "Kursus berhasil dihapus!" };
   } catch (error: any) {
     console.error("[DELETE_COURSE_BY_LECTURER_ERROR]", error);

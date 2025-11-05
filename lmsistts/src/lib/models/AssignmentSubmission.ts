@@ -12,7 +12,7 @@ interface AssignmentSubmissionAttributes {
   material_detail_id: number;
   course_id: number;
   enrollment_id: number;
-  submission_type: 'file' | 'url' | 'text';
+  submission_type: 'file' | 'url' | 'text' | 'both'; // ✅ FIXED: Tambahkan 'both'
   file_path: string | null;
   submission_url: string | null;
   submission_text: string | null;
@@ -35,7 +35,7 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
   declare material_detail_id: number;
   declare course_id: number;
   declare enrollment_id: number;
-  declare submission_type: 'file' | 'url' | 'text';
+  declare submission_type: 'file' | 'url' | 'text' | 'both'; // ✅ FIXED
   declare file_path: string | null;
   declare submission_url: string | null;
   declare submission_text: string | null;
@@ -80,7 +80,7 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
   }
 
   public isFileSubmission(): boolean {
-    return this.submission_type === 'file';
+    return this.submission_type === 'file' || this.submission_type === 'both'; // ✅ FIXED
   }
 
   public isUrlSubmission(): boolean {
@@ -88,7 +88,12 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
   }
 
   public isTextSubmission(): boolean {
-    return this.submission_type === 'text';
+    return this.submission_type === 'text' || this.submission_type === 'both'; // ✅ FIXED
+  }
+
+  // ✅ NEW: Helper method untuk cek tipe 'both'
+  public isBothSubmission(): boolean {
+    return this.submission_type === 'both';
   }
 
   public static initModel(sequelize: Sequelize): typeof AssignmentSubmission {
@@ -116,7 +121,7 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
           allowNull: false
         },
         submission_type: {
-          type: DataTypes.ENUM('file', 'url', 'text'),
+          type: DataTypes.ENUM('file', 'url', 'text', 'both'), // ✅ FIXED: Tambahkan 'both'
           allowNull: false
         },
         file_path: {

@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { videoId: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ videoId: string }> }
 ) {
-  const { videoId } = params;
+  const { videoId } = await context.params;
   const html = `
     <html>
       <head>
