@@ -18,7 +18,7 @@ export interface CourseAttributes {
   course_price: number | null;
   course_duration: number | null;
   publish_status: number | null;
-  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null; // <-- FIELD BARU
+  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
   user_id: number | null;
   category_id: number | null;
   thumbnail_url: string | null;

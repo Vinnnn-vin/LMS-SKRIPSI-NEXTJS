@@ -1,10 +1,8 @@
-// UPDATE CourseLearningClientUI.tsx
-
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useRef } from "react";
 import { Box, Grid, Paper, Stack, Title, Text, Accordion, NavLink, ThemeIcon, Center, Alert } from "@mantine/core";
-import { IconVideo, IconFileText, IconLink, IconPencil, IconQuestionMark, IconCircleCheckFilled, IconPlayerPlay, IconInfoCircle } from "@tabler/icons-react";
+import { IconVideo, IconFileText, IconLink, IconPencil, IconQuestionMark, IconCircleCheckFilled, IconPlayerPlay, IconInfoCircle, IconBookmark } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
 
@@ -13,9 +11,9 @@ import { LearningHeader } from "./LearningHeader";
 import { MaterialContent } from "./MaterialContent";
 import { AssignmentContent } from "./AssignmentContent";
 import { QuizContent } from "./QuizContent";
-import GlobalTimer from "./GlobalTimer"; // ✅ Import GlobalTimer
-import { resetCourseProgressAndExtendAccess } from "@/app/actions/student.actions"; // ✅ Import action
-import { Group } from "@mantine/core";
+import GlobalTimer from "./GlobalTimer";
+import { resetCourseProgressAndExtendAccess, saveCheckpoint } from "@/app/actions/student.actions";
+import { Group, Badge, Tooltip } from "@mantine/core";
 
 // ============================================
 // TYPES & INTERFACES
@@ -34,6 +32,12 @@ interface CompletedItems {
   assignments: Set<number>;
 }
 
+interface Checkpoint {
+  type: "detail" | "quiz";
+  id: number;
+  updatedAt: Date | string;
+}
+
 interface CourseLearningClientUIProps {
   course: any;
   completedItems: CompletedItems;
@@ -43,10 +47,13 @@ interface CourseLearningClientUIProps {
   initialQuizAttempts?: QuizAttempt[];
   submissionHistoryMap?: Record<number, any[]>;
   accessExpiresAt?: Date | string | null;
-  enrolledAt: Date | string; // ✅ Tidak optional, wajib ada
+  enrolledAt: Date | string;
   learningStartedAt?: Date | string | null;
   courseDuration?: number;
   isAccessExpired?: boolean;
+  lastCheckpoint?: Checkpoint | null;
+  initialContent?: any | null;
+  initialContentType?: "detail" | "quiz" | null;
 }
 
 // ============================================
@@ -67,6 +74,28 @@ const getMaterialIcon = (type: number) => {
   }
 };
 
+// ✅ HELPER: Find material_id yang mengandung content tertentu
+const findMaterialIdForContent = (
+  materials: any[],
+  contentType: "detail" | "quiz",
+  contentId: number
+): string | null => {
+  for (const material of materials) {
+    if (contentType === "detail") {
+      const hasDetail = material.details?.some(
+        (d: any) => d.material_detail_id === contentId
+      );
+      if (hasDetail) return material.material_id.toString();
+    } else if (contentType === "quiz") {
+      const hasQuiz = material.quizzes?.some(
+        (q: any) => q.quiz_id === contentId
+      );
+      if (hasQuiz) return material.material_id.toString();
+    }
+  }
+  return null;
+};
+
 // ============================================
 // MAIN COMPONENT
 // ============================================
@@ -80,14 +109,37 @@ export function CourseLearningClientUI({
   submissionHistoryMap = {},
   accessExpiresAt,
   enrolledAt,
-  learningStartedAt, // ✅ Terima dari props
-  courseDuration = 0, // ✅ Terima dari props
-  isAccessExpired = false, // ✅ Terima dari props
+  learningStartedAt,
+  courseDuration = 0,
+  isAccessExpired = false,
+  lastCheckpoint = null,
+  initialContent = null,
+  initialContentType = null,
 }: CourseLearningClientUIProps) {
   const router = useRouter();
-  const [activeContent, setActiveContent] = useState<any>(null);
-  const [contentType, setContentType] = useState<"detail" | "quiz" | null>(null);
+  
+  const [activeContent, setActiveContent] = useState<any>(initialContent);
+  const [contentType, setContentType] = useState<"detail" | "quiz" | null>(initialContentType);
   const [isQuizActive, setIsQuizActive] = useState(false);
+
+  // ✅ CONTROLLED ACCORDION STATE
+  const initialAccordionValue = useMemo(() => {
+    if (!initialContent || !initialContentType) {
+      return course.materials?.[0]?.material_id.toString() || null;
+    }
+    
+    const contentId = initialContentType === "detail" 
+      ? initialContent.material_detail_id 
+      : initialContent.quiz_id;
+    
+    return findMaterialIdForContent(course.materials || [], initialContentType, contentId);
+  }, [initialContent, initialContentType, course.materials]);
+
+  const [accordionValue, setAccordionValue] = useState<string | null>(initialAccordionValue);
+
+  // ✅ Ref untuk menyimpan reference ke NavLink yang active
+  const activeNavLinkRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const { details: completedDetails, quizzes: completedQuizzes, assignments: completedAssignments } = completedItems;
 
@@ -135,7 +187,6 @@ export function CourseLearningClientUI({
           color: "blue",
         });
         
-        // Refresh halaman untuk load data baru
         router.refresh();
       } else {
         notifications.show({
@@ -154,10 +205,67 @@ export function CourseLearningClientUI({
     }
   };
 
-  const handleSelectContent = (content: any, type: "detail" | "quiz") => {
+  // ✅ HELPER: Scroll to element
+  const scrollToElement = (key: string, delay: number = 200) => {
+    // Clear previous timeout
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
+    scrollTimeoutRef.current = setTimeout(() => {
+      const element = activeNavLinkRefs.current.get(key);
+      if (element) {
+        console.log(`📜 Scrolling to: ${key}`);
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+          inline: "nearest"
+        });
+      } else {
+        console.warn(`⚠️ Element not found for key: ${key}`);
+      }
+    }, delay);
+  };
+
+  // ✅ SAVE CHECKPOINT & AUTO-EXPAND ACCORDION & SCROLL
+  const handleSelectContent = async (content: any, type: "detail" | "quiz") => {
     setActiveContent(content);
     setContentType(type);
     setIsQuizActive(false);
+
+    // ✅ Find which material contains this content
+    const contentId = type === "detail" ? content.material_detail_id : content.quiz_id;
+    const targetMaterialId = findMaterialIdForContent(course.materials || [], type, contentId);
+
+    console.log(`🎯 Selected: ${type} ${contentId}, Material: ${targetMaterialId}`);
+
+    // ✅ Auto-expand accordion jika berbeda
+    if (targetMaterialId && targetMaterialId !== accordionValue) {
+      console.log(`📂 Expanding accordion: ${targetMaterialId}`);
+      setAccordionValue(targetMaterialId);
+      
+      // Scroll setelah accordion expand (delay lebih lama)
+      scrollToElement(`${type}-${contentId}`, 400);
+    } else {
+      // Accordion sudah terbuka, scroll langsung
+      scrollToElement(`${type}-${contentId}`, 150);
+    }
+
+    // Save checkpoint (fire and forget)
+    try {
+      saveCheckpoint({
+        courseId: course.course_id,
+        enrollmentId: enrollmentId,
+        contentType: type,
+        contentId: contentId,
+      }).then(() => {
+        console.log(`✅ Checkpoint saved: ${type} ${contentId}`);
+      }).catch((error) => {
+        console.error("Failed to save checkpoint:", error);
+      });
+    } catch (error) {
+      console.error("Checkpoint error:", error);
+    }
   };
 
   const handleStartQuiz = () => {
@@ -186,6 +294,11 @@ export function CourseLearningClientUI({
     router.refresh();
   };
 
+  // ✅ Cek apakah content adalah checkpoint terakhir
+  const isCheckpointContent = (type: "detail" | "quiz", id: number) => {
+    return lastCheckpoint?.type === type && lastCheckpoint?.id === id;
+  };
+
   // Render main content area
   const renderContent = () => {
     if (!activeContent) {
@@ -195,6 +308,11 @@ export function CourseLearningClientUI({
             <IconPlayerPlay size={48} stroke={1} color="gray" />
             <Title order={4}>Selamat Datang</Title>
             <Text c="dimmed">Pilih materi dari sidebar untuk memulai.</Text>
+            {lastCheckpoint && (
+              <Badge color="blue" variant="light" leftSection={<IconBookmark size={12} />} mt="md">
+                Ada checkpoint tersimpan
+              </Badge>
+            )}
           </Stack>
         </Center>
       );
@@ -253,6 +371,28 @@ export function CourseLearningClientUI({
     return null;
   };
 
+  // ✅ SHOW CHECKPOINT NOTIFICATION & AUTO SCROLL ON MOUNT
+  if (initialContent && initialContentType && typeof window !== "undefined") {
+    const notifKey = `checkpoint_notif_${course.course_id}`;
+    if (!sessionStorage.getItem(notifKey)) {
+      setTimeout(() => {
+        notifications.show({
+          title: "📌 Checkpoint Dimuat",
+          message: "Melanjutkan dari terakhir kali Anda belajar",
+          color: "blue",
+          autoClose: 4000,
+        });
+      }, 500);
+      sessionStorage.setItem(notifKey, "shown");
+
+      // Auto scroll untuk checkpoint initial
+      const contentId = initialContentType === "detail" 
+        ? initialContent.material_detail_id 
+        : initialContent.quiz_id;
+      scrollToElement(`${initialContentType}-${contentId}`, 600);
+    }
+  }
+
   return (
     <Box>
       {/* Header */}
@@ -262,7 +402,7 @@ export function CourseLearningClientUI({
         {/* Sidebar - Curriculum */}
         <Grid.Col span={{ base: 12, md: 4 }}>
           <Paper withBorder radius={0} p="md" style={{ height: "calc(100vh - 70px)", overflowY: "auto" }}>
-            {/* ✅ TAMBAHKAN GLOBAL TIMER DI SINI */}
+            {/* Global Timer */}
             <Box mb="md">
               <GlobalTimer
                 courseId={course.course_id}
@@ -284,9 +424,14 @@ export function CourseLearningClientUI({
               </Alert>
             )}
 
-            <Accordion chevronPosition="left" variant="separated" defaultValue={course.materials?.[0]?.material_id.toString()}>
+            {/* ✅ CONTROLLED ACCORDION */}
+            <Accordion 
+              chevronPosition="left" 
+              variant="separated" 
+              value={accordionValue}
+              onChange={setAccordionValue}
+            >
               {course.materials?.map((material: any) => {
-                // Count completed items in this material
                 const detailsCount = material.details?.length || 0;
                 const quizzesCount = material.quizzes?.length || 0;
                 const totalItems = detailsCount + quizzesCount;
@@ -327,44 +472,90 @@ export function CourseLearningClientUI({
                               ? completedAssignments.has(detail.material_detail_id)
                               : completedDetails.has(detail.material_detail_id);
 
+                          const isCheckpoint = isCheckpointContent("detail", detail.material_detail_id);
+                          const isActive = contentType === "detail" && activeContent?.material_detail_id === detail.material_detail_id;
+                          const refKey = `detail-${detail.material_detail_id}`;
+
                           return (
-                            <NavLink
-                              key={`detail-${detail.material_detail_id}`}
-                              label={detail.material_detail_name}
-                              leftSection={
-                                <ThemeIcon variant="light" color={isCompleted ? "green" : "gray"} size={20}>
-                                  {getMaterialIcon(detail.material_detail_type)}
-                                </ThemeIcon>
-                              }
-                              rightSection={
-                                isCompleted ? <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} /> : null
-                              }
-                              onClick={() => handleSelectContent(detail, "detail")}
-                              active={contentType === "detail" && activeContent?.material_detail_id === detail.material_detail_id}
-                              styles={{ label: { fontSize: "0.875rem" } }}
-                            />
+                            <div
+                              key={refKey}
+                              ref={(el) => {
+                                if (el) {
+                                  activeNavLinkRefs.current.set(refKey, el);
+                                } else {
+                                  activeNavLinkRefs.current.delete(refKey);
+                                }
+                              }}
+                            >
+                              <NavLink
+                                label={
+                                  <Group gap="xs" wrap="nowrap">
+                                    <Text size="sm" style={{ flex: 1 }}>{detail.material_detail_name}</Text>
+                                    {isCheckpoint && (
+                                      <Tooltip label="Checkpoint terakhir">
+                                        <IconBookmark size={14} color="var(--mantine-color-blue-6)" />
+                                      </Tooltip>
+                                    )}
+                                  </Group>
+                                }
+                                leftSection={
+                                  <ThemeIcon variant="light" color={isCompleted ? "green" : "gray"} size={20}>
+                                    {getMaterialIcon(detail.material_detail_type)}
+                                  </ThemeIcon>
+                                }
+                                rightSection={
+                                  isCompleted ? <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} /> : null
+                                }
+                                onClick={() => handleSelectContent(detail, "detail")}
+                                active={isActive}
+                                styles={{ label: { fontSize: "0.875rem" } }}
+                              />
+                            </div>
                           );
                         })}
 
                         {/* Quizzes */}
                         {material.quizzes?.map((quiz: any) => {
                           const isCompleted = completedQuizzes.has(quiz.quiz_id);
+                          const isCheckpoint = isCheckpointContent("quiz", quiz.quiz_id);
+                          const isActive = contentType === "quiz" && activeContent?.quiz_id === quiz.quiz_id;
+                          const refKey = `quiz-${quiz.quiz_id}`;
+
                           return (
-                            <NavLink
-                              key={`quiz-${quiz.quiz_id}`}
-                              label={quiz.quiz_title}
-                              leftSection={
-                                <ThemeIcon variant="light" color={isCompleted ? "green" : "orange"} size={20}>
-                                  <IconQuestionMark size={16} />
-                                </ThemeIcon>
-                              }
-                              rightSection={
-                                isCompleted ? <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} /> : null
-                              }
-                              onClick={() => handleSelectContent(quiz, "quiz")}
-                              active={contentType === "quiz" && activeContent?.quiz_id === quiz.quiz_id}
-                              styles={{ label: { fontSize: "0.875rem" } }}
-                            />
+                            <div
+                              key={refKey}
+                              ref={(el) => {
+                                if (el) {
+                                  activeNavLinkRefs.current.set(refKey, el);
+                                } else {
+                                  activeNavLinkRefs.current.delete(refKey);
+                                }
+                              }}
+                            >
+                              <NavLink
+                                label={
+                                  <Group gap="xs" wrap="nowrap">
+                                    <Text size="sm" style={{ flex: 1 }}>{quiz.quiz_title}</Text>
+                                    {isCheckpoint && (
+                                      <Tooltip label="Checkpoint terakhir">
+                                        <IconBookmark size={14} color="var(--mantine-color-blue-6)" />
+                                      </Tooltip>
+                                    )}
+                                  </Group>
+                                }
+                                leftSection={
+                                  <ThemeIcon variant="light" color={isCompleted ? "green" : "orange"} size={20}>
+                                    <IconQuestionMark size={16} />
+                                  </ThemeIcon>
+                                }
+                                rightSection={
+                                  isCompleted ? <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} /> : null
+                                }
+                                onClick={() => handleSelectContent(quiz, "quiz")}
+                                active={isActive}
+                                styles={{ label: { fontSize: "0.875rem" } }}
+                              />
+                            </div>
                           );
                         })}
                       </Stack>

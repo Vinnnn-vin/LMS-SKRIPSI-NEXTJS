@@ -3,8 +3,6 @@
 import { z } from "zod";
 
 export const userRoleEnum = z.enum(["admin", "lecturer", "student"]);
-
-// Skema untuk membuat user (digunakan internal di server)
 export const createUserSchema = z.object({
   first_name: z
     .string()
@@ -21,7 +19,6 @@ export const createUserSchema = z.object({
   role: userRoleEnum.default("student"),
 });
 
-// Skema untuk form registrasi (yang diisi oleh pengguna)
 export const registerFormSchema = z
   .object({
     first_name: z
@@ -54,16 +51,16 @@ export const registerFormSchema = z
 export const updateProfileSchema = z.object({
   first_name: z
     .string()
-    .min(2, 'Nama depan minimal 2 karakter')
+    .min(2, "Nama depan minimal 2 karakter")
     .max(255)
     .optional()
-    .or(z.literal('')), // Izinkan string kosong
+    .or(z.literal("")),
   last_name: z
     .string()
-    .min(2, 'Nama belakang minimal 2 karakter')
+    .min(2, "Nama belakang minimal 2 karakter")
     .max(255)
     .optional()
-    .or(z.literal('')), // Izinkan string kosong
+    .or(z.literal("")),
 });
 
 export const loginSchema = z.object({
@@ -95,34 +92,32 @@ export const userIdParamSchema = z.object({
     .transform(Number),
 });
 
-// Skema untuk admin saat membuat user baru
 export const adminCreateUserSchema = z.object({
-  first_name: z.string().min(2).max(255).optional().or(z.literal('')),
-  last_name: z.string().min(2).max(255).optional().or(z.literal('')),
-  email: z.string().email('Format email tidak valid'),
+  first_name: z.string().min(2).max(255).optional().or(z.literal("")),
+  last_name: z.string().min(2).max(255).optional().or(z.literal("")),
+  email: z.string().email("Format email tidak valid"),
   role: userRoleEnum,
-  password: z.string().min(8, 'Password minimal 8 karakter'), // Password langsung, akan di-hash di server
+  password: z.string().min(8, "Password minimal 8 karakter"),
 });
 
-// Skema untuk admin saat update user (tanpa password)
 export const adminUpdateUserSchema = z.object({
-  first_name: z.string().min(2).max(255).optional().or(z.literal('')),
-  last_name: z.string().min(2).max(255).optional().or(z.literal('')),
-  email: z.string().email('Format email tidak valid'),
+  first_name: z.string().min(2).max(255).optional().or(z.literal("")),
+  last_name: z.string().min(2).max(255).optional().or(z.literal("")),
+  email: z.string().email("Format email tidak valid"),
   role: userRoleEnum,
 });
 
-// Skema untuk admin saat ganti password user
 export const adminChangePasswordSchema = z.object({
-    new_password: z.string().min(8, 'Password baru minimal 8 karakter'),
+  new_password: z.string().min(8, "Password baru minimal 8 karakter"),
 });
 
-// Ekspor tipe data
 export type RegisterFormInput = z.infer<typeof registerFormSchema>;
 export type CreateUserInput = z.infer<typeof createUserSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type AdminCreateUserInput = z.infer<typeof adminCreateUserSchema>;
 export type AdminUpdateUserInput = z.infer<typeof adminUpdateUserSchema>;
-export type AdminChangePasswordInput = z.infer<typeof adminChangePasswordSchema>;
+export type AdminChangePasswordInput = z.infer<
+  typeof adminChangePasswordSchema
+>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;

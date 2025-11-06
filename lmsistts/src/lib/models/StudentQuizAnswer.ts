@@ -1,10 +1,10 @@
 // lmsistts\src\lib\models\StudentQuizAnswer.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { User } from './User';
-import { Quiz } from './Quiz';
-import { QuizQuestion } from './QuizQuestion';
-import { Course } from './Course';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { User } from "./User";
+import { Quiz } from "./Quiz";
+import { QuizQuestion } from "./QuizQuestion";
+import { Course } from "./Course";
 
 interface StudentQuizAnswerAttributes {
   answer_id: number;
@@ -17,14 +17,33 @@ interface StudentQuizAnswerAttributes {
   is_correct: boolean | null;
   attempt_session: number | null;
   score: number | null;
-  status: 'passed' | 'failed' | 'pending' | null;
+  status: "passed" | "failed" | "pending" | null;
   answered_at: Date | null;
   completed_at: Date | null;
 }
 
-interface StudentQuizAnswerCreationAttributes extends Optional<StudentQuizAnswerAttributes, 'answer_id' | 'question_id' | 'selected_option_id' | 'answer_text' | 'is_correct' | 'attempt_session' | 'score' | 'status' | 'answered_at' | 'completed_at'> {}
+interface StudentQuizAnswerCreationAttributes
+  extends Optional<
+    StudentQuizAnswerAttributes,
+    | "answer_id"
+    | "question_id"
+    | "selected_option_id"
+    | "answer_text"
+    | "is_correct"
+    | "attempt_session"
+    | "score"
+    | "status"
+    | "answered_at"
+    | "completed_at"
+  > {}
 
-export class StudentQuizAnswer extends Model<StudentQuizAnswerAttributes, StudentQuizAnswerCreationAttributes> implements StudentQuizAnswerAttributes {
+export class StudentQuizAnswer
+  extends Model<
+    StudentQuizAnswerAttributes,
+    StudentQuizAnswerCreationAttributes
+  >
+  implements StudentQuizAnswerAttributes
+{
   declare answer_id: number;
   declare user_id: number;
   declare quiz_id: number;
@@ -35,7 +54,7 @@ export class StudentQuizAnswer extends Model<StudentQuizAnswerAttributes, Studen
   declare is_correct: boolean | null;
   declare attempt_session: number | null;
   declare score: number | null;
-  declare status: 'passed' | 'failed' | 'pending' | null;
+  declare status: "passed" | "failed" | "pending" | null;
   declare answered_at: Date | null;
   declare completed_at: Date | null;
 
@@ -52,11 +71,11 @@ export class StudentQuizAnswer extends Model<StudentQuizAnswerAttributes, Studen
   };
 
   public isPassed(): boolean {
-    return this.status === 'passed';
+    return this.status === "passed";
   }
 
   public isFailed(): boolean {
-    return this.status === 'failed';
+    return this.status === "failed";
   }
 
   public static initModel(sequelize: Sequelize): typeof StudentQuizAnswer {
@@ -65,73 +84,85 @@ export class StudentQuizAnswer extends Model<StudentQuizAnswerAttributes, Studen
         answer_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         quiz_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         question_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         selected_option_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         answer_text: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         is_correct: {
           type: DataTypes.BOOLEAN,
-          allowNull: true
+          allowNull: true,
         },
         attempt_session: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         score: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         status: {
           type: DataTypes.STRING(12),
           allowNull: true,
           validate: {
-            isIn: [['passed', 'failed', 'pending']]
-          }
+            isIn: [["passed", "failed", "pending"]],
+          },
         },
         answered_at: {
           type: DataTypes.DATE,
-          allowNull: true
+          allowNull: true,
         },
         completed_at: {
           type: DataTypes.DATE,
-          allowNull: true
-        }
+          allowNull: true,
+        },
       },
       {
         sequelize,
-        tableName: 'student_quiz_answers',
-        timestamps: false
+        tableName: "student_quiz_answers",
+        timestamps: false,
       }
     );
     return StudentQuizAnswer;
   }
 
   public static associate(models: any): void {
-    StudentQuizAnswer.belongsTo(models.User, { foreignKey: 'user_id', as: 'student' });
-    StudentQuizAnswer.belongsTo(models.Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
-    StudentQuizAnswer.belongsTo(models.QuizQuestion, { foreignKey: 'question_id', as: 'question' });
-    StudentQuizAnswer.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
+    StudentQuizAnswer.belongsTo(models.User, {
+      foreignKey: "user_id",
+      as: "student",
+    });
+    StudentQuizAnswer.belongsTo(models.Quiz, {
+      foreignKey: "quiz_id",
+      as: "quiz",
+    });
+    StudentQuizAnswer.belongsTo(models.QuizQuestion, {
+      foreignKey: "question_id",
+      as: "question",
+    });
+    StudentQuizAnswer.belongsTo(models.Course, {
+      foreignKey: "course_id",
+      as: "course",
+    });
   }
 }

@@ -37,7 +37,6 @@ import {
   UpdateCategoryInput,
   updateCategorySchema,
 } from "@/lib/schemas/category.schema";
-// import { useRouter } from "next/navigation"; // Ini hook client, tidak bisa di server action
 import z from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
@@ -167,7 +166,7 @@ export async function getCourseByIdForAdmin(courseId: number) {
         // --- AKHIR ORDER QUIZ ---
       ],
     });
-    
+
     if (!course) return { success: false, error: "Kursus tidak ditemukan" }; // Ubah pesan error
     // Kembalikan success: true agar bisa dibedakan antara not found dan error lain
     return { success: true, data: course.toJSON() };
@@ -333,7 +332,6 @@ export async function updateCourseByAdmin(
   }
 }
 
-// Tambahkan fungsi untuk get lecturers
 export async function getAllLecturersForAdmin() {
   try {
     const lecturers = await User.findAll({
@@ -465,7 +463,6 @@ export async function deleteUserByAdmin(userId: number) {
 
 // --- FUNGSI BARU UNTUK MANAJEMEN KATEGORI ---
 
-// Mengambil semua kategori
 export async function getAllCategoriesForAdmin() {
   try {
     const categories = await Category.findAll({
@@ -486,7 +483,6 @@ export async function getAllCategoriesForAdmin() {
   }
 }
 
-// Membuat kategori baru
 export async function createCategory(values: CreateCategoryInput) {
   const validatedFields = createCategorySchema.safeParse(values);
   if (!validatedFields.success) {
@@ -502,7 +498,6 @@ export async function createCategory(values: CreateCategoryInput) {
   }
 }
 
-// Memperbarui kategori
 export async function updateCategory(
   categoryId: number,
   values: UpdateCategoryInput
@@ -524,7 +519,6 @@ export async function updateCategory(
   }
 }
 
-// Menghapus kategori
 export async function deleteCategory(categoryId: number) {
   try {
     const category = await Category.findByPk(categoryId);
@@ -672,13 +666,12 @@ export async function getFinancialTrendData() {
 
 export async function getCourseEnrollmentsForAdmin(courseId: number) {
   try {
-    // 1. Ambil semua pendaftaran untuk kursus ini
     const enrollments = await Enrollment.findAll({
       where: { course_id: courseId },
       include: [
         {
           model: User,
-          as: "student", // Pastikan alias ini 'student' di model Enrollment
+          as: "student", 
           attributes: ["user_id", "first_name", "last_name", "email"],
           required: true,
         },
@@ -686,12 +679,11 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
       order: [["enrolled_at", "DESC"]],
     });
 
-    // 2. Ambil total jumlah materi (konten) dalam kursus ini
     const totalMaterials = await MaterialDetail.count({
       include: [
         {
           model: Material,
-          as: "material", // Pastikan alias 'material' di model MaterialDetail
+          as: "material",
           where: { course_id: courseId },
           attributes: [],
         },
@@ -702,13 +694,12 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
         success: true,
         data: enrollments.map((e) => ({
           ...e.toJSON(),
-          student: (e.student as User).toJSON(), // Pastikan student ada
+          student: (e.student as User).toJSON(), 
           progress: 0,
         })),
       };
     }
 
-    // 3. Ambil data progres untuk semua user di kursus ini
     const userIds = enrollments
       .map((e) => e.user_id)
       .filter((id) => id !== null) as number[];
@@ -737,16 +728,15 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
       {} as { [key: number]: number }
     );
 
-    // 4. Gabungkan data
     const combinedData = enrollments.map((enrollment) => {
-      const user = (enrollment.student as User).toJSON(); // Ambil data user
+      const user = (enrollment.student as User).toJSON(); 
       const completedCount = progressMap[user.user_id] || 0;
       const progress = Math.round((completedCount / totalMaterials) * 100);
 
       return {
         ...enrollment.toJSON(),
         student: user,
-        progress: progress > 100 ? 100 : progress, // Pastikan tidak lebih dari 100
+        progress: progress > 100 ? 100 : progress,
       };
     });
 
@@ -775,7 +765,6 @@ export async function approvePublishRequest(courseId: number) {
       };
     }
 
-    // Validasi harga harus lebih dari 0
     if (!course.course_price || course.course_price <= 0) {
       return {
         error: "Harga kursus harus diisi (lebih dari 0) sebelum publikasi.",
@@ -826,7 +815,6 @@ export async function approveCoursePublish(courseId: number, price: number) {
     return { success: false, error: "Akses ditolak. Hanya admin." };
   }
 
-  // Validasi harga dasar
   if (price === null || price === undefined || price <= 0) {
     return {
       success: false,
@@ -839,7 +827,6 @@ export async function approveCoursePublish(courseId: number, price: number) {
     if (!course) {
       return { success: false, error: "Kursus tidak ditemukan." };
     }
-    // Pastikan status permintaan adalah 'pending'
     if (course.publish_request_status !== "pending") {
       return {
         success: false,
@@ -847,18 +834,14 @@ export async function approveCoursePublish(courseId: number, price: number) {
       };
     }
 
-    // Update status dan harga
-    course.publish_status = 1; // Set status publish menjadi 1 (Published)
-    course.publish_request_status = "approved"; // Set status permintaan
-    course.course_price = price; // Set harga yang ditentukan admin
-
+    course.publish_status = 1;
+    course.publish_request_status = "approved";
+    course.course_price = price;
     await course.save();
 
-    // Revalidate path yang relevan
-    revalidatePath("/admin/dashboard/courses"); // Halaman admin
-    revalidatePath("/courses"); // Halaman publik daftar kursus
-    revalidatePath(`/courses/${courseId}`); // Halaman detail kursus publik
-    // Mungkin revalidate path lain jika diperlukan (misal: kategori)
+    revalidatePath("/admin/dashboard/courses");
+    revalidatePath("/courses");
+    revalidatePath(`/courses/${courseId}`);
 
     return {
       success: true,
@@ -873,9 +856,7 @@ export async function approveCoursePublish(courseId: number, price: number) {
   }
 }
 
-export async function rejectCoursePublish(
-  courseId: number /*, reason?: string */
-) {
+export async function rejectCoursePublish(courseId: number) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "admin") {
     return { success: false, error: "Akses ditolak. Hanya admin." };
@@ -886,7 +867,6 @@ export async function rejectCoursePublish(
     if (!course) {
       return { success: false, error: "Kursus tidak ditemukan." };
     }
-    // Pastikan status permintaan adalah 'pending'
     if (course.publish_request_status !== "pending") {
       return {
         success: false,
@@ -894,13 +874,11 @@ export async function rejectCoursePublish(
       };
     }
 
-    // Update HANYA status permintaan
     course.publish_request_status = "rejected";
-    // course.rejection_reason = reason; // Jika menyimpan alasan
 
     await course.save();
 
-    revalidatePath("/admin/dashboard/courses"); // Hanya perlu revalidate halaman admin
+    revalidatePath("/admin/dashboard/courses");
 
     return {
       success: true,

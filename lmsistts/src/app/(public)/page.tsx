@@ -14,17 +14,11 @@ import {
   Stack,
   Rating,
   Avatar,
-  Paper,
   ThemeIcon,
   rem,
   CardSection,
   Box,
-  ScrollArea,
-  BackgroundImage,
-  Overlay,
   Center,
-  Grid,
-  Flex,
 } from "@mantine/core";
 import {
   IconAlertCircle,
@@ -34,15 +28,11 @@ import {
   IconPalette,
   IconHeart,
   IconSparkles,
-  IconRocket,
   IconTrophy,
-  IconBolt,
   IconArrowRight,
   IconStar,
   IconPlayCard,
   IconClock,
-  IconTrendingUp,
-  IconCheck,
   IconArrowNarrowRight,
 } from "@tabler/icons-react";
 import Link from "next/link";
@@ -55,7 +45,6 @@ import {
 import { HeroBanner } from "@/components/landing/HeroBanner";
 import classes from "./page.module.css";
 
-// Helper for price formatting
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
   return new Intl.NumberFormat("id-ID", {
@@ -80,36 +69,36 @@ function FloatingElements() {
 // --- Row 2: Overview / Stats ---
 function StatsSection({ stats }: { stats: any }) {
   const data = [
-    { 
-      title: "Kursus Premium", 
-      value: stats.courses || 50, 
+    {
+      title: "Kursus Premium",
+      value: stats.courses || 50,
       icon: IconBook,
       gradient: { from: "blue", to: "cyan" },
-      description: "Kursus berkualitas"
+      description: "Kursus berkualitas",
     },
-    { 
-      title: "Siswa Aktif", 
-      value: stats.students || 10000, 
+    {
+      title: "Siswa Aktif",
+      value: stats.students || 10000,
       icon: IconUsers,
       gradient: { from: "grape", to: "pink" },
-      description: "Bergabung bersama kami"
+      description: "Bergabung bersama kami",
     },
     {
       title: "Pembelajaran",
       value: stats.enrollments || 25000,
       icon: IconCertificate,
       gradient: { from: "orange", to: "red" },
-      description: "Telah diselesaikan"
+      description: "Telah diselesaikan",
     },
     {
       title: "Rating Platform",
       value: 4.9,
       icon: IconStar,
       gradient: { from: "yellow", to: "orange" },
-      description: "Dari 5.0 bintang"
+      description: "Dari 5.0 bintang",
     },
   ];
-  
+
   const items = data.map((item, index) => (
     <Card
       p="lg"
@@ -132,7 +121,9 @@ function StatsSection({ stats }: { stats: any }) {
         </ThemeIcon>
         <Stack gap={2}>
           <Text size="2rem" fw={900} lh={1} className={classes.statsNumber}>
-            {typeof item.value === 'number' ? item.value.toLocaleString("id-ID") : item.value}
+            {typeof item.value === "number"
+              ? item.value.toLocaleString("id-ID")
+              : item.value}
             {item.title === "Rating Platform" ? "" : "+"}
           </Text>
           <Text size="md" fw={600} className={classes.statsTitle}>
@@ -145,7 +136,7 @@ function StatsSection({ stats }: { stats: any }) {
       </Group>
     </Card>
   ));
-  
+
   return (
     <Box className={classes.statsSection}>
       <FloatingElements />
@@ -167,8 +158,8 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
       <FloatingElements />
       <Container size="xl" py={80}>
         <Stack align="center" mb={50}>
-          <Badge 
-            size="xl" 
+          <Badge
+            size="xl"
             variant="gradient"
             gradient={{ from: "blue", to: "cyan" }}
             className={classes.sectionBadge}
@@ -183,7 +174,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
             Temukan kursus-kursus terbaik yang dipilih khusus untuk karir Anda
           </Text>
         </Stack>
-        
+
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
           {featuredCourses.map((course, index) => (
             <Card
@@ -228,18 +219,14 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                   </div>
                 </div>
               </CardSection>
-              
+
               <Stack gap="md" mt="md">
                 <Title order={4} lineClamp={2} className={classes.courseTitle}>
                   {course.course_title}
                 </Title>
-                
+
                 <Group gap="xs" align="center">
-                  <Avatar 
-                    size="sm" 
-                    radius="xl"
-                    src={course.lecturer?.image}
-                  >
+                  <Avatar size="sm" radius="xl" src={course.lecturer?.image}>
                     {course.lecturer?.first_name?.[0] || "I"}
                   </Avatar>
                   <Text size="sm" c="dimmed" fw={500}>
@@ -255,7 +242,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                     {Math.floor(Math.random() * 100) + 50} siswa
                   </Text>
                 </Group>
-                
+
                 <Group justify="space-between" align="center" mt="xs">
                   <div>
                     <Text size="lg" fw={900} className={classes.coursePrice}>
@@ -279,7 +266,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
             </Card>
           ))}
         </SimpleGrid>
-        
+
         <Center mt={50}>
           <Button
             component={Link}
@@ -305,48 +292,54 @@ function FeaturesSection() {
     {
       icon: IconPalette,
       title: "Desain Modern",
-      description: "Antarmuka yang intuitif dan nyaman digunakan dengan pengalaman belajar terbaik",
+      description:
+        "Antarmuka yang intuitif dan nyaman digunakan dengan pengalaman belajar terbaik",
       gradient: { from: "blue", to: "cyan" },
     },
     {
       icon: IconBook,
       title: "Konten Berkualitas",
-      description: "Materi pembelajaran terkini yang disusun oleh para ahli dan praktisi industri",
+      description:
+        "Materi pembelajaran terkini yang disusun oleh para ahli dan praktisi industri",
       gradient: { from: "grape", to: "pink" },
     },
     {
       icon: IconCertificate,
       title: "Sertifikat Resmi",
-      description: "Dapatkan sertifikat kelulusan yang diakui industri untuk meningkatkan karir Anda",
+      description:
+        "Dapatkan sertifikat kelulusan yang diakui industri untuk meningkatkan karir Anda",
       gradient: { from: "orange", to: "red" },
     },
     {
       icon: IconHeart,
       title: "Dukungan 24/7",
-      description: "Tim support kami siap membantu menyelesaikan masalah pembelajaran Anda kapan saja",
+      description:
+        "Tim support kami siap membantu menyelesaikan masalah pembelajaran Anda kapan saja",
       gradient: { from: "teal", to: "lime" },
     },
     {
       icon: IconClock,
       title: "Akses Seumur Hidup",
-      description: "Akses materi kursus selamanya setelah pembelian, termasuk update terbaru",
+      description:
+        "Akses materi kursus selamanya setelah pembelian, termasuk update terbaru",
       gradient: { from: "indigo", to: "violet" },
     },
     {
       icon: IconUsers,
       title: "Komunitas Aktif",
-      description: "Bergabung dengan komunitas belajar yang supportive dan berbagi pengalaman",
+      description:
+        "Bergabung dengan komunitas belajar yang supportive dan berbagi pengalaman",
       gradient: { from: "red", to: "orange" },
     },
   ];
-  
+
   return (
     <Box className={classes.featuresSection}>
       <FloatingElements />
       <Container size="xl" py={80}>
         <Stack align="center" mb={50}>
-          <Badge 
-            size="xl" 
+          <Badge
+            size="xl"
             variant="gradient"
             gradient={{ from: "grape", to: "pink" }}
             className={classes.sectionBadge}
@@ -358,10 +351,11 @@ function FeaturesSection() {
             Kenapa Memilih <span className={classes.gradientText}>iClick</span>?
           </Title>
           <Text ta="center" c="dimmed" size="xl" maw={700}>
-            Platform pembelajaran online terdepan dengan pengalaman belajar yang tak tertandingi
+            Platform pembelajaran online terdepan dengan pengalaman belajar yang
+            tak tertandingi
           </Text>
         </Stack>
-        
+
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
           {features.map((feature, index) => (
             <Card
@@ -403,7 +397,7 @@ function FeaturesSection() {
 // --- Row 5: Promosi Kategori ---
 function CategoryPromotion({ categories }: { categories: any[] }) {
   const featuredCategories = categories?.slice(0, 8) || [];
-  
+
   const categoryColors = [
     { from: "blue", to: "cyan" },
     { from: "grape", to: "pink" },
@@ -420,8 +414,8 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
       <FloatingElements />
       <Container size="xl" py={80}>
         <Stack align="center" mb={50}>
-          <Badge 
-            size="xl" 
+          <Badge
+            size="xl"
             variant="gradient"
             gradient={{ from: "orange", to: "red" }}
             className={classes.sectionBadge}
@@ -430,13 +424,14 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
             Kategori Populer
           </Badge>
           <Title order={1} ta="center" className={classes.sectionTitle}>
-            Jelajahi Berdasarkan <span className={classes.gradientText}>Kategori</span>
+            Jelajahi Berdasarkan{" "}
+            <span className={classes.gradientText}>Kategori</span>
           </Title>
           <Text ta="center" c="dimmed" size="xl" maw={700}>
             Temukan kursus yang sesuai dengan minat dan kebutuhan karir Anda
           </Text>
         </Stack>
-        
+
         <SimpleGrid cols={{ base: 2, sm: 4, lg: 4 }} spacing="lg">
           {featuredCategories.map((cat, index) => (
             <Button
@@ -484,14 +479,13 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
 
 // --- Row 6: Testimonials ---
 function Testimonials({ reviews }: { reviews: any[] }) {
-  // Jika tidak ada reviews dari database, tampilkan pesan
   if (!reviews || reviews.length === 0) {
     return (
       <Box className={classes.testimonialsSection}>
         <Container size="xl" py={80}>
           <Stack align="center" mb={50}>
-            <Badge 
-              size="xl" 
+            <Badge
+              size="xl"
               variant="gradient"
               gradient={{ from: "blue", to: "cyan" }}
               className={classes.sectionBadge}
@@ -503,7 +497,8 @@ function Testimonials({ reviews }: { reviews: any[] }) {
               Apa Kata <span className={classes.gradientText}>Mereka</span>?
             </Title>
             <Text ta="center" c="dimmed" size="xl" maw={700}>
-              Belum ada testimoni saat ini. Jadilah yang pertama memberikan ulasan!
+              Belum ada testimoni saat ini. Jadilah yang pertama memberikan
+              ulasan!
             </Text>
           </Stack>
         </Container>
@@ -515,8 +510,8 @@ function Testimonials({ reviews }: { reviews: any[] }) {
     <Box className={classes.testimonialsSection}>
       <Container size="xl" py={80}>
         <Stack align="center" mb={50}>
-          <Badge 
-            size="xl" 
+          <Badge
+            size="xl"
             variant="gradient"
             gradient={{ from: "blue", to: "cyan" }}
             className={classes.sectionBadge}
@@ -531,7 +526,7 @@ function Testimonials({ reviews }: { reviews: any[] }) {
             Pengalaman nyata dari siswa-siswa iClick
           </Text>
         </Stack>
-        
+
         <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }} spacing="xl">
           {reviews.map((review, index) => (
             <Card
@@ -545,19 +540,27 @@ function Testimonials({ reviews }: { reviews: any[] }) {
             >
               <Stack gap="lg">
                 <Group justify="space-between" align="center">
-                  <Rating 
-                    value={review.rating || 5} 
-                    readOnly 
+                  <Rating
+                    value={review.rating || 5}
+                    readOnly
                     size="lg"
                     color="yellow"
                   />
                   <IconSparkles size={24} className={classes.sparkleIcon} />
                 </Group>
-                
-                <Text size="md" c="dimmed" style={{ fontStyle: "italic" }} lh={1.7}>
-                  "{review.review_text || 'Review sangat membantu dalam proses belajar'}"
+
+                <Text
+                  size="md"
+                  c="dimmed"
+                  style={{ fontStyle: "italic" }}
+                  lh={1.7}
+                >
+                  "
+                  {review.review_text ||
+                    "Review sangat membantu dalam proses belajar"}
+                  "
                 </Text>
-                
+
                 <Group gap="md">
                   <Avatar
                     size={60}
@@ -566,22 +569,22 @@ function Testimonials({ reviews }: { reviews: any[] }) {
                     variant="gradient"
                     gradient={{ from: "blue", to: "cyan" }}
                   >
-                    {review.reviewer?.first_name?.[0] || 
-                     review.reviewer?.name?.[0] || 
-                     'S'}
+                    {review.reviewer?.first_name?.[0] ||
+                      review.reviewer?.name?.[0] ||
+                      "S"}
                   </Avatar>
                   <Stack gap={2}>
                     <Text fw={700} size="lg">
-                      {review.reviewer ? 
-                        `${review.reviewer.first_name || ''} ${review.reviewer.last_name || ''}`.trim() ||
-                        review.reviewer.name ||
-                        'Siswa iClick' 
-                        : 'Siswa iClick'}
+                      {review.reviewer
+                        ? `${review.reviewer.first_name || ""} ${review.reviewer.last_name || ""}`.trim() ||
+                          review.reviewer.name ||
+                          "Siswa iClick"
+                        : "Siswa iClick"}
                     </Text>
                     <Text size="sm" c="dimmed">
-                      {review.course?.course_title ? 
-                        `Siswa ${review.course.course_title}` : 
-                        'Verified Student'}
+                      {review.course?.course_title
+                        ? `Siswa ${review.course.course_title}`
+                        : "Verified Student"}
                     </Text>
                   </Stack>
                 </Group>
@@ -619,7 +622,8 @@ function CTASection() {
             Siap Memulai Perjalanan Belajar Anda?
           </Title>
           <Text ta="center" c="rgba(255, 255, 255, 0.9)" size="xl" maw={600}>
-            Bergabunglah dengan ribuan pelajar lainnya dan raih kesuksesan karir impian Anda
+            Bergabunglah dengan ribuan pelajar lainnya dan raih kesuksesan karir
+            impian Anda
           </Text>
           <Group mt={20}>
             <Button
@@ -660,10 +664,22 @@ export default async function HomePage() {
       getRecentReviews(),
     ]);
 
-  const stats = statsResult.status === 'fulfilled' && statsResult.value.success ? statsResult.value.data : null;
-  const courses = coursesResult.status === 'fulfilled' && coursesResult.value.success ? coursesResult.value.data : [];
-  const categories = categoriesResult.status === 'fulfilled' && categoriesResult.value.success ? categoriesResult.value.data : [];
-  const reviews = reviewsResult.status === 'fulfilled' && reviewsResult.value.success ? reviewsResult.value.data : [];
+  const stats =
+    statsResult.status === "fulfilled" && statsResult.value.success
+      ? statsResult.value.data
+      : null;
+  const courses =
+    coursesResult.status === "fulfilled" && coursesResult.value.success
+      ? coursesResult.value.data
+      : [];
+  const categories =
+    categoriesResult.status === "fulfilled" && categoriesResult.value.success
+      ? categoriesResult.value.data
+      : [];
+  const reviews =
+    reviewsResult.status === "fulfilled" && reviewsResult.value.success
+      ? reviewsResult.value.data
+      : [];
 
   return (
     <Stack gap={0}>
@@ -674,17 +690,13 @@ export default async function HomePage() {
       <CategoryPromotion categories={categories} />
       <Testimonials reviews={reviews} />
       <CTASection />
-      
-      {(statsResult.status === 'rejected' ||
-        coursesResult.status === 'rejected' ||
-        categoriesResult.status === 'rejected' ||
-        reviewsResult.status === 'rejected') && (
+
+      {(statsResult.status === "rejected" ||
+        coursesResult.status === "rejected" ||
+        categoriesResult.status === "rejected" ||
+        reviewsResult.status === "rejected") && (
         <Container py="xl">
-          <Alert
-            color="yellow"
-            title="Peringatan"
-            icon={<IconAlertCircle />}
-          >
+          <Alert color="yellow" title="Peringatan" icon={<IconAlertCircle />}>
             Beberapa data mungkin tidak dapat dimuat. Silakan refresh halaman.
           </Alert>
         </Container>

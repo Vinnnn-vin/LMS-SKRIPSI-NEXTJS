@@ -10,7 +10,7 @@ export const publishRequestStatusEnum = z.enum([
   "rejected",
 ]);
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 5 * 1024 * 1024;
 const ACCEPTED_IMAGE_TYPES = [
   "image/jpeg",
   "image/jpg",
@@ -18,7 +18,6 @@ const ACCEPTED_IMAGE_TYPES = [
   "image/webp",
 ];
 
-// File validation schema dengan pesan error yang lebih informatif
 const fileSchema = z
   .instanceof(File)
   .refine((file) => file.size <= MAX_FILE_SIZE, `Ukuran file maksimal 5MB.`)
@@ -28,25 +27,18 @@ const fileSchema = z
   )
   .optional();
 
-const idFromString = z.preprocess(
-  (val) => {
-    // Jika value ada (bukan null/undefined) dan berupa string, coba konversi ke number
-    // Jika sudah number, biarkan saja. Jika null/undefined, biarkan.
-    if (
-      val !== null &&
-      val !== undefined &&
-      typeof val === "string" &&
-      val.trim() !== ""
-    ) {
-      const num = Number(val);
-      return isNaN(num) ? val : num; // Kembalikan string asli jika bukan angka valid
-    }
-    // Jika kosong, null, undefined, atau sudah number, kembalikan apa adanya
-    return val === "" ? null : val;
-  },
-  // Validasi sebagai number positif, tapi buat nullable agar bisa handle null dari Select clearable
-  z.number().int().positive("ID harus berupa angka positif").nullable()
-);
+const idFromString = z.preprocess((val) => {
+  if (
+    val !== null &&
+    val !== undefined &&
+    typeof val === "string" &&
+    val.trim() !== ""
+  ) {
+    const num = Number(val);
+    return isNaN(num) ? val : num;
+  }
+  return val === "" ? null : val;
+}, z.number().int().positive("ID harus berupa angka positif").nullable());
 
 // Schema untuk CREATE
 export const createCourseSchema = z.object({
@@ -67,18 +59,15 @@ export const createCourseSchema = z.object({
   course_duration: z.number().int().min(0).default(0),
   publish_status: z.number().int().min(0).max(1).default(0),
   publish_request_status: publishRequestStatusEnum.default("none"),
-  // category_id: z.number().int().positive("Category ID is required"),
-  // user_id: z.number().int().positive("User ID is required"),
   category_id: idFromString.refine((val) => val !== null, {
     message: "Kategori wajib dipilih",
-  }), // Tambah refine agar tidak null
+  }),
   user_id: idFromString.refine((val) => val !== null, {
     message: "Dosen wajib dipilih",
-  }), // Tambah refine agar tidak null
+  }),
   thumbnail_file: z.instanceof(File).optional(),
 });
 
-// Schema untuk UPDATE
 export const updateCourseSchema = z
   .object({
     course_title: z
@@ -113,16 +102,14 @@ export const updateCourseSchema = z
         }
         return val === 1 ? 1 : 0;
       })
-      .pipe(z.literal(0).or(z.literal(1))) // ✅ Gunakan literal union
+      .pipe(z.literal(0).or(z.literal(1)))
       .optional(),
-    // category_id: z.string().regex(/^\d+$/).transform(Number).optional(),
-    // user_id: z.string().regex(/^\d+$/).transform(Number).optional(),
     category_id: idFromString.refine((val) => val !== null, {
       message: "Kategori wajib dipilih",
-    }), // Tambah refine agar tidak null
+    }),
     user_id: idFromString.refine((val) => val !== null, {
       message: "Dosen wajib dipilih",
-    }), // Tambah refine agar tidak null
+    }),
     thumbnail_file: fileSchema.nullable(),
   })
   .refine(
@@ -142,7 +129,6 @@ export const updateCourseSchema = z
     }
   );
 
-// Schema untuk validasi course ID di URL params
 export const courseIdParamSchema = z.object({
   course_id: z
     .string()
@@ -150,7 +136,6 @@ export const courseIdParamSchema = z.object({
     .transform(Number),
 });
 
-// Schema untuk query parameters (search, filter, sort)
 export const courseQuerySchema = z.object({
   page: z
     .string()
@@ -175,7 +160,6 @@ export const courseQuerySchema = z.object({
   sort_order: z.enum(["ASC", "DESC"]).default("DESC"),
 });
 
-// Schema untuk course card display (list view)
 export const courseCardSchema = z.object({
   course_id: z.number(),
   course_title: z.string().nullable(),
@@ -204,14 +188,12 @@ export const lecturerCreateCourseSchema = createCourseSchema.omit({
   course_price: true,
 });
 
-// Skema untuk Lecturer saat update (tanpa harga/status)
 export const lecturerUpdateCourseSchema = lecturerCreateCourseSchema
   .partial()
   .extend({
     thumbnail_file: z.instanceof(File).optional().nullable(),
   });
 
-// --- EKSPOR TIPE BARU ---
 export type LecturerCreateCourseInput = z.infer<
   typeof lecturerCreateCourseSchema
 >;
@@ -219,7 +201,6 @@ export type LecturerUpdateCourseInput = z.infer<
   typeof lecturerUpdateCourseSchema
 >;
 
-// Type exports
 export type CourseCardData = z.infer<typeof courseCardSchema>;
 export type CreateCourseInput = z.infer<typeof createCourseSchema>;
 export type UpdateCourseInput = z.infer<typeof updateCourseSchema>;

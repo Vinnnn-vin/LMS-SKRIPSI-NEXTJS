@@ -1,4 +1,4 @@
-// src/app/(public)/about/page.tsx
+// lmsistts\src\app\(public)\about\page.tsx
 'use client';
 import { 
     Container, 
@@ -35,7 +35,8 @@ import {
     IconDeviceLaptop,
     IconBulb,
     IconHeart,
-    IconStar
+    IconStar,
+    IconPalette
 } from '@tabler/icons-react';
 import { useEffect, useState } from 'react';
 
@@ -637,6 +638,3 @@ export default function AboutUsPage() {
         </Box>
     );
 }
-
-// Import tambahan untuk IconPalette
-import { IconPalette } from '@tabler/icons-react';

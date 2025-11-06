@@ -1,7 +1,6 @@
 // lmsistts\src\lib\models\index.ts
 import { sequelize } from '../db';
 
-// Import semua models
 import { User } from './User';
 import { Category } from './Category';
 import { Course } from './Course';
@@ -19,7 +18,6 @@ import { Review } from './Review';
 import { Certificate } from './Certificate';
 import { Notification } from './Notification';
 
-// Initialize all models dengan sequelize instance dari db.ts
 const models = {
   User: User.initModel(sequelize),
   Category: Category.initModel(sequelize),
@@ -39,14 +37,12 @@ const models = {
   Notification: Notification.initModel(sequelize)
 };
 
-// Setup associations untuk semua models
 Object.values(models).forEach((model: any) => {
   if (model.associate) {
     model.associate(models);
   }
 });
 
-// Export individual models
 export {
   User,
   Category,
@@ -64,43 +60,7 @@ export {
   Review,
   Certificate,
   Notification,
-  sequelize // Export sequelize untuk digunakan di tempat lain
+  sequelize
 };
 
-// Export models object
 export default models;
-
-// ============================================
-// CARA PENGGUNAAN
-// ============================================
-
-/*
-// 1. Import individual model (RECOMMENDED)
-import { User, Course, sequelize } from './models';
-
-const getUsers = async () => {
-  const users = await User.findAll();
-  return users;
-};
-
-// 2. Import semua models sekaligus
-import models from './models';
-
-const getCourse = async (id: number) => {
-  const course = await models.Course.findByPk(id);
-  return course;
-};
-
-// 3. Import sequelize untuk transactions
-import { sequelize } from './models';
-
-const createEnrollment = async () => {
-  const t = await sequelize.transaction();
-  try {
-    // ... transaction logic
-    await t.commit();
-  } catch (error) {
-    await t.rollback();
-  }
-};
-*/

@@ -70,7 +70,6 @@ export class User
     quizAnswers: Association<User, StudentQuizAnswer>;
   };
 
-  // Instance Methods
   public getFullName(): string {
     return `${this.first_name || ""} ${this.last_name || ""}`.trim();
   }

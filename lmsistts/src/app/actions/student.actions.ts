@@ -282,7 +282,7 @@ export async function getCourseLearningData(courseId: number) {
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"],
+          attributes: ["course_duration"], // Tambahkan ini
         },
       ],
     });
@@ -298,10 +298,15 @@ export async function getCourseLearningData(courseId: number) {
         throw new Error("Anda tidak terdaftar di kursus ini.");
       }
     }
+
+    // ✅ CEK EXPIRED - TAPI JANGAN LANGSUNG RESET DI SINI
+    // Biarkan client yang handle dengan GlobalTimer
     const isAccessExpired =
       enrollment.access_expires_at &&
       dayjs().isAfter(dayjs(enrollment.access_expires_at));
 
+    // Jika expired, kembalikan flag tapi tetap load data
+    // (Client akan tampilkan modal/alert)
     const course = await Course.findByPk(courseId, {
       include: [
         {
@@ -344,6 +349,7 @@ export async function getCourseLearningData(courseId: number) {
 
     if (!course) throw new Error("Kursus tidak ditemukan.");
 
+    // Load progress data seperti biasa...
     const progressDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
       attributes: ["material_detail_id"],
@@ -469,9 +475,16 @@ export async function getCourseLearningData(courseId: number) {
         submissionHistoryMap: submissionHistoryObj,
         accessExpiresAt: enrollment.access_expires_at,
         enrolledAt: enrollment.enrolled_at,
-        learningStartedAt: enrollment.learning_started_at,
-        courseDuration: (course as any).course_duration || 0,
-        isAccessExpired: isAccessExpired,
+        learningStartedAt: enrollment.learning_started_at, // ✅ Tambahkan ini
+        courseDuration: (course as any).course_duration || 0, // ✅ Tambahkan ini
+        isAccessExpired: isAccessExpired, // ✅ Flag expired
+        lastCheckpoint: enrollment.checkpoint_id
+          ? {
+              type: enrollment.checkpoint_type!,
+              id: enrollment.checkpoint_id,
+              updatedAt: enrollment.checkpoint_updated_at!,
+            }
+          : null, // ✅ NEW: Checkpoint data
       },
     };
   } catch (error: any) {
@@ -964,6 +977,7 @@ export async function resetCourseProgressAndExtendAccess(
   try {
     const { userId } = await getStudentSession();
 
+    // Validasi enrollment
     const enrollment = await Enrollment.findOne({
       where: {
         enrollment_id: enrollmentId,
@@ -974,7 +988,7 @@ export async function resetCourseProgressAndExtendAccess(
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"],
+          attributes: ["course_duration"], // Asumsi ada field ini dalam jam
         },
       ],
     });
@@ -984,41 +998,51 @@ export async function resetCourseProgressAndExtendAccess(
     }
 
     const course = enrollment.course as any;
-    const courseDuration = course?.course_duration || 0;
+    const courseDuration = course?.course_duration || 0; // dalam jam
 
     await sequelize.transaction(async (t) => {
+      // 1. Hapus semua progress
       await StudentProgress.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
+      // 2. Hapus semua quiz attempts
       await StudentQuizAnswer.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
+      // 3. Hapus semua assignment submissions
       await AssignmentSubmission.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
+      // 4. Hapus certificate jika ada
       await Certificate.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
+      // 5. Update enrollment - EXTEND ACCESS, bukan hapus
       const updateData: any = {
-        status: "active",
-        completed_at: null,
-        learning_started_at: new Date(),
+        status: "active", // Tetap active
+        completed_at: null, // Reset completion
+        learning_started_at: new Date(), // Reset learning start time
+        // ✅ Reset checkpoint
+        checkpoint_type: null,
+        checkpoint_id: null,
+        checkpoint_updated_at: null,
       };
 
+      // Set new access_expires_at jika ada durasi
       if (courseDuration > 0) {
         updateData.access_expires_at = dayjs()
           .add(courseDuration, "hour")
           .toDate();
       } else {
-        updateData.access_expires_at = null;
+        updateData.access_expires_at = null; // Unlimited
       }
 
       await enrollment.update(updateData, { transaction: t });
@@ -1038,5 +1062,227 @@ export async function resetCourseProgressAndExtendAccess(
       success: false,
       error: error.message || "Gagal mereset progress.",
     };
+  }
+}
+
+
+export async function saveCheckpoint(payload: {
+  courseId: number;
+  enrollmentId: number;
+  contentType: "detail" | "quiz";
+  contentId: number; // material_detail_id atau quiz_id
+}) {
+  try {
+    const { userId } = await getStudentSession();
+    const { courseId, enrollmentId, contentType, contentId } = payload;
+
+    // Validasi enrollment
+    const enrollment = await Enrollment.findOne({
+      where: {
+        enrollment_id: enrollmentId,
+        user_id: userId,
+        course_id: courseId,
+        status: { [Op.in]: ["active", "completed"] },
+      },
+    });
+
+    if (!enrollment) {
+      throw new Error("Enrollment tidak valid.");
+    }
+
+    // Update checkpoint di enrollment
+    // CATATAN: Perlu tambah field di model Enrollment:
+    // - checkpoint_type: "detail" | "quiz" | null
+    // - checkpoint_id: number | null
+    // - checkpoint_updated_at: Date | null
+    
+    await enrollment.update({
+      checkpoint_type: contentType,
+      checkpoint_id: contentId,
+      checkpoint_updated_at: new Date(),
+    });
+
+    console.log(
+      `✅ Checkpoint saved: user ${userId}, course ${courseId}, ${contentType} ${contentId}`
+    );
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("[SAVE_CHECKPOINT_ERROR]", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getLastCheckpoint(
+  courseId: number,
+  enrollmentId: number
+) {
+  try {
+    const { userId } = await getStudentSession();
+
+    const enrollment = await Enrollment.findOne({
+      where: {
+        enrollment_id: enrollmentId,
+        user_id: userId,
+        course_id: courseId,
+      },
+      attributes: [
+        "checkpoint_type",
+        "checkpoint_id",
+        "checkpoint_updated_at",
+      ],
+    });
+
+    if (!enrollment || !enrollment.checkpoint_id) {
+      return { success: true, data: null };
+    }
+
+    return {
+      success: true,
+      data: {
+        type: enrollment.checkpoint_type,
+        id: enrollment.checkpoint_id,
+        updatedAt: enrollment.checkpoint_updated_at,
+      },
+    };
+  } catch (error: any) {
+    console.error("[GET_CHECKPOINT_ERROR]", error);
+    return { success: false, error: error.message };
+  }
+}
+
+export async function getNextIncompleteContent(
+  courseId: number,
+  enrollmentId: number
+) {
+  try {
+    const { userId } = await getStudentSession();
+
+    // Ambil course dengan semua materials
+    const course = await Course.findByPk(courseId, {
+      include: [
+        {
+          model: Material,
+          as: "materials",
+          include: [
+            {
+              model: MaterialDetail,
+              as: "details",
+              required: false,
+            },
+            {
+              model: Quiz,
+              as: "quizzes",
+              required: false,
+            },
+          ],
+        },
+      ],
+      order: [
+        [{ model: Material, as: "materials" }, "material_id", "ASC"],
+        [
+          { model: Material, as: "materials" },
+          { model: MaterialDetail, as: "details" },
+          "material_detail_id",
+          "ASC",
+        ],
+        [
+          { model: Material, as: "materials" },
+          { model: Quiz, as: "quizzes" },
+          "quiz_id",
+          "ASC",
+        ],
+      ],
+    });
+
+    if (!course || !course.materials || course.materials.length === 0) {
+      return { success: false, error: "Course tidak memiliki materi." };
+    }
+
+    // Ambil completed items
+    const completedDetails = await StudentProgress.findAll({
+      where: { user_id: userId, course_id: courseId, is_completed: true },
+      attributes: ["material_detail_id"],
+      raw: true,
+    });
+    const completedDetailSet = new Set(
+      completedDetails.map((p: any) => p.material_detail_id)
+    );
+
+    const passedQuizzes = await StudentQuizAnswer.findAll({
+      where: { user_id: userId, course_id: courseId, status: "passed" },
+      attributes: [
+        [sequelize.fn("DISTINCT", sequelize.col("quiz_id")), "quiz_id"],
+      ],
+      raw: true,
+    });
+    const completedQuizSet = new Set(
+      passedQuizzes.map((q: any) => q.quiz_id)
+    );
+
+    const approvedAssignments = await AssignmentSubmission.findAll({
+      where: { user_id: userId, course_id: courseId, status: "approved" },
+      attributes: [
+        [
+          sequelize.fn("DISTINCT", sequelize.col("material_detail_id")),
+          "material_detail_id",
+        ],
+      ],
+      raw: true,
+    });
+    const completedAssignmentSet = new Set(
+      approvedAssignments.map((a: any) => a.material_detail_id)
+    );
+
+    // Cari first incomplete content
+    for (const material of course.materials) {
+      // Check details
+      if (material.details && material.details.length > 0) {
+        for (const detail of material.details) {
+          const isCompleted =
+            detail.material_detail_type === 4
+              ? completedAssignmentSet.has(detail.material_detail_id)
+              : completedDetailSet.has(detail.material_detail_id);
+
+          if (!isCompleted) {
+            return {
+              success: true,
+              data: {
+                type: "detail",
+                id: detail.material_detail_id,
+                name: detail.material_detail_name,
+                materialName: material.material_name,
+              },
+            };
+          }
+        }
+      }
+
+      // Check quizzes
+      if (material.quizzes && material.quizzes.length > 0) {
+        for (const quiz of material.quizzes) {
+          if (!completedQuizSet.has(quiz.quiz_id)) {
+            return {
+              success: true,
+              data: {
+                type: "quiz",
+                id: quiz.quiz_id,
+                name: quiz.quiz_title,
+                materialName: material.material_name,
+              },
+            };
+          }
+        }
+      }
+    }
+
+    // Semua sudah selesai
+    return {
+      success: true,
+      data: null, // null = course completed
+    };
+  } catch (error: any) {
+    console.error("[GET_NEXT_INCOMPLETE_ERROR]", error);
+    return { success: false, error: error.message };
   }
 }

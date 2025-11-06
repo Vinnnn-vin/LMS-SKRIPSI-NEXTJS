@@ -1,9 +1,9 @@
 // lmsistts\src\lib\models\Certificate.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { User } from './User';
-import { Course } from './Course';
-import { Enrollment } from './Enrollment';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { User } from "./User";
+import { Course } from "./Course";
+import { Enrollment } from "./Enrollment";
 
 interface CertificateAttributes {
   certificate_id: number;
@@ -16,9 +16,23 @@ interface CertificateAttributes {
   created_at: Date | null;
 }
 
-interface CertificateCreationAttributes extends Optional<CertificateAttributes, 'certificate_id' | 'user_id' | 'course_id' | 'enrollment_id' | 'certificate_url' | 'certificate_number' | 'issued_at' | 'created_at'> {}
+interface CertificateCreationAttributes
+  extends Optional<
+    CertificateAttributes,
+    | "certificate_id"
+    | "user_id"
+    | "course_id"
+    | "enrollment_id"
+    | "certificate_url"
+    | "certificate_number"
+    | "issued_at"
+    | "created_at"
+  > {}
 
-export class Certificate extends Model<CertificateAttributes, CertificateCreationAttributes> implements CertificateAttributes {
+export class Certificate
+  extends Model<CertificateAttributes, CertificateCreationAttributes>
+  implements CertificateAttributes
+{
   declare certificate_id: number;
   declare user_id: number | null;
   declare course_id: number | null;
@@ -44,51 +58,60 @@ export class Certificate extends Model<CertificateAttributes, CertificateCreatio
         certificate_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         enrollment_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         certificate_url: {
           type: DataTypes.STRING(255),
-          allowNull: true
+          allowNull: true,
         },
         certificate_number: {
           type: DataTypes.STRING(100),
           allowNull: true,
-          unique: true
+          unique: true,
         },
         issued_at: {
           type: DataTypes.DATE,
-          allowNull: true
+          allowNull: true,
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: true,
-          defaultValue: DataTypes.NOW
-        }
+          defaultValue: DataTypes.NOW,
+        },
       },
       {
         sequelize,
-        tableName: 'certificates',
-        timestamps: false
+        tableName: "certificates",
+        timestamps: false,
       }
     );
     return Certificate;
   }
 
   public static associate(models: any): void {
-    Certificate.belongsTo(models.User, { foreignKey: 'user_id', as: 'student' });
-    Certificate.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
-    Certificate.belongsTo(models.Enrollment, { foreignKey: 'enrollment_id', as: 'enrollment' });
+    Certificate.belongsTo(models.User, {
+      foreignKey: "user_id",
+      as: "student",
+    });
+    Certificate.belongsTo(models.Course, {
+      foreignKey: "course_id",
+      as: "course",
+    });
+    Certificate.belongsTo(models.Enrollment, {
+      foreignKey: "enrollment_id",
+      as: "enrollment",
+    });
   }
 }

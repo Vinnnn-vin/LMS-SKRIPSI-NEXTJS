@@ -1,25 +1,32 @@
 // lmsistts\src\lib\models\QuizQuestion.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { Quiz } from './Quiz';
-import { QuizAnswerOption } from './QuizAnswerOption';
-import { StudentQuizAnswer } from './StudentQuizAnswer';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { Quiz } from "./Quiz";
+import { QuizAnswerOption } from "./QuizAnswerOption";
+import { StudentQuizAnswer } from "./StudentQuizAnswer";
 
 interface QuizQuestionAttributes {
   question_id: number;
   quiz_id: number | null;
   question_text: string | null;
-  question_type: 'multiple_choice' | 'checkbox' | 'essay' | null;
+  question_type: "multiple_choice" | "checkbox" | "essay" | null;
   created_at: Date | null;
 }
 
-interface QuizQuestionCreationAttributes extends Optional<QuizQuestionAttributes, 'question_id' | 'quiz_id' | 'question_text' | 'question_type' | 'created_at'> {}
+interface QuizQuestionCreationAttributes
+  extends Optional<
+    QuizQuestionAttributes,
+    "question_id" | "quiz_id" | "question_text" | "question_type" | "created_at"
+  > {}
 
-export class QuizQuestion extends Model<QuizQuestionAttributes, QuizQuestionCreationAttributes> implements QuizQuestionAttributes {
+export class QuizQuestion
+  extends Model<QuizQuestionAttributes, QuizQuestionCreationAttributes>
+  implements QuizQuestionAttributes
+{
   declare question_id: number;
   declare quiz_id: number | null;
   declare question_text: string | null;
-  declare question_type: 'multiple_choice' | 'checkbox' | 'essay' | null;
+  declare question_type: "multiple_choice" | "checkbox" | "essay" | null;
   declare created_at: Date | null;
 
   declare readonly quiz?: Quiz;
@@ -33,15 +40,15 @@ export class QuizQuestion extends Model<QuizQuestionAttributes, QuizQuestionCrea
   };
 
   public isMultipleChoice(): boolean {
-    return this.question_type === 'multiple_choice';
+    return this.question_type === "multiple_choice";
   }
 
   public isCheckbox(): boolean {
-    return this.question_type === 'checkbox';
+    return this.question_type === "checkbox";
   }
 
   public isEssay(): boolean {
-    return this.question_type === 'essay';
+    return this.question_type === "essay";
   }
 
   public static initModel(sequelize: Sequelize): typeof QuizQuestion {
@@ -50,41 +57,47 @@ export class QuizQuestion extends Model<QuizQuestionAttributes, QuizQuestionCrea
         question_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         quiz_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         question_text: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         question_type: {
           type: DataTypes.STRING(15),
           allowNull: true,
           validate: {
-            isIn: [['multiple_choice', 'checkbox', 'essay']]
-          }
+            isIn: [["multiple_choice", "checkbox", "essay"]],
+          },
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: true,
-          defaultValue: DataTypes.NOW
-        }
+          defaultValue: DataTypes.NOW,
+        },
       },
       {
         sequelize,
-        tableName: 'quiz_questions',
-        timestamps: false
+        tableName: "quiz_questions",
+        timestamps: false,
       }
     );
     return QuizQuestion;
   }
 
   public static associate(models: any): void {
-    QuizQuestion.belongsTo(models.Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
-    QuizQuestion.hasMany(models.QuizAnswerOption, { foreignKey: 'question_id', as: 'options' });
-    QuizQuestion.hasMany(models.StudentQuizAnswer, { foreignKey: 'question_id', as: 'studentAnswers' });
+    QuizQuestion.belongsTo(models.Quiz, { foreignKey: "quiz_id", as: "quiz" });
+    QuizQuestion.hasMany(models.QuizAnswerOption, {
+      foreignKey: "question_id",
+      as: "options",
+    });
+    QuizQuestion.hasMany(models.StudentQuizAnswer, {
+      foreignKey: "question_id",
+      as: "studentAnswers",
+    });
   }
 }

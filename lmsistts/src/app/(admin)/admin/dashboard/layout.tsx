@@ -13,7 +13,7 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { AdminHeader } from "@/components/admin/AdminHeader"; // Impor header baru
+import { AdminHeader } from "@/components/admin/AdminHeader";
 
 const navLinks = [
   { href: "/admin/dashboard", label: "Overview", icon: IconGauge },

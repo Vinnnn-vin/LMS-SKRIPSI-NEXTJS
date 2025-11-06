@@ -1,10 +1,10 @@
 // lmsistts\src\lib\models\Quiz.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { Material } from './Material';
-import { Course } from './Course';
-import { QuizQuestion } from './QuizQuestion';
-import { StudentQuizAnswer } from './StudentQuizAnswer';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { Material } from "./Material";
+import { Course } from "./Course";
+import { QuizQuestion } from "./QuizQuestion";
+import { StudentQuizAnswer } from "./StudentQuizAnswer";
 
 interface QuizAttributes {
   quiz_id: number;
@@ -19,9 +19,25 @@ interface QuizAttributes {
   deleted_at: Date | null;
 }
 
-interface QuizCreationAttributes extends Optional<QuizAttributes, 'quiz_id' | 'material_id' | 'course_id' | 'quiz_title' | 'quiz_description' | 'passing_score' | 'time_limit' | 'max_attempts' | 'created_at' | 'deleted_at'> {}
+interface QuizCreationAttributes
+  extends Optional<
+    QuizAttributes,
+    | "quiz_id"
+    | "material_id"
+    | "course_id"
+    | "quiz_title"
+    | "quiz_description"
+    | "passing_score"
+    | "time_limit"
+    | "max_attempts"
+    | "created_at"
+    | "deleted_at"
+  > {}
 
-export class Quiz extends Model<QuizAttributes, QuizCreationAttributes> implements QuizAttributes {
+export class Quiz
+  extends Model<QuizAttributes, QuizCreationAttributes>
+  implements QuizAttributes
+{
   declare quiz_id: number;
   declare material_id: number | null;
   declare course_id: number | null;
@@ -51,61 +67,70 @@ export class Quiz extends Model<QuizAttributes, QuizCreationAttributes> implemen
         quiz_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         material_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         quiz_title: {
           type: DataTypes.STRING(255),
-          allowNull: true
+          allowNull: true,
         },
         quiz_description: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         passing_score: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         time_limit: {
           type: DataTypes.INTEGER,
           allowNull: true,
-          comment: 'in minutes'
+          comment: "in minutes",
         },
         max_attempts: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: true,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         deleted_at: {
           type: DataTypes.DATE,
-          allowNull: true
-        }
+          allowNull: true,
+        },
       },
       {
         sequelize,
-        tableName: 'quizzes',
+        tableName: "quizzes",
         timestamps: false,
-        paranoid: false
+        paranoid: false,
       }
     );
     return Quiz;
   }
 
   public static associate(models: any): void {
-    Quiz.belongsTo(models.Material, { foreignKey: 'material_id', as: 'material' });
-    Quiz.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
-    Quiz.hasMany(models.QuizQuestion, { foreignKey: 'quiz_id', as: 'questions' });
-    Quiz.hasMany(models.StudentQuizAnswer, { foreignKey: 'quiz_id', as: 'studentAnswers' });
+    Quiz.belongsTo(models.Material, {
+      foreignKey: "material_id",
+      as: "material",
+    });
+    Quiz.belongsTo(models.Course, { foreignKey: "course_id", as: "course" });
+    Quiz.hasMany(models.QuizQuestion, {
+      foreignKey: "quiz_id",
+      as: "questions",
+    });
+    Quiz.hasMany(models.StudentQuizAnswer, {
+      foreignKey: "quiz_id",
+      as: "studentAnswers",
+    });
   }
 }

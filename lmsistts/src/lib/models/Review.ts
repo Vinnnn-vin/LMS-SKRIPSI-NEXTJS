@@ -1,8 +1,8 @@
 // lmsistts\src\lib\models\Review.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { User } from './User';
-import { Course } from './Course';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { User } from "./User";
+import { Course } from "./Course";
 
 interface ReviewAttributes {
   review_id: number;
@@ -14,9 +14,22 @@ interface ReviewAttributes {
   deleted_at: Date | null;
 }
 
-interface ReviewCreationAttributes extends Optional<ReviewAttributes, 'review_id' | 'user_id' | 'course_id' | 'rating' | 'review_text' | 'created_at' | 'deleted_at'> {}
+interface ReviewCreationAttributes
+  extends Optional<
+    ReviewAttributes,
+    | "review_id"
+    | "user_id"
+    | "course_id"
+    | "rating"
+    | "review_text"
+    | "created_at"
+    | "deleted_at"
+  > {}
 
-export class Review extends Model<ReviewAttributes, ReviewCreationAttributes> implements ReviewAttributes {
+export class Review
+  extends Model<ReviewAttributes, ReviewCreationAttributes>
+  implements ReviewAttributes
+{
   declare review_id: number;
   declare user_id: number | null;
   declare course_id: number | null;
@@ -34,7 +47,7 @@ export class Review extends Model<ReviewAttributes, ReviewCreationAttributes> im
   };
 
   public getStars(): string {
-    return '⭐'.repeat(this.rating || 0);
+    return "⭐".repeat(this.rating || 0);
   }
 
   public static initModel(sequelize: Sequelize): typeof Review {
@@ -43,50 +56,50 @@ export class Review extends Model<ReviewAttributes, ReviewCreationAttributes> im
         review_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         rating: {
           type: DataTypes.INTEGER,
           allowNull: true,
           validate: {
             min: 1,
-            max: 5
-          }
+            max: 5,
+          },
         },
         review_text: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: true,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         deleted_at: {
           type: DataTypes.DATE,
-          allowNull: true
-        }
+          allowNull: true,
+        },
       },
       {
         sequelize,
-        tableName: 'reviews',
+        tableName: "reviews",
         timestamps: false,
-        paranoid: false
+        paranoid: false,
       }
     );
     return Review;
   }
 
   public static associate(models: any): void {
-    Review.belongsTo(models.User, { foreignKey: 'user_id', as: 'reviewer' });
-    Review.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
+    Review.belongsTo(models.User, { foreignKey: "user_id", as: "reviewer" });
+    Review.belongsTo(models.Course, { foreignKey: "course_id", as: "course" });
   }
 }

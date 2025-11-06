@@ -1,8 +1,8 @@
 // lmsistts\src\lib\models\QuizAnswerOption.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { Quiz } from './Quiz';
-import { QuizQuestion } from './QuizQuestion';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { Quiz } from "./Quiz";
+import { QuizQuestion } from "./QuizQuestion";
 
 interface QuizAnswerOptionAttributes {
   option_id: number;
@@ -12,9 +12,16 @@ interface QuizAnswerOptionAttributes {
   is_correct: boolean | null;
 }
 
-interface QuizAnswerOptionCreationAttributes extends Optional<QuizAnswerOptionAttributes, 'option_id' | 'quiz_id' | 'question_id' | 'option_text' | 'is_correct'> {}
+interface QuizAnswerOptionCreationAttributes
+  extends Optional<
+    QuizAnswerOptionAttributes,
+    "option_id" | "quiz_id" | "question_id" | "option_text" | "is_correct"
+  > {}
 
-export class QuizAnswerOption extends Model<QuizAnswerOptionAttributes, QuizAnswerOptionCreationAttributes> implements QuizAnswerOptionAttributes {
+export class QuizAnswerOption
+  extends Model<QuizAnswerOptionAttributes, QuizAnswerOptionCreationAttributes>
+  implements QuizAnswerOptionAttributes
+{
   declare option_id: number;
   declare quiz_id: number | null;
   declare question_id: number | null;
@@ -35,37 +42,43 @@ export class QuizAnswerOption extends Model<QuizAnswerOptionAttributes, QuizAnsw
         option_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         quiz_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         question_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         option_text: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         is_correct: {
           type: DataTypes.BOOLEAN,
           allowNull: true,
-          defaultValue: false
-        }
+          defaultValue: false,
+        },
       },
       {
         sequelize,
-        tableName: 'quiz_answer_options',
-        timestamps: false
+        tableName: "quiz_answer_options",
+        timestamps: false,
       }
     );
     return QuizAnswerOption;
   }
 
   public static associate(models: any): void {
-    QuizAnswerOption.belongsTo(models.Quiz, { foreignKey: 'quiz_id', as: 'quiz' });
-    QuizAnswerOption.belongsTo(models.QuizQuestion, { foreignKey: 'question_id', as: 'question' });
+    QuizAnswerOption.belongsTo(models.Quiz, {
+      foreignKey: "quiz_id",
+      as: "quiz",
+    });
+    QuizAnswerOption.belongsTo(models.QuizQuestion, {
+      foreignKey: "question_id",
+      as: "question",
+    });
   }
 }

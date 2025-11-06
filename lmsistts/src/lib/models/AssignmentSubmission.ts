@@ -1,10 +1,10 @@
 // lmsistts\src\lib\models\AssignmentSubmission.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { User } from './User';
-import { MaterialDetail } from './MaterialDetail';
-import { Course } from './Course';
-import { Enrollment } from './Enrollment';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { User } from "./User";
+import { MaterialDetail } from "./MaterialDetail";
+import { Course } from "./Course";
+import { Enrollment } from "./Enrollment";
 
 interface AssignmentSubmissionAttributes {
   submission_id: number;
@@ -12,12 +12,18 @@ interface AssignmentSubmissionAttributes {
   material_detail_id: number;
   course_id: number;
   enrollment_id: number;
-  submission_type: 'file' | 'url' | 'text' | 'both'; // ✅ FIXED: Tambahkan 'both'
+  submission_type: "file" | "url" | "text" | "both";
   file_path: string | null;
   submission_url: string | null;
   submission_text: string | null;
   attempt_number: number | null;
-  status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected' | null;
+  status:
+    | "pending"
+    | "submitted"
+    | "under_review"
+    | "approved"
+    | "rejected"
+    | null;
   score: number | null;
   feedback: string | null;
   reviewed_by: number | null;
@@ -27,20 +33,48 @@ interface AssignmentSubmissionAttributes {
   updated_at: Date;
 }
 
-interface AssignmentSubmissionCreationAttributes extends Optional<AssignmentSubmissionAttributes, 'submission_id' | 'file_path' | 'submission_url' | 'submission_text' | 'attempt_number' | 'status' | 'score' | 'feedback' | 'reviewed_by' | 'submitted_at' | 'reviewed_at' | 'created_at' | 'updated_at'> {}
+interface AssignmentSubmissionCreationAttributes
+  extends Optional<
+    AssignmentSubmissionAttributes,
+    | "submission_id"
+    | "file_path"
+    | "submission_url"
+    | "submission_text"
+    | "attempt_number"
+    | "status"
+    | "score"
+    | "feedback"
+    | "reviewed_by"
+    | "submitted_at"
+    | "reviewed_at"
+    | "created_at"
+    | "updated_at"
+  > {}
 
-export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, AssignmentSubmissionCreationAttributes> implements AssignmentSubmissionAttributes {
+export class AssignmentSubmission
+  extends Model<
+    AssignmentSubmissionAttributes,
+    AssignmentSubmissionCreationAttributes
+  >
+  implements AssignmentSubmissionAttributes
+{
   declare submission_id: number;
   declare user_id: number;
   declare material_detail_id: number;
   declare course_id: number;
   declare enrollment_id: number;
-  declare submission_type: 'file' | 'url' | 'text' | 'both'; // ✅ FIXED
+  declare submission_type: "file" | "url" | "text" | "both";
   declare file_path: string | null;
   declare submission_url: string | null;
   declare submission_text: string | null;
   declare attempt_number: number | null;
-  declare status: 'pending' | 'submitted' | 'under_review' | 'approved' | 'rejected' | null;
+  declare status:
+    | "pending"
+    | "submitted"
+    | "under_review"
+    | "approved"
+    | "rejected"
+    | null;
   declare score: number | null;
   declare feedback: string | null;
   declare reviewed_by: number | null;
@@ -64,36 +98,35 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
   };
 
   public isSubmitted(): boolean {
-    return this.status === 'submitted';
+    return this.status === "submitted";
   }
 
   public isUnderReview(): boolean {
-    return this.status === 'under_review';
+    return this.status === "under_review";
   }
 
   public isApproved(): boolean {
-    return this.status === 'approved';
+    return this.status === "approved";
   }
 
   public isRejected(): boolean {
-    return this.status === 'rejected';
+    return this.status === "rejected";
   }
 
   public isFileSubmission(): boolean {
-    return this.submission_type === 'file' || this.submission_type === 'both'; // ✅ FIXED
+    return this.submission_type === "file" || this.submission_type === "both";
   }
 
   public isUrlSubmission(): boolean {
-    return this.submission_type === 'url';
+    return this.submission_type === "url";
   }
 
   public isTextSubmission(): boolean {
-    return this.submission_type === 'text' || this.submission_type === 'both'; // ✅ FIXED
+    return this.submission_type === "text" || this.submission_type === "both";
   }
 
-  // ✅ NEW: Helper method untuk cek tipe 'both'
   public isBothSubmission(): boolean {
-    return this.submission_type === 'both';
+    return this.submission_type === "both";
   }
 
   public static initModel(sequelize: Sequelize): typeof AssignmentSubmission {
@@ -102,96 +135,117 @@ export class AssignmentSubmission extends Model<AssignmentSubmissionAttributes, 
         submission_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         material_detail_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         enrollment_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         submission_type: {
-          type: DataTypes.ENUM('file', 'url', 'text', 'both'), // ✅ FIXED: Tambahkan 'both'
-          allowNull: false
+          type: DataTypes.ENUM("file", "url", "text", "both"),
+          allowNull: false,
         },
         file_path: {
           type: DataTypes.STRING(500),
-          allowNull: true
+          allowNull: true,
         },
         submission_url: {
           type: DataTypes.STRING(500),
-          allowNull: true
+          allowNull: true,
         },
         submission_text: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         attempt_number: {
           type: DataTypes.INTEGER,
           allowNull: true,
-          defaultValue: 1
+          defaultValue: 1,
         },
         status: {
-          type: DataTypes.ENUM('pending', 'submitted', 'under_review', 'approved', 'rejected'),
+          type: DataTypes.ENUM(
+            "pending",
+            "submitted",
+            "under_review",
+            "approved",
+            "rejected"
+          ),
           allowNull: true,
-          defaultValue: 'submitted'
+          defaultValue: "submitted",
         },
         score: {
           type: DataTypes.DECIMAL(5, 2),
-          allowNull: true
+          allowNull: true,
         },
         feedback: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
         reviewed_by: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         submitted_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         reviewed_at: {
           type: DataTypes.DATE,
-          allowNull: true
+          allowNull: true,
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         updated_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
-        }
+          defaultValue: DataTypes.NOW,
+        },
       },
       {
         sequelize,
-        tableName: 'assignment_submissions',
-        timestamps: false
+        tableName: "assignment_submissions",
+        timestamps: false,
       }
     );
     return AssignmentSubmission;
   }
 
   public static associate(models: any): void {
-    AssignmentSubmission.belongsTo(models.User, { foreignKey: 'user_id', as: 'student' });
-    AssignmentSubmission.belongsTo(models.MaterialDetail, { foreignKey: 'material_detail_id', as: 'assignment' });
-    AssignmentSubmission.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
-    AssignmentSubmission.belongsTo(models.Enrollment, { foreignKey: 'enrollment_id', as: 'enrollment' });
-    AssignmentSubmission.belongsTo(models.User, { foreignKey: 'reviewed_by', as: 'reviewer' });
+    AssignmentSubmission.belongsTo(models.User, {
+      foreignKey: "user_id",
+      as: "student",
+    });
+    AssignmentSubmission.belongsTo(models.MaterialDetail, {
+      foreignKey: "material_detail_id",
+      as: "assignment",
+    });
+    AssignmentSubmission.belongsTo(models.Course, {
+      foreignKey: "course_id",
+      as: "course",
+    });
+    AssignmentSubmission.belongsTo(models.Enrollment, {
+      foreignKey: "enrollment_id",
+      as: "enrollment",
+    });
+    AssignmentSubmission.belongsTo(models.User, {
+      foreignKey: "reviewed_by",
+      as: "reviewer",
+    });
   }
 }

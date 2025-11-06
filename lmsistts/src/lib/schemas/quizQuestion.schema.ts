@@ -23,10 +23,8 @@ export const questionIdParamSchema = z.object({
 export const createQuestionSchema = z.object({
   question_text: z.string().min(3, 'Teks pertanyaan tidak boleh kosong'),
   question_type: z.enum(['multiple_choice', 'checkbox', 'essay']),
-  // Menerima array dari Pilihan Jawaban
   options: z.array(answerOptionSchema)
     .min(1, 'Minimal harus ada 1 pilihan jawaban')
-    // Validasi kustom: pastikan setidaknya 1 jawaban benar
     .refine(options => options.some(opt => opt.is_correct), {
         message: 'Minimal harus ada 1 jawaban yang ditandai benar (is_correct: true)',
     }),

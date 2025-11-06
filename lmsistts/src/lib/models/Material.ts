@@ -1,9 +1,9 @@
 // lmsistts\src\lib\models\Material.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { Course } from './Course';
-import { MaterialDetail } from './MaterialDetail';
-import { Quiz } from './Quiz';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { Course } from "./Course";
+import { MaterialDetail } from "./MaterialDetail";
+import { Quiz } from "./Quiz";
 
 interface MaterialAttributes {
   material_id: number;
@@ -12,9 +12,16 @@ interface MaterialAttributes {
   course_id: number;
 }
 
-interface MaterialCreationAttributes extends Optional<MaterialAttributes, 'material_id' | 'material_name' | 'material_description'> {}
+interface MaterialCreationAttributes
+  extends Optional<
+    MaterialAttributes,
+    "material_id" | "material_name" | "material_description"
+  > {}
 
-export class Material extends Model<MaterialAttributes, MaterialCreationAttributes> implements MaterialAttributes {
+export class Material
+  extends Model<MaterialAttributes, MaterialCreationAttributes>
+  implements MaterialAttributes
+{
   declare material_id: number;
   declare material_name: string | null;
   declare material_description: string | null;
@@ -36,33 +43,39 @@ export class Material extends Model<MaterialAttributes, MaterialCreationAttribut
         material_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         material_name: {
           type: DataTypes.STRING(255),
-          allowNull: true
+          allowNull: true,
         },
         material_description: {
           type: DataTypes.STRING(255),
-          allowNull: true
+          allowNull: true,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
-        }
+          allowNull: false,
+        },
       },
       {
         sequelize,
-        tableName: 'material',
-        timestamps: false
+        tableName: "material",
+        timestamps: false,
       }
     );
     return Material;
   }
 
   public static associate(models: any): void {
-    Material.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
-    Material.hasMany(models.MaterialDetail, { foreignKey: 'material_id', as: 'details' });
-    Material.hasMany(models.Quiz, { foreignKey: 'material_id', as: 'quizzes' });
+    Material.belongsTo(models.Course, {
+      foreignKey: "course_id",
+      as: "course",
+    });
+    Material.hasMany(models.MaterialDetail, {
+      foreignKey: "material_id",
+      as: "details",
+    });
+    Material.hasMany(models.Quiz, { foreignKey: "material_id", as: "quizzes" });
   }
 }

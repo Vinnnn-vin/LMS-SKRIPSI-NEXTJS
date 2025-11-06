@@ -1,9 +1,7 @@
 // lmsistts/src/lib/schemas/quiz.schema.ts
-// Update file yang sudah ada
 
 import { z } from 'zod';
 
-// ✅ Schema untuk quiz dasar (sudah ada)
 export const createQuizSchema = z.object({
   quiz_title: z.string().min(3, 'Judul quiz minimal 3 karakter').max(255),
   quiz_description: z.string().max(1000).optional().or(z.literal('')),
@@ -18,8 +16,6 @@ export const quizIdParamSchema = z.object({
   quiz_id: z.string().regex(/^\d+$/).transform(Number)
 });
 
-// ✅ TAMBAHAN: Schema untuk quiz answer option (untuk relasi)
-// Schema dari database (nullable)
 export const quizAnswerOptionSchema = z.object({
   option_id: z.number(),
   quiz_id: z.number().nullable(),
@@ -28,14 +24,12 @@ export const quizAnswerOptionSchema = z.object({
   is_correct: z.boolean().nullable(),
 });
 
-// ✅ Schema untuk component (non-nullable, sudah di-normalize)
 export const questionOptionSchema = z.object({
   option_id: z.number(),
   option_text: z.string(),
   is_correct: z.boolean(),
 });
 
-// ✅ TAMBAHAN: Schema untuk quiz question dengan options (dari database)
 export const quizQuestionWithOptionsSchema = z.object({
   question_id: z.number(),
   quiz_id: z.number().nullable(),
@@ -45,7 +39,6 @@ export const quizQuestionWithOptionsSchema = z.object({
   options: z.array(quizAnswerOptionSchema).optional(),
 });
 
-// ✅ Schema untuk question yang sudah di-normalize (untuk component)
 export const normalizedQuestionSchema = z.object({
   question_id: z.number(),
   question_text: z.string(),
@@ -53,7 +46,6 @@ export const normalizedQuestionSchema = z.object({
   options: z.array(questionOptionSchema),
 });
 
-// ✅ TAMBAHAN: Schema untuk quiz dengan semua relasi (untuk edit page)
 export const quizWithRelationsSchema = z.object({
   quiz_id: z.number(),
   material_id: z.number().nullable(),
@@ -66,7 +58,6 @@ export const quizWithRelationsSchema = z.object({
   created_at: z.date().nullable(),
   deleted_at: z.date().nullable(),
   
-  // Relasi
   course: z.object({
     course_id: z.number(),
     course_title: z.string().nullable(),
@@ -80,13 +71,11 @@ export const quizWithRelationsSchema = z.object({
   questions: z.array(quizQuestionWithOptionsSchema).optional(),
 });
 
-// ✅ Export types dari schema
 export type CreateQuizInput = z.infer<typeof createQuizSchema>;
 export type UpdateQuizInput = z.infer<typeof updateQuizSchema>;
 export type QuizAnswerOption = z.infer<typeof quizAnswerOptionSchema>;
 export type QuizQuestionWithOptions = z.infer<typeof quizQuestionWithOptionsSchema>;
 export type QuizWithRelations = z.infer<typeof quizWithRelationsSchema>;
 
-// ✅ Export types untuk component (normalized)
 export type QuestionOption = z.infer<typeof questionOptionSchema>;
 export type NormalizedQuestion = z.infer<typeof normalizedQuestionSchema>;

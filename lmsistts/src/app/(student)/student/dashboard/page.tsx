@@ -1,4 +1,4 @@
-// lmsistts\src\app\(student)\student\dashboard\page.tsx
+// UPDATE dashboard/page.tsx - Tambahkan tombol "Lanjutkan Belajar"
 
 import {
   Container,
@@ -17,35 +17,34 @@ import {
   Progress,
   Button,
   CardSection,
+  Tooltip,
 } from "@mantine/core";
 import {
   IconSchool,
   IconCertificate,
   IconPlayerPlay,
   IconAlertCircle,
+  IconBookmark, // ✅ Icon untuk checkpoint
 } from "@tabler/icons-react";
 import {
   getStudentDashboardStats,
-  getMyEnrolledCourses,
+  getMyEnrolledCoursesWithProgress, // ✅ Ganti dengan yang ada checkpoint
 } from "@/app/actions/student.actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import Link from "next/link";
 
-// Helper
 const formatNumber = (num: number) =>
   new Intl.NumberFormat("id-ID").format(num);
 
 export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions);
 
-  // Ambil data statistik dan data kursus secara bersamaan
   const [statsResult, coursesResult] = await Promise.all([
     getStudentDashboardStats(),
-    getMyEnrolledCourses(),
+    getMyEnrolledCoursesWithProgress(), // ✅ Sudah include checkpoint
   ]);
 
-  // Handle error jika salah satu gagal
   if (!statsResult.success || !coursesResult.success) {
     return (
       <Container py="xl">
@@ -75,7 +74,8 @@ export default async function StudentDashboardPage() {
     },
   ];
 
-  const enrolledCourses = coursesResult.data || [];
+  const activeCourses = coursesResult.data?.active || [];
+  const completedCourses = coursesResult.data?.completed || [];
 
   return (
     <Container fluid>
@@ -115,71 +115,145 @@ export default async function StudentDashboardPage() {
         ))}
       </SimpleGrid>
 
-      {/* Daftar Kursus yang Sedang Diikuti */}
-      <Title order={4} mt="xl" mb="md">
-        Kursus Saya
-      </Title>
+      {/* Kursus Aktif */}
+      {activeCourses.length > 0 && (
+        <>
+          <Title order={4} mt="xl" mb="md">
+            Kursus Aktif
+          </Title>
 
-      {enrolledCourses.length > 0 ? (
-        <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }}>
-          {enrolledCourses.map((course: any) => (
-            <Card
-              shadow="sm"
-              padding="lg"
-              radius="md"
-              withBorder
-              key={course.enrollment_id}
-            >
-              <CardSection>
-                <Image
-                  src={
-                    course.thumbnail_url ||
-                    "https://placehold.co/600x400?text=Course"
-                  }
-                  height={160}
-                  alt={course.course_title}
-                />
-              </CardSection>
-
-              <Group justify="space-between" mt="md" mb="xs">
-                <Text fw={500} size="lg" lineClamp={1}>
-                  {course.course_title}
-                </Text>
-                <Badge color="pink" variant="light">
-                  {course.category?.category_name || "General"}
-                </Badge>
-              </Group>
-
-              {/* Progress Bar */}
-              <Stack gap="xs" mt="sm">
-                <Text size="xs" c="dimmed">
-                  {course.progress}% Selesai
-                </Text>
-                <Progress
-                  value={course.progress}
-                  radius="sm"
-                  animated={course.progress < 100}
-                />
-              </Stack>
-
-              <Button
-                component={Link}
-                // Arahkan ke halaman belajar kursus (perlu dibuat)
-                href={`/student/courses/${course.course_id}/learn`}
-                variant="light"
-                color="blue"
-                fullWidth
-                mt="md"
+          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }}>
+            {activeCourses.map((course: any) => (
+              <Card
+                shadow="sm"
+                padding="lg"
                 radius="md"
-                leftSection={<IconPlayerPlay size={16} />}
+                withBorder
+                key={course.enrollment_id}
               >
-                {course.progress > 0 ? "Lanjutkan Belajar" : "Mulai Belajar"}
-              </Button>
-            </Card>
-          ))}
-        </SimpleGrid>
-      ) : (
-        <Paper withBorder p="xl" radius="md" ta="center">
+                <CardSection>
+                  <Image
+                    src={
+                      course.thumbnail_url ||
+                      "https://placehold.co/600x400?text=Course"
+                    }
+                    height={160}
+                    alt={course.course_title}
+                  />
+                </CardSection>
+
+                <Group justify="space-between" mt="md" mb="xs">
+                  <Text fw={500} size="lg" lineClamp={1}>
+                    {course.course_title}
+                  </Text>
+                  <Badge color="pink" variant="light">
+                    {course.category?.category_name || "General"}
+                  </Badge>
+                </Group>
+
+                {/* Progress Bar */}
+                <Stack gap="xs" mt="sm">
+                  <Group justify="space-between">
+                    <Text size="xs" c="dimmed">
+                      {course.progress}% Selesai
+                    </Text>
+                    {/* ✅ Indicator checkpoint */}
+                    {course.lastCheckpoint && (
+                      <Tooltip label="Ada checkpoint tersimpan">
+                        <Badge
+                          size="xs"
+                          color="blue"
+                          variant="dot"
+                          leftSection={<IconBookmark size={12} />}
+                        >
+                          Tersimpan
+                        </Badge>
+                      </Tooltip>
+                    )}
+                  </Group>
+                  <Progress
+                    value={course.progress}
+                    radius="sm"
+                    animated={course.progress < 100}
+                  />
+                </Stack>
+
+                {/* ✅ Tombol Lanjutkan/Mulai Belajar */}
+                <Button
+                  component={Link}
+                  href={`/student/courses/${course.course_id}/learn`}
+                  variant="light"
+                  color="blue"
+                  fullWidth
+                  mt="md"
+                  radius="md"
+                  leftSection={<IconPlayerPlay size={16} />}
+                >
+                  {course.progress > 0 ? "Lanjutkan Belajar" : "Mulai Belajar"}
+                </Button>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </>
+      )}
+
+      {/* Kursus Selesai */}
+      {completedCourses.length > 0 && (
+        <>
+          <Title order={4} mt="xl" mb="md">
+            Kursus Selesai
+          </Title>
+
+          <SimpleGrid cols={{ base: 1, md: 2, lg: 3 }}>
+            {completedCourses.map((course: any) => (
+              <Card
+                shadow="sm"
+                padding="lg"
+                radius="md"
+                withBorder
+                key={course.enrollment_id}
+              >
+                <CardSection>
+                  <Image
+                    src={
+                      course.thumbnail_url ||
+                      "https://placehold.co/600x400?text=Course"
+                    }
+                    height={160}
+                    alt={course.course_title}
+                  />
+                </CardSection>
+
+                <Group justify="space-between" mt="md" mb="xs">
+                  <Text fw={500} size="lg" lineClamp={1}>
+                    {course.course_title}
+                  </Text>
+                  <Badge color="green" variant="light">
+                    Selesai
+                  </Badge>
+                </Group>
+
+                <Button
+                  component={Link}
+                  href={`/student/courses/${course.course_id}/learn`}
+                  variant="outline"
+                  color="green"
+                  fullWidth
+                  mt="md"
+                  radius="md"
+                  leftSection={<IconCertificate size={16} />}
+                >
+                  Lihat Materi
+                </Button>
+              </Card>
+            ))}
+          </SimpleGrid>
+        </>
+      )}
+
+      {/* Jika tidak ada kursus sama sekali */}
+      {activeCourses.length === 0 && completedCourses.length === 0 && (
+        <Paper withBorder p="xl" radius="md" ta="center" mt="xl">
           <Text c="dimmed">Anda belum mendaftar di kursus apa pun.</Text>
           <Button component={Link} href="/courses" mt="md">
             Jelajahi Kursus Sekarang

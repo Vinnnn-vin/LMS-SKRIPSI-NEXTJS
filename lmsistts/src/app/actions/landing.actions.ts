@@ -47,9 +47,8 @@ export async function getFeaturedCourses() {
 // --- FUNGSI UNTUK BARIS 5: KATEGORI UNGGULAN ---
 export async function getFeaturedCategories() {
   try {
-    // Logika ini bisa disesuaikan, misal mengambil kategori dengan kursus terbanyak
     const categories = await Category.findAll({
-      limit: 4, // Ambil 4 kategori
+      limit: 4, 
       order: [['category_name', 'ASC']],
     });
     return { success: true, data: categories.map((c) => c.toJSON()) };

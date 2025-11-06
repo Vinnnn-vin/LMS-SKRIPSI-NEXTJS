@@ -40,23 +40,20 @@ export const createAssignmentSubmissionSchema = z
 
 export const reviewAssignmentSchema = z
   .object({
-    status: submissionStatusEnum, // Status baru dari Select
-    // Skor: nullable, tapi jadi required jika status 'approved'
+    status: submissionStatusEnum,
     score: z.number().int().min(0).max(100).nullable().optional(),
-    feedback: z.string().max(5000).optional().nullable(), // Feedback opsional
-    // reviewed_by akan diambil dari sesi di server action
+    feedback: z.string().max(5000).optional().nullable(),
   })
   .refine(
     (data) => {
-      // Jika status 'approved', skor tidak boleh null/undefined
       if (data.status === "approved") {
         return data.score !== null && data.score !== undefined;
       }
-      return true; // Selain 'approved', skor boleh null
+      return true;
     },
     {
       message: "Skor wajib diisi jika status 'Approved'",
-      path: ["score"], // Tampilkan error di field skor
+      path: ["score"],
     }
   );
 

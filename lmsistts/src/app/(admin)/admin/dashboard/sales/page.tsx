@@ -1,35 +1,18 @@
 // lmsistts\src\app\(admin)\admin\dashboard\sales\page.tsx
-import {
-  Container,
-  SimpleGrid,
-  Paper,
-  Text,
-  Title,
-  Group,
-  ThemeIcon,
-  rem,
-  Alert,
-  Stack,
-} from "@mantine/core";
-import {
-  IconUsers,
-  IconBook,
-  IconCash,
-  IconCertificate,
-  IconAlertCircle,
-} from "@tabler/icons-react";
+import { Container, SimpleGrid, Title, Alert, Stack } from "@mantine/core";
+import { IconAlertCircle } from "@tabler/icons-react";
 import {
   getAdminDashboardStats,
   getAllPaymentsForAdmin,
   getCourseSalesStats,
   getFinancialTrendData,
   getMonthlySalesData,
-} from "@/app/actions/admin.actions"; // Impor kedua fungsi
+} from "@/app/actions/admin.actions";
 import { SalesManagementTable } from "@/components/admin/SalesManagementTable";
-import { CoursePopularityChart } from "@/components/admin/CoursePopularityChart"; // Impor chart baru
+import { CoursePopularityChart } from "@/components/admin/CoursePopularityChart";
 
 import { SalesChart } from "@/components/admin/SalesChart";
-import { FinancialTrendChart } from "@/components/admin/FinancialTrendChart"; // Impor chart baru
+import { FinancialTrendChart } from "@/components/admin/FinancialTrendChart";
 
 export default async function ManageSalesPage() {
   // Ambil data secara paralel
@@ -40,7 +23,7 @@ export default async function ManageSalesPage() {
     salesDataResult,
     trendDataResult,
   ] = await Promise.all([
-    getAllPaymentsForAdmin(), // Pertimbangkan filter default jika perlu
+    getAllPaymentsForAdmin(),
     getCourseSalesStats(),
     getAdminDashboardStats(),
     getMonthlySalesData(),

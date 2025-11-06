@@ -1,9 +1,9 @@
 // lmsistts\src\lib\models\StudentProgress.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { User } from './User';
-import { Course } from './Course';
-import { MaterialDetail } from './MaterialDetail';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { User } from "./User";
+import { Course } from "./Course";
+import { MaterialDetail } from "./MaterialDetail";
 
 interface StudentProgressAttributes {
   progress_id: number;
@@ -16,9 +16,20 @@ interface StudentProgressAttributes {
   updated_at: Date;
 }
 
-interface StudentProgressCreationAttributes extends Optional<StudentProgressAttributes, 'progress_id' | 'is_completed' | 'completed_at' | 'created_at' | 'updated_at'> {}
+interface StudentProgressCreationAttributes
+  extends Optional<
+    StudentProgressAttributes,
+    | "progress_id"
+    | "is_completed"
+    | "completed_at"
+    | "created_at"
+    | "updated_at"
+  > {}
 
-export class StudentProgress extends Model<StudentProgressAttributes, StudentProgressCreationAttributes> implements StudentProgressAttributes {
+export class StudentProgress
+  extends Model<StudentProgressAttributes, StudentProgressCreationAttributes>
+  implements StudentProgressAttributes
+{
   declare progress_id: number;
   declare user_id: number;
   declare course_id: number;
@@ -44,53 +55,62 @@ export class StudentProgress extends Model<StudentProgressAttributes, StudentPro
         progress_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         user_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         course_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         material_detail_id: {
           type: DataTypes.INTEGER,
-          allowNull: false
+          allowNull: false,
         },
         is_completed: {
           type: DataTypes.BOOLEAN,
           allowNull: false,
-          defaultValue: false
+          defaultValue: false,
         },
         completed_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         created_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
+          defaultValue: DataTypes.NOW,
         },
         updated_at: {
           type: DataTypes.DATE,
           allowNull: false,
-          defaultValue: DataTypes.NOW
-        }
+          defaultValue: DataTypes.NOW,
+        },
       },
       {
         sequelize,
-        tableName: 'student_progress',
-        timestamps: false
+        tableName: "student_progress",
+        timestamps: false,
       }
     );
     return StudentProgress;
   }
 
   public static associate(models: any): void {
-    StudentProgress.belongsTo(models.User, { foreignKey: 'user_id', as: 'student' });
-    StudentProgress.belongsTo(models.Course, { foreignKey: 'course_id', as: 'course' });
-    StudentProgress.belongsTo(models.MaterialDetail, { foreignKey: 'material_detail_id', as: 'materialDetail' });
+    StudentProgress.belongsTo(models.User, {
+      foreignKey: "user_id",
+      as: "student",
+    });
+    StudentProgress.belongsTo(models.Course, {
+      foreignKey: "course_id",
+      as: "course",
+    });
+    StudentProgress.belongsTo(models.MaterialDetail, {
+      foreignKey: "material_detail_id",
+      as: "materialDetail",
+    });
   }
 }

@@ -1,9 +1,9 @@
 // lmsistts\src\lib\models\MaterialDetail.ts
 
-import { Model, DataTypes, Sequelize, Optional, Association } from 'sequelize';
-import { Material } from './Material';
-import { AssignmentSubmission } from './AssignmentSubmission';
-import { StudentProgress } from './StudentProgress';
+import { Model, DataTypes, Sequelize, Optional, Association } from "sequelize";
+import { Material } from "./Material";
+import { AssignmentSubmission } from "./AssignmentSubmission";
+import { StudentProgress } from "./StudentProgress";
 
 interface MaterialDetailAttributes {
   material_detail_id: number;
@@ -17,9 +17,16 @@ interface MaterialDetailAttributes {
   is_free: boolean;
 }
 
-interface MaterialDetailCreationAttributes extends Optional<MaterialDetailAttributes, 'material_detail_id' | 'material_id' | 'is_free'> {}
+interface MaterialDetailCreationAttributes
+  extends Optional<
+    MaterialDetailAttributes,
+    "material_detail_id" | "material_id" | "is_free"
+  > {}
 
-export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDetailCreationAttributes> implements MaterialDetailAttributes {
+export class MaterialDetail
+  extends Model<MaterialDetailAttributes, MaterialDetailCreationAttributes>
+  implements MaterialDetailAttributes
+{
   declare material_detail_id: number;
   declare material_detail_name: string;
   declare material_detail_description: string;
@@ -58,12 +65,12 @@ export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDeta
 
   public getTypeName(): string {
     const types: { [key: number]: string } = {
-      1: 'Video',
-      2: 'PDF',
-      3: 'Youtube',
-      4: 'Assignment'
+      1: "Video",
+      2: "PDF",
+      3: "Youtube",
+      4: "Assignment",
     };
-    return types[this.material_detail_type] || 'Unknown';
+    return types[this.material_detail_type] || "Unknown";
   }
 
   public static initModel(sequelize: Sequelize): typeof MaterialDetail {
@@ -72,55 +79,64 @@ export class MaterialDetail extends Model<MaterialDetailAttributes, MaterialDeta
         material_detail_id: {
           type: DataTypes.INTEGER,
           primaryKey: true,
-          autoIncrement: true
+          autoIncrement: true,
         },
         material_detail_name: {
           type: DataTypes.STRING(255),
-          allowNull: false
+          allowNull: false,
         },
         material_detail_description: {
           type: DataTypes.TEXT,
-          allowNull: false
+          allowNull: false,
         },
         material_detail_type: {
           type: DataTypes.INTEGER,
           allowNull: false,
-          comment: '1=video, 2=pdf, 3=youtube, 4=assignment'
+          comment: "1=video, 2=pdf, 3=youtube, 4=assignment",
         },
         materi_detail_url: {
           type: DataTypes.TEXT,
-          allowNull: false
+          allowNull: false,
         },
         material_id: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         assignment_template_url: {
           type: DataTypes.TEXT,
-          allowNull: true
+          allowNull: true,
         },
-        passing_score:{
+        passing_score: {
           type: DataTypes.INTEGER,
-          allowNull: true
+          allowNull: true,
         },
         is_free: {
           type: DataTypes.BOOLEAN,
           allowNull: false,
-          defaultValue: false
-        }
+          defaultValue: false,
+        },
       },
       {
         sequelize,
-        tableName: 'material_detail',
-        timestamps: false
+        tableName: "material_detail",
+        timestamps: false,
       }
     );
     return MaterialDetail;
   }
 
   public static associate(models: any): void {
-    MaterialDetail.belongsTo(models.Material, { foreignKey: 'material_id', as: 'material' });
-    MaterialDetail.hasMany(models.AssignmentSubmission, { foreignKey: 'material_detail_id', as: 'submissions' });
-    MaterialDetail.hasMany(models.StudentProgress, { foreignKey: 'material_detail_id', as: 'progress' });
+    MaterialDetail.belongsTo(models.Material, {
+      foreignKey: "material_id",
+      as: "material",
+    });
+    MaterialDetail.hasMany(models.AssignmentSubmission, {
+      foreignKey: "material_detail_id",
+      as: "submissions",
+    });
+    MaterialDetail.hasMany(models.StudentProgress, {
+      foreignKey: "material_detail_id",
+      as: "progress",
+    });
   }
 }

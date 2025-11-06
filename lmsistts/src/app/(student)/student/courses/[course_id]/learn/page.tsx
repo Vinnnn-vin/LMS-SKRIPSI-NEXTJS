@@ -35,44 +35,6 @@ export default async function LearnCoursePage({
   const result = await getCourseLearningData(courseId);
 
   if (!result.success) {
-    // ✅ HAPUS ATAU KOMENTAR BLOCK EXPIRED INI
-    // Karena sekarang handling expired ada di client side (GlobalTimer)
-    /*
-    if (result.error === "Akses Anda ke kursus ini telah berakhir.") {
-      return (
-        <Container size="sm" py={100}>
-          <Paper withBorder p="xl" radius="md" ta="center">
-            <Stack align="center">
-              <IconClockCancel
-                size={60}
-                stroke={1.5}
-                color="var(--mantine-color-orange-6)"
-              />
-              <Title order={3} mt="md">
-                Akses Berakhir
-              </Title>
-              <Text c="dimmed" size="sm">
-                Masa akses Anda untuk kursus ini telah habis. Progress Anda telah direset ke 0.
-              </Text>
-              <Text c="dimmed" size="xs" mt="xs">
-                Silakan daftar ulang untuk melanjutkan pembelajaran.
-              </Text>
-              <Button
-                component={Link}
-                href="/student/dashboard"
-                leftSection={<IconArrowLeft size={16} />}
-                mt="lg"
-                variant="outline"
-              >
-                Kembali ke Dashboard
-              </Button>
-            </Stack>
-          </Paper>
-        </Container>
-      );
-    }
-    */
-
     if (result.error?.includes("Anda tidak terdaftar")) {
       return (
         <Container py="xl">
@@ -128,9 +90,10 @@ export default async function LearnCoursePage({
     initialQuizAttempts,
     accessExpiresAt,
     enrolledAt,
-    learningStartedAt, // ✅ Tambahkan
-    courseDuration, // ✅ Tambahkan
-    isAccessExpired, // ✅ Tambahkan
+    learningStartedAt,
+    courseDuration,
+    isAccessExpired,
+    lastCheckpoint,
     submissionHistoryMap,
   } = result.data;
 
@@ -146,12 +109,47 @@ export default async function LearnCoursePage({
           assignments: new Set<number>(),
         };
 
-  // Filter quiz attempts to remove 'pending' status
   const validQuizAttempts = initialQuizAttempts
     ? initialQuizAttempts.filter(
         (attempt: any) => attempt.status === "passed" || attempt.status === "failed"
       )
     : [];
+
+  // ✅ RESOLVE CHECKPOINT DI SERVER
+  let initialContent = null;
+  let initialContentType: "detail" | "quiz" | null = null;
+
+  if (lastCheckpoint) {
+    console.log("📌 [SERVER] Resolving checkpoint:", lastCheckpoint);
+
+    if (lastCheckpoint.type === "detail") {
+      // Cari material detail berdasarkan checkpoint
+      for (const material of course.materials || []) {
+        const detail = material.details?.find(
+          (d: any) => d.material_detail_id === lastCheckpoint.id
+        );
+        if (detail) {
+          initialContent = detail;
+          initialContentType = "detail";
+          console.log(`✅ [SERVER] Found checkpoint detail: ${detail.material_detail_name}`);
+          break;
+        }
+      }
+    } else if (lastCheckpoint.type === "quiz") {
+      // Cari quiz berdasarkan checkpoint
+      for (const material of course.materials || []) {
+        const quiz = material.quizzes?.find(
+          (q: any) => q.quiz_id === lastCheckpoint.id
+        );
+        if (quiz) {
+          initialContent = quiz;
+          initialContentType = "quiz";
+          console.log(`✅ [SERVER] Found checkpoint quiz: ${quiz.quiz_title}`);
+          break;
+        }
+      }
+    }
+  }
 
   return (
     <Suspense
@@ -171,10 +169,14 @@ export default async function LearnCoursePage({
         initialQuizAttempts={validQuizAttempts}
         accessExpiresAt={accessExpiresAt}
         enrolledAt={enrolledAt}
-        learningStartedAt={learningStartedAt} // ✅ Pass ke client
-        courseDuration={courseDuration} // ✅ Pass ke client
-        isAccessExpired={isAccessExpired} // ✅ Pass ke client
+        learningStartedAt={learningStartedAt}
+        courseDuration={courseDuration}
+        isAccessExpired={isAccessExpired}
         submissionHistoryMap={submissionHistoryMap || {}}
+        lastCheckpoint={lastCheckpoint}
+        // ✅ NEW: Pass resolved content dari server
+        initialContent={initialContent}
+        initialContentType={initialContentType}
       />
     </Suspense>
   );
