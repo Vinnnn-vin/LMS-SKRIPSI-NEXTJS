@@ -1,4 +1,5 @@
-// src/components/payment/CheckoutButton.tsx
+// lmsistts\src\components\payment\CheckoutButton.tsx
+
 "use client";
 
 import { Button } from "@mantine/core";

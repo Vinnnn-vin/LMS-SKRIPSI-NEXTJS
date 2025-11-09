@@ -1,3 +1,5 @@
+// lmsistts\src\components\student\CourseLearningClientUI.tsx
+
 "use client";
 
 import React, { useState, useMemo, useRef } from "react";

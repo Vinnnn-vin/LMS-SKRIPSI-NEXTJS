@@ -1,3 +1,5 @@
+// lmsistts\src\app\(lecturer)\lecturer\dashboard\courses\[course_id]\quizzes\add\page.tsx
+
 'use client';
 
 import { use, useState, useTransition } from 'react';

@@ -1,4 +1,4 @@
-// UPDATE dashboard/page.tsx - Tambahkan tombol "Lanjutkan Belajar"
+// lmsistts\src\app\(student)\student\dashboard\page.tsx
 
 import {
   Container,

@@ -1,4 +1,4 @@
-// src/components/student/YouTubeEmbed.tsx
+// lmsistts\src\components\student\YouTubeEmbed.tsx
 "use client";
 
 import { useState, useEffect } from "react";

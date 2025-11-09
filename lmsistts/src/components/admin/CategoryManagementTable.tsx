@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import {
   Box,
@@ -23,8 +23,7 @@ import {
   ListItem,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm, zodResolver } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
+import { useForm } from "@mantine/form";
 import {
   IconPlus,
   IconPencil,
@@ -45,15 +44,22 @@ import {
   updateCategory,
   deleteCategory,
 } from "@/app/actions/admin.actions";
-import { zod4Resolver } from "mantine-form-zod-resolver";
+import { zodResolver } from "mantine-form-zod-resolver";
+
+import {
+  notifyCreate,
+  notifyUpdate,
+  notifyDelete,
+  showErrorNotification,
+} from "@/lib/notifications";
 
 interface CategoryData {
   category_id: number;
   category_name: string | null;
   category_description: string | null;
   image_url: string | null;
-  created_at?: string | null; // Opsional
-  course_count?: number; // Kolom baru dari server action
+  created_at?: string | null;
+  course_count?: number;
   courses?: {
     course_id: number;
     course_title: string;
@@ -70,23 +76,17 @@ export function CategoryManagementTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
-  const [sortStatus, setSortStatus] = useState<
-    DataTableSortStatus<CategoryData>
-  >({ columnAccessor: "category_name", direction: "asc" });
+  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<CategoryData>>({
+    columnAccessor: "category_name",
+    direction: "asc",
+  });
   const [query, setQuery] = useState("");
-  const [records, setRecords] = useState<CategoryData[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
 
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryData | null>(
-    null
-  );
-  const [
-    deleteConfirmOpened,
-    { open: openDeleteConfirm, close: closeDeleteConfirm },
-  ] = useDisclosure(false);
-  const [formModalOpened, { open: openFormModal, close: closeFormModal }] =
-    useDisclosure(false);
+  const [selectedCategory, setSelectedCategory] = useState<CategoryData | null>(null);
+  const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] = useDisclosure(false);
+  const [formModalOpened, { open: openFormModal, close: closeFormModal }] = useDisclosure(false);
+  
   const isEditing = modalMode === "edit";
 
   const form = useForm<CreateCategoryInput | UpdateCategoryInput>({
@@ -95,23 +95,34 @@ export function CategoryManagementTable({
       category_description: "",
       image_url: "",
     },
-    validate: zod4Resolver(
-      isEditing ? updateCategorySchema : createCategorySchema
-    ),
+    validate: zodResolver(isEditing ? updateCategorySchema : createCategorySchema),
   });
 
-  useEffect(() => {
+  // Compute filtered and sorted data using useMemo
+  const { records, totalRecords } = useMemo(() => {
     let data = [...initialCategories];
-    if (query)
+    
+    // Filter
+    if (query) {
       data = data.filter((cat) =>
         cat.category_name?.toLowerCase().includes(query.toLowerCase())
       );
-    setTotalRecords(data.length);
+    }
+    
+    const total = data.length;
+    
+    // Sort
     data = sortBy(data, sortStatus.columnAccessor) as CategoryData[];
     if (sortStatus.direction === "desc") data.reverse();
+    
+    // Paginate
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE;
-    setRecords(data.slice(from, to));
+    
+    return {
+      records: data.slice(from, to),
+      totalRecords: total,
+    };
   }, [initialCategories, query, sortStatus, page]);
 
   const handleOpenCreateModal = () => {
@@ -140,25 +151,21 @@ export function CategoryManagementTable({
   const handleSubmit = (values: CreateCategoryInput | UpdateCategoryInput) => {
     startTransition(async () => {
       const result = isEditing
-        ? await updateCategory(
-            selectedCategory!.category_id,
-            values as UpdateCategoryInput
-          )
+        ? await updateCategory(selectedCategory!.category_id, values as UpdateCategoryInput)
         : await createCategory(values as CreateCategoryInput);
 
       if (result?.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        if (isEditing) {
+          notifyUpdate(`Kategori "${values.category_name}"`);
+        } else {
+          notifyCreate(`Kategori "${values.category_name}"`);
+        }
         closeFormModal();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result?.error,
-          color: "red",
+        showErrorNotification({
+          title: isEditing ? "Gagal Memperbarui" : "Gagal Membuat",
+          message: result?.error || "Terjadi kesalahan saat menyimpan kategori.",
         });
       }
     });
@@ -169,18 +176,13 @@ export function CategoryManagementTable({
     startTransition(async () => {
       const result = await deleteCategory(selectedCategory.category_id);
       if (result?.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "teal",
-        });
+        notifyDelete(`Kategori "${selectedCategory.category_name}"`);
         closeDeleteConfirm();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result?.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Menghapus",
+          message: result?.error || "Kategori tidak dapat dihapus. Mungkin masih digunakan oleh kursus.",
         });
       }
     });
@@ -276,28 +278,17 @@ export function CategoryManagementTable({
             title: "Deskripsi",
             render: (cat) => cat.category_description || "-",
           },
-          // --- KOLOM JUMLAH KURSUS YANG DIPERBARUI DENGAN POPOVER ---
           {
-            accessor: "course_count", // Kita sort berdasarkan kolom virtual ini
+            accessor: "course_count",
             title: "Jumlah Kursus",
             sortable: true,
             textAlign: "center",
             render: (cat) => {
               const courseCount = cat.courses?.length ?? 0;
               return (
-                <Popover
-                  width={300}
-                  withArrow
-                  shadow="md"
-                  position="bottom"
-                  middlewares={{ flip: true }}
-                >
+                <Popover width={300} withArrow shadow="md" position="bottom">
                   <PopoverTarget>
-                    <Group
-                      gap="xs"
-                      justify="center"
-                      style={{ cursor: "pointer" }}
-                    >
+                    <Group gap="xs" justify="center" style={{ cursor: "pointer" }}>
                       <IconBook size={16} />
                       <Text size="sm">{courseCount}</Text>
                     </Group>
@@ -309,15 +300,11 @@ export function CategoryManagementTable({
                           Kursus di Kategori Ini:
                         </Text>
                         <List size="xs" icon="-">
-                          {cat.courses?.slice(0, 5).map(
-                            (
-                              course // Batasi 5 item untuk tampilan
-                            ) => (
-                              <ListItem key={course.course_id}>
-                                {course.course_title}
-                              </ListItem>
-                            )
-                          )}
+                          {cat.courses?.slice(0, 5).map((course) => (
+                            <ListItem key={course.course_id}>
+                              {course.course_title}
+                            </ListItem>
+                          ))}
                           {courseCount > 5 && (
                             <Text size="xs" c="dimmed">
                               ...dan {courseCount - 5} lainnya.
@@ -335,7 +322,6 @@ export function CategoryManagementTable({
               );
             },
           },
-          // --------------------------------------------------------
           {
             accessor: "actions",
             title: "Aksi",
@@ -366,11 +352,7 @@ export function CategoryManagementTable({
         ]}
         sortStatus={sortStatus}
         onSortStatusChange={setSortStatus}
-        totalRecords={
-          initialCategories.filter((cat) =>
-            cat.category_name?.toLowerCase().includes(query.toLowerCase())
-          ).length
-        }
+        totalRecords={totalRecords}
         recordsPerPage={PAGE_SIZE}
         page={page}
         onPageChange={(p) => setPage(p)}

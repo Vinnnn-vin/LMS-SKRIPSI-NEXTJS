@@ -1,4 +1,5 @@
 // lmsistts\src\components\student\MaterialContent.tsx
+
 "use client";
 
 import React from "react";

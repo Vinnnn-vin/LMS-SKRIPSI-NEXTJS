@@ -1,7 +1,9 @@
-// src/components/student/AssignmentSubmissionArea.tsx
+// lmsistts\src\components\student\AssignmentSubmissionArea.tsx
+
 "use client";
 
 import { useState, useTransition } from "react";
+import { useForm } from "@mantine/form";
 import {
   Stack,
   FileInput,
@@ -36,6 +38,11 @@ import { createOrUpdateAssignmentSubmission } from "@/app/actions/student.action
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/id";
+import {
+  studentSubmissionFormSchema,
+  type StudentSubmissionFormInput,
+} from "@/lib/schemas/assignmentSubmission.schema";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 
 dayjs.extend(relativeTime);
 dayjs.locale("id");
@@ -60,28 +67,36 @@ export function AssignmentSubmissionArea({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [isUploading, setIsUploading] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [text, setText] = useState<string>("");
-  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<StudentSubmissionFormInput>({
+    initialValues: {
+      file: null,
+      text: "",
+    },
+    validate: zod4Resolver(studentSubmissionFormSchema), // <-- Gunakan skema yang diimpor
+  });
+
+  // const [file, setFile] = useState<File | null>(null);
+  // const [text, setText] = useState<string>("");
+  // const [error, setError] = useState<string | null>(null);
 
   // ✅ Hitung canSubmit berdasarkan status
   const status = existingSubmission?.status;
   const isApproved = status === "approved";
   const canSubmit = !isApproved;
 
-  const handleSubmit = () => {
-    setError(null);
-    
-    // ✅ CHANGED: Validasi - minimal salah satu harus diisi
-    if (!file && !text.trim()) {
-      setError("Anda harus memilih file ATAU mengisi jawaban teks (atau keduanya).");
-      return;
-    }
+  const handleSubmit = (values: StudentSubmissionFormInput) => {
+    // setError(null);
+
+    // if (!file && !text.trim()) {
+    //   setError("Anda harus memilih file ATAU mengisi jawaban teks (atau keduanya).");
+    //   return;
+    // }
+    const { file, text } = values;
 
     startTransition(async () => {
       let uploadedFilePath: string | null = null;
 
-      // Step 1: Upload File jika ada
       if (file) {
         setIsUploading(true);
         console.log("📤 Uploading assignment file:", file.name);
@@ -102,7 +117,7 @@ export function AssignmentSubmissionArea({
           console.log("✅ File uploaded, URL:", result.url);
           uploadedFilePath = result.url;
         } catch (uploadError: any) {
-          setError(`Upload Gagal: ${uploadError.message}`);
+          form.setErrors({ root: `Upload Gagal: ${uploadError.message}` });
           setIsUploading(false);
           return;
         } finally {
@@ -116,10 +131,6 @@ export function AssignmentSubmissionArea({
       formData.append("courseId", String(courseId));
       formData.append("enrollmentId", String(enrollmentId));
 
-      // ✅ CHANGED: Tentukan tipe submission
-      // - "both" jika ada file DAN text
-      // - "file" jika hanya file
-      // - "text" jika hanya text
       let submissionType: "file" | "text" | "both";
       if (uploadedFilePath && text.trim()) {
         submissionType = "both";
@@ -134,7 +145,6 @@ export function AssignmentSubmissionArea({
       if (uploadedFilePath) {
         formData.append("file_path", uploadedFilePath);
       }
-      
       if (text.trim()) {
         formData.append("submission_text", text.trim());
       }
@@ -149,17 +159,20 @@ export function AssignmentSubmissionArea({
             color: "green",
             icon: <IconChecks size={16} />,
           });
-          setFile(null);
-          setText("");
-          setError(null);
+
+          // setFile(null);
+          // setText("");
+          // setError(null);
           onSubmit(); // Trigger refresh
         } else {
-          setError(actionResult.error || "Gagal mengumpulkan tugas.");
+          form.setErrors({
+            root: actionResult.error || "Gagal mengumpulkan tugas.",
+          });
         }
       } catch (actionError: any) {
-        setError(
-          actionError.message || "Terjadi kesalahan server saat submit."
-        );
+        form.setErrors({
+          root: actionError.message || "Terjadi kesalahan server saat submit.",
+        });
       }
     });
   };
@@ -173,16 +186,17 @@ export function AssignmentSubmissionArea({
     ? dayjs(existingSubmission.submitted_at).fromNow()
     : null;
   const submissionFileUrl =
-    existingSubmission?.submission_type === "file" || existingSubmission?.submission_type === "both"
+    existingSubmission?.submission_type === "file" ||
+    existingSubmission?.submission_type === "both"
       ? existingSubmission.file_path
       : null;
   const submissionText =
-    existingSubmission?.submission_type === "text" || existingSubmission?.submission_type === "both"
+    existingSubmission?.submission_type === "text" ||
+    existingSubmission?.submission_type === "both"
       ? existingSubmission.submission_text
       : null;
   const isProcessing = isPending || isUploading;
 
-  // Status badges
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "approved":
@@ -218,18 +232,26 @@ export function AssignmentSubmissionArea({
   };
 
   return (
-    <Paper p="md" withBorder radius="md" pos="relative">
+    <Paper
+      component="form"
+      onSubmit={form.onSubmit(handleSubmit)}
+      p="md"
+      withBorder
+      radius="md"
+      pos="relative"
+    >
       <LoadingOverlay visible={isProcessing} overlayProps={{ blur: 1 }} />
-      {error && (
+      {form.errors.root && (
         <Alert
           color="red"
           icon={<IconAlertCircle />}
           title="Error"
           withCloseButton
-          onClose={() => setError(null)}
+          onClose={() => form.clearErrors()} // ✅ GANTI: Bersihkan error form
           mb="md"
         >
-          {error}
+                    {form.errors.root}{" "}
+          {/* ✅ GANTI: Tampilkan error dari form */}       {" "}
         </Alert>
       )}
 
@@ -416,39 +438,43 @@ export function AssignmentSubmissionArea({
                 ? "Kumpulkan Ulang Jawaban"
                 : "Kumpulkan Jawaban"}
             </Title>
-            
+
             <Alert variant="light" color="blue" icon={<IconAlertCircle />}>
-              Anda bisa mengisi <strong>file saja</strong>, <strong>teks saja</strong>, atau <strong>keduanya</strong>.
+              Anda bisa mengisi <strong>file saja</strong>,{" "}
+              <strong>teks saja</strong>, atau <strong>keduanya</strong>.
             </Alert>
 
             <FileInput
               label="Upload File Jawaban (Opsional)"
-              placeholder={
-                file ? file.name : "Pilih file (.pdf, .docx, .zip, .jpg, .png)"
-              }
-              onChange={setFile}
+              // placeholder={
+              //   file ? file.name : "Pilih file (.pdf, .docx, .zip, .jpg, .png)"
+              // }
+              // onChange={setFile}
               clearable
               accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png"
               disabled={isProcessing}
               leftSection={<IconUpload size={16} />}
+              {...form.getInputProps('file')}
             />
-            
+
             <Divider label="DAN/ATAU" labelPosition="center" />
-            
+
             <Textarea
               label="Tulis Jawaban Teks (Opsional)"
               placeholder="Ketik jawaban Anda di sini..."
               minRows={4}
-              onChange={(e) => setText(e.currentTarget.value)}
-              value={text}
+              // onChange={(e) => setText(e.currentTarget.value)}
+              // value={text}
               disabled={isProcessing}
+              {...form.getInputProps('text')}
             />
-            
+
             <Button
-              onClick={handleSubmit}
+              // onClick={handleSubmit}
+              type="submit"
               loading={isProcessing}
               leftSection={<IconUpload size={16} />}
-              disabled={(!file && !text.trim()) || isProcessing}
+              // disabled={(!file && !text.trim()) || isProcessing}
               mt="md"
             >
               {isUploading

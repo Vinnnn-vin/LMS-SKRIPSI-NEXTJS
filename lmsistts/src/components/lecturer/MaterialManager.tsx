@@ -46,6 +46,7 @@ import {
   updateMaterialSchema,
   CreateMaterialInput,
   UpdateMaterialInput,
+  type MaterialWithChildren
 } from "@/lib/schemas/material.schema";
 import {
   createMaterial,
@@ -53,15 +54,6 @@ import {
   updateMaterial,
 } from "@/app/actions/lecturer.actions";
 import { zod4Resolver } from "mantine-form-zod-resolver";
-
-interface MaterialData {
-  material_id: number;
-  material_name: string | null;
-  material_description: string | null;
-  course_id: number;
-  details?: any[];
-  quizzes?: any[];
-}
 
 // Ikon berdasarkan tipe materi
 const getMaterialIcon = (type: number) => {
@@ -83,14 +75,14 @@ export function MaterialManager({
   materials: initialMaterials,
   courseId,
 }: {
-  materials: MaterialData[];
+  materials: MaterialWithChildren[];
   courseId: number;
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
-  const [records, setRecords] = useState(initialMaterials);
+
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<MaterialData | null>(
+  const [selectedMaterial, setSelectedMaterial] = useState<MaterialWithChildren | null>(
     null
   );
 
@@ -119,7 +111,7 @@ export function MaterialManager({
     openFormModal();
   };
 
-  const handleOpenEditModal = (material: MaterialData) => {
+  const handleOpenEditModal = (material: MaterialWithChildren) => {
     setModalMode("edit");
     setSelectedMaterial(material);
     form.setValues({
@@ -129,7 +121,7 @@ export function MaterialManager({
     openFormModal();
   };
 
-  const handleOpenDeleteConfirm = (material: MaterialData) => {
+  const handleOpenDeleteConfirm = (material: MaterialWithChildren) => {
     setSelectedMaterial(material);
     openDeleteConfirm();
   };
@@ -257,9 +249,9 @@ export function MaterialManager({
       </Group>
 
       {/* Accordion Daftar Materi */}
-      {records.length > 0 ? (
+      {initialMaterials.length > 0 ? (
         <Accordion variant="separated">
-          {records.map((material) => (
+          {initialMaterials.map((material) => (
             <AccordionItem
               value={String(material.material_id)}
               key={material.material_id}

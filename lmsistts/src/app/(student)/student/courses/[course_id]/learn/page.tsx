@@ -1,5 +1,4 @@
-// UPDATE learn/page.tsx
-
+// lmsistts\src\app\(student)\student\courses\[course_id]\learn\page.tsx
 import {
   Container,
   Alert,

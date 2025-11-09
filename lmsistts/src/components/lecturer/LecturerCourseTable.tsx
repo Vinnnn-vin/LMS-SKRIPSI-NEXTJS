@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import {
   Box,
@@ -50,6 +50,7 @@ import sortBy from "lodash/sortBy";
 import {
   lecturerCreateCourseSchema,
   lecturerUpdateCourseSchema,
+  type LecturerCourseData,
 } from "@/lib/schemas/course.schema";
 import {
   createCourseByLecturer,
@@ -60,28 +61,6 @@ import {
 } from "@/app/actions/lecturer.actions";
 import type { Category as CategoryType } from "@/lib/models";
 import { zod4Resolver } from "mantine-form-zod-resolver";
-
-interface LecturerCourseData {
-  course_id: number;
-  course_title: string | null;
-  course_description: string | null;
-  course_level: "Beginner" | "Intermediate" | "Advanced" | null;
-  category_id: number | null;
-  thumbnail_url: string | null;
-  publish_status: number | null;
-  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
-  rejection_reason?: string | null;
-  course_duration?: number | null; // ✅ PERUBAHAN: Nama kolom sesuai database
-  category?: { category_name?: string | null };
-  materials?: Array<{
-    material_id: number;
-    material_name: string | null;
-    details?: Array<{
-      material_detail_id: number;
-      material_detail_name: string | null;
-    }>;
-  }>;
-}
 
 const PAGE_SIZES = [5, 10, 20, 50, 100];
 
@@ -103,8 +82,6 @@ export function LecturerCourseTable({
     direction: "asc",
   });
   const [query, setQuery] = useState("");
-  const [records, setRecords] = useState<LecturerCourseData[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
 
   const [selectedCourse, setSelectedCourse] =
     useState<LecturerCourseData | null>(null);
@@ -124,7 +101,9 @@ export function LecturerCourseTable({
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<string | null>(null);
+  const [existingThumbnailUrl, setExistingThumbnailUrl] = useState<
+    string | null
+  >(null);
   const isEditing = !!selectedCourse;
 
   const form = useForm({
@@ -141,18 +120,32 @@ export function LecturerCourseTable({
     ),
   });
 
-  useEffect(() => {
+  const filteredData = useMemo(() => {
     let data = [...initialCourses];
     if (query) {
       data = data.filter((c) =>
         c.course_title?.toLowerCase().includes(query.toLowerCase())
       );
     }
-    setTotalRecords(data.length);
-    data = sortBy(data, sortStatus.columnAccessor) as LecturerCourseData[];
+    return data;
+  }, [initialCourses, query]);
+
+  const sortedData = useMemo(() => {
+    let data = sortBy(
+      filteredData,
+      sortStatus.columnAccessor
+    ) as LecturerCourseData[];
     if (sortStatus.direction === "desc") data.reverse();
-    setRecords(data.slice((page - 1) * pageSize, page * pageSize));
-  }, [initialCourses, query, sortStatus, page, pageSize]);
+    return data;
+  }, [filteredData, sortStatus]);
+
+  const records = useMemo(() => {
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize;
+    return sortedData.slice(from, to);
+  }, [sortedData, page, pageSize]);
+
+  const totalRecords = sortedData.length;
 
   const handleOpenEdit = (course: LecturerCourseData) => {
     setSelectedCourse(course);
@@ -435,35 +428,45 @@ export function LecturerCourseTable({
               {...form.getInputProps("course_duration")}
             />
 
-            {isEditing && existingThumbnailUrl && !form.values.thumbnail_file && (
-              <Paper p="sm" withBorder bg="gray.0">
-                <Stack gap="xs">
-                  <Group gap="xs">
-                    <IconPhoto size={16} />
-                    <Text size="sm" fw={500}>
-                      Thumbnail Saat Ini:
-                    </Text>
-                  </Group>
-                  <Group gap="xs">
-                    <Text size="xs" c="dimmed" style={{ wordBreak: "break-all" }}>
-                      {getFileNameFromUrl(existingThumbnailUrl)}
-                    </Text>
-                    <Anchor
-                      href={existingThumbnailUrl}
-                      target="_blank"
-                      size="xs"
-                    >
-                      <Group gap={4}>
-                        Lihat <IconExternalLink size={12} />
-                      </Group>
-                    </Anchor>
-                  </Group>
-                </Stack>
-              </Paper>
-            )}
+            {isEditing &&
+              existingThumbnailUrl &&
+              !form.values.thumbnail_file && (
+                <Paper p="sm" withBorder bg="gray.0">
+                  <Stack gap="xs">
+                    <Group gap="xs">
+                      <IconPhoto size={16} />
+                      <Text size="sm" fw={500}>
+                        Thumbnail Saat Ini:
+                      </Text>
+                    </Group>
+                    <Group gap="xs">
+                      <Text
+                        size="xs"
+                        c="dimmed"
+                        style={{ wordBreak: "break-all" }}
+                      >
+                        {getFileNameFromUrl(existingThumbnailUrl)}
+                      </Text>
+                      <Anchor
+                        href={existingThumbnailUrl}
+                        target="_blank"
+                        size="xs"
+                      >
+                        <Group gap={4}>
+                          Lihat <IconExternalLink size={12} />
+                        </Group>
+                      </Anchor>
+                    </Group>
+                  </Stack>
+                </Paper>
+              )}
 
             <FileInput
-              label={isEditing && existingThumbnailUrl ? "Ganti Thumbnail (opsional)" : "Thumbnail"}
+              label={
+                isEditing && existingThumbnailUrl
+                  ? "Ganti Thumbnail (opsional)"
+                  : "Thumbnail"
+              }
               placeholder="Pilih file gambar..."
               accept="image/jpeg,image/jpg,image/png,image/webp"
               onChange={handleThumbnailChange}
@@ -473,10 +476,12 @@ export function LecturerCourseTable({
 
             {thumbnailPreview && (
               <Stack gap="xs">
-                <Text size="sm" fw={500}>Preview:</Text>
-                <Image 
-                  src={thumbnailPreview} 
-                  maw={300} 
+                <Text size="sm" fw={500}>
+                  Preview:
+                </Text>
+                <Image
+                  src={thumbnailPreview}
+                  maw={300}
                   radius="md"
                   alt="Thumbnail preview"
                 />
@@ -498,12 +503,19 @@ export function LecturerCourseTable({
         size="md"
       >
         <Stack>
-          <Alert color="orange" icon={<IconAlertCircle />} title="Kursus Belum Lengkap">
-            Silakan lengkapi kursus Anda terlebih dahulu sebelum meminta publikasi.
+          <Alert
+            color="orange"
+            icon={<IconAlertCircle />}
+            title="Kursus Belum Lengkap"
+          >
+            Silakan lengkapi kursus Anda terlebih dahulu sebelum meminta
+            publikasi.
           </Alert>
 
           <Stack gap="xs">
-            <Text size="sm" fw={500}>Masalah yang ditemukan:</Text>
+            <Text size="sm" fw={500}>
+              Masalah yang ditemukan:
+            </Text>
             <List size="sm" spacing="xs">
               {validationErrors.map((error, index) => (
                 <ListItem key={index}>{error}</ListItem>
@@ -609,6 +621,7 @@ export function LecturerCourseTable({
       <Group justify="space-between" mb="md">
         <Group>
           <TextInput
+            id="lecturer-course-search"
             placeholder="Cari judul..."
             leftSection={<IconSearch size={16} />}
             value={query}
@@ -696,19 +709,19 @@ export function LecturerCourseTable({
             textAlign: "right",
             render: (course) => (
               <Group gap="xs" justify="flex-end">
-                <Tooltip label="Lihat Tugas Mahasiswa">
+                {/* <Tooltip label="Lihat Tugas Mahasiswa">
                   <ActionIcon
                     variant="light"
                     color="indigo"
                     onClick={() =>
                       router.push(
-                        `/lecturer/dashboard/courses/${course.course_id}/assignments`
+                        `/lecturer/dashboard/assignments`
                       )
                     }
                   >
                     <IconClipboardList size={16} />
                   </ActionIcon>
-                </Tooltip>
+                </Tooltip> */}
 
                 <Tooltip label="Lihat Mahasiswa Terdaftar">
                   <ActionIcon

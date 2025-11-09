@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { DataTable, type DataTableSortStatus } from "mantine-datatable";
 import {
   Box,
@@ -36,7 +36,6 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
 import {
   IconPlus,
   IconPencil,
@@ -53,14 +52,28 @@ import {
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
+import { zodResolver } from "mantine-form-zod-resolver";
 
+// Import notification utilities
+import {
+  notifyCreate,
+  notifyUpdate,
+  notifyDelete,
+  notifyApprove,
+  notifyReject,
+  showErrorNotification,
+} from "@/lib/notifications";
+
+// Import schemas
 import {
   createCourseSchema,
   updateCourseSchema,
   type CreateCourseInput,
   type UpdateCourseInput,
+  type AdminCourseRowData,
 } from "@/lib/schemas/course.schema";
 
+// Import actions
 import {
   getCourseByIdForAdmin,
   createCourseByAdmin,
@@ -71,16 +84,15 @@ import {
 } from "@/app/actions/admin.actions";
 
 import type { CategoryAttributes } from "@/lib/models/Category";
-import { zod4Resolver } from "mantine-form-zod-resolver";
 
-type CourseData = UpdateCourseInput & {
-  course_id: number;
-  course_title: string | null;
-  thumbnail_url?: string | null;
-  lecturer?: { first_name?: string | null; last_name?: string | null };
-  category?: { category_name?: string | null };
-  publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
-};
+// type CourseData = UpdateCourseInput & {
+//   course_id: number;
+//   course_title: string | null;
+//   thumbnail_url?: string | null;
+//   lecturer?: { first_name?: string | null; last_name?: string | null };
+//   category?: { category_name?: string | null };
+//   publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
+// };
 
 const PAGE_SIZE = 10;
 
@@ -93,9 +105,7 @@ const getMaterialIcon = (type: number) => {
     case 3:
       return <IconLink size={16} />;
     case 4:
-      return <IconFileText size={16} />; // Tugas
-    case 5:
-      return <IconQuestionMark size={16} />; // Jika Quiz dianggap tipe konten
+      return <IconFileText size={16} />;
     default:
       return null;
   }
@@ -106,7 +116,7 @@ export function CourseManagementTable({
   categories,
   lecturers,
 }: {
-  courses: CourseData[];
+  courses: AdminCourseRowData[];
   categories: CategoryAttributes[];
   lecturers: any[];
 }) {
@@ -115,23 +125,20 @@ export function CourseManagementTable({
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<CourseData>>(
+  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<AdminCourseRowData>>(
     {
       columnAccessor: "course_title",
       direction: "asc",
     }
   );
   const [query, setQuery] = useState("");
-  const [records, setRecords] = useState<CourseData[]>([]);
-  const [totalRecords, setTotalRecords] = useState(initialCourses.length);
 
-  const [selectedCourse, setSelectedCourse] = useState<CourseData | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<AdminCourseRowData | null>(null);
   const [formModalOpened, { open: openForm, close: closeForm }] =
     useDisclosure(false);
   const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
     useDisclosure(false);
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
-
   const [originalThumbnailUrl, setOriginalThumbnailUrl] = useState<
     string | null
   >(null);
@@ -139,14 +146,13 @@ export function CourseManagementTable({
   const isEditing = !!selectedCourse;
 
   const [selectedCourseForApproval, setSelectedCourseForApproval] =
-    useState<CourseData | null>(null);
+    useState<AdminCourseRowData | null>(null);
   const [
     approvalModalOpened,
     { open: openApprovalModal, close: closeApprovalModal },
   ] = useDisclosure(false);
-  const [approvalPrice, setApprovalPrice] = useState<number | "">(""); // State harga di modal
-  const [approvalError, setApprovalError] = useState<string | null>(null); // State error di modal
-
+  const [approvalPrice, setApprovalPrice] = useState<number | "">("");
+  const [approvalError, setApprovalError] = useState<string | null>(null);
   const [approvalCourseDetails, setApprovalCourseDetails] = useState<any>(null);
 
   const form = useForm<CreateCourseInput | UpdateCourseInput>({
@@ -161,76 +167,87 @@ export function CourseManagementTable({
       publish_status: null,
       thumbnail_file: undefined,
     },
-    validate: zod4Resolver(isEditing ? updateCourseSchema : createCourseSchema),
+    validate: zodResolver(isEditing ? updateCourseSchema : createCourseSchema),
   });
 
-  useEffect(() => {
+  const filteredData = useMemo(() => {
     let data = [...initialCourses];
     if (query) {
       data = data.filter((course) =>
         course.course_title?.toLowerCase().includes(query.toLowerCase())
       );
     }
-    setTotalRecords(data.length);
-    data = sortBy(data, sortStatus.columnAccessor);
+    return data;
+  }, [initialCourses, query]);
+
+  const sortedData = useMemo(() => {
+    let data = sortBy(filteredData, sortStatus.columnAccessor);
     if (sortStatus.direction === "desc") {
       data.reverse();
     }
+    return data;
+  }, [filteredData, sortStatus]);
+
+  const records = useMemo(() => {
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE;
-    setRecords(data.slice(from, to));
-  }, [initialCourses, query, sortStatus, page]);
+    return sortedData.slice(from, to);
+  }, [sortedData, page]);
+
+  const totalRecords = sortedData.length;
 
   const lecturerOptions = lecturers.map((l) => ({
     value: String(l.user_id),
     label: `${l.first_name || ""} ${l.last_name || ""}`.trim() || l.email,
   }));
+
   const categoryOptions = categories.map((c) => ({
     value: String(c.category_id),
     label: c.category_name || "Tanpa Nama",
   }));
 
-  const handleOpenEdit = async (course: CourseData) => {
+  const handleOpenEdit = async (course: AdminCourseRowData) => {
     setIsFetchingDetails(true);
     setSelectedCourse(course);
-    const detailsResult = await getCourseByIdForAdmin(course.course_id);
-    setIsFetchingDetails(false);
 
-    if (detailsResult.success && detailsResult.data) {
-      const courseDetails = detailsResult.data;
-      const priceValue =
-        typeof courseDetails.course_price === "number"
-          ? courseDetails.course_price
-          : 0;
+    try {
+      const detailsResult = await getCourseByIdForAdmin(course.course_id);
 
-      setOriginalThumbnailUrl(courseDetails.thumbnail_url || null);
-      setThumbnailPreview(courseDetails.thumbnail_url || null);
+      if (detailsResult.success && detailsResult.data) {
+        const courseDetails = detailsResult.data;
+        const priceValue =
+          typeof courseDetails.course_price === "number"
+            ? courseDetails.course_price
+            : 0;
 
-      // Set values: Konversi ID ke string untuk Select
-      form.setValues({
-        course_title: courseDetails.course_title ?? "",
-        course_description: courseDetails.course_description ?? "",
-        course_level: courseDetails.course_level ?? "Beginner",
-        category_id: courseDetails.category_id
-          ? Number(courseDetails.category_id)
-          : null,
-        user_id: courseDetails.user_id ? Number(courseDetails.user_id) : null,
+        setOriginalThumbnailUrl(courseDetails.thumbnail_url || null);
+        setThumbnailPreview(courseDetails.thumbnail_url || null);
 
-        course_price: priceValue,
-        course_duration: courseDetails.course_duration ?? 0,
-        publish_status: courseDetails.publish_status === 1 ? 1 : 0,
-        thumbnail_file: undefined, // Reset file input
-      });
+        form.setValues({
+          course_title: courseDetails.course_title ?? "",
+          course_description: courseDetails.course_description ?? "",
+          course_level: courseDetails.course_level ?? "Beginner",
+          category_id: courseDetails.category_id
+            ? Number(courseDetails.category_id)
+            : null,
+          user_id: courseDetails.user_id ? Number(courseDetails.user_id) : null,
+          course_price: priceValue,
+          course_duration: courseDetails.course_duration ?? 0,
+          publish_status: courseDetails.publish_status === 1 ? 1 : 0,
+          thumbnail_file: undefined,
+        });
 
-      form.setInitialValues(form.values);
-      setThumbnailPreview(courseDetails.thumbnail_url || null);
-      openForm();
-    } else {
-      notifications.show({
-        title: "Error",
-        message: "Gagal mengambil detail kursus.",
-        color: "red",
-      });
+        form.setInitialValues(form.values);
+        openForm();
+      } else {
+        showErrorNotification({
+          title: "Gagal Memuat Detail",
+          message:
+            detailsResult.error || "Tidak dapat mengambil detail kursus.",
+        });
+      }
+    } finally {
+      setIsFetchingDetails(false);
     }
   };
 
@@ -255,11 +272,13 @@ export function CourseManagementTable({
   const handleSubmit = (values: typeof form.values) => {
     startTransition(async () => {
       const formData = new FormData();
+
       Object.entries(values).forEach(([key, value]) => {
         if (key !== "thumbnail_file" && value !== undefined && value !== null) {
           formData.append(key, String(value));
         }
       });
+
       const fileInput = values.thumbnail_file;
       if (fileInput instanceof File) {
         formData.append("thumbnail_file", fileInput);
@@ -276,18 +295,19 @@ export function CourseManagementTable({
         : await createCourseByAdmin(formData);
 
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        if (isEditing) {
+          notifyUpdate(`Kursus "${values.course_title}"`);
+        } else {
+          notifyCreate(`Kursus "${values.course_title}"`);
+        }
         closeForm();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: isEditing
+            ? "Gagal Memperbarui Kursus"
+            : "Gagal Membuat Kursus",
+          message: result.error || "Periksa kembali data yang diinput.",
         });
       }
     });
@@ -295,51 +315,57 @@ export function CourseManagementTable({
 
   const handleDelete = () => {
     if (!selectedCourse) return;
+
     startTransition(async () => {
       const result = await deleteCourseByAdmin(selectedCourse.course_id);
+
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        notifyDelete(`Kursus "${selectedCourse.course_title}"`);
         closeDelete();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Menghapus Kursus",
+          message:
+            result.error ||
+            "Kursus mungkin masih memiliki mahasiswa terdaftar.",
         });
       }
     });
   };
 
-  const handleOpenApprovalModal = async (course: CourseData) => {
+  const handleOpenApprovalModal = async (course: AdminCourseRowData) => {
     setSelectedCourseForApproval(course);
-    setApprovalPrice(course.course_price ?? ""); // Set harga awal (jika ada)
+    setApprovalPrice(course.course_price ?? "");
     setApprovalError(null);
-    setApprovalCourseDetails(null); // Reset detail kurikulum
+    setApprovalCourseDetails(null);
     openApprovalModal();
 
-    setIsFetchingDetails(true); // Aktifkan loading overlay modal
+    setIsFetchingDetails(true);
     try {
-      const detailsResult = await getCourseByIdForAdmin(course.course_id); // Panggil action yang sudah diupdate
+      const detailsResult = await getCourseByIdForAdmin(course.course_id);
+
       if (detailsResult.success && detailsResult.data) {
-        setApprovalCourseDetails(detailsResult.data); // Simpan detail lengkap ke state baru
-        // Set harga lagi dari data terbaru (jika ada perubahan)
+        setApprovalCourseDetails(detailsResult.data);
         setApprovalPrice(detailsResult.data.course_price ?? "");
       } else {
-        setApprovalError(
-          detailsResult.error || "Gagal memuat detail kurikulum."
-        );
+        const errorMsg =
+          detailsResult.error || "Gagal memuat detail kurikulum.";
+        setApprovalError(errorMsg);
+        showErrorNotification({
+          title: "Gagal Memuat Detail",
+          message: errorMsg,
+        });
       }
     } catch (error: any) {
-      setApprovalError(
-        error.message || "Terjadi kesalahan saat memuat detail."
-      );
+      const errorMsg = error.message || "Terjadi kesalahan saat memuat detail.";
+      setApprovalError(errorMsg);
+      showErrorNotification({
+        title: "Error",
+        message: errorMsg,
+      });
     } finally {
-      setIsFetchingDetails(false); // Matikan loading overlay modal
+      setIsFetchingDetails(false);
     }
   };
 
@@ -350,29 +376,31 @@ export function CourseManagementTable({
       approvalPrice <= 0
     ) {
       setApprovalError("Harga harus diisi dan lebih besar dari 0.");
+      showErrorNotification({
+        title: "Data Tidak Lengkap",
+        message: "Harap isi harga kursus dengan benar.",
+      });
       return;
     }
-    setApprovalError(null); // Clear error
+
+    setApprovalError(null);
 
     startTransition(async () => {
       const result = await approveCoursePublish(
         selectedCourseForApproval.course_id,
         Number(approvalPrice)
       );
+
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.message,
-          color: "green",
-        });
+        notifyApprove(`Kursus "${selectedCourseForApproval.course_title}"`);
         closeApprovalModal();
-        router.refresh(); // Refresh data tabel
+        router.refresh();
       } else {
-        setApprovalError(result.error || "Gagal menyetujui."); // Tampilkan error di modal
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        const errorMsg = result.error || "Gagal menyetujui.";
+        setApprovalError(errorMsg);
+        showErrorNotification({
+          title: "Gagal Menyetujui",
+          message: errorMsg,
         });
       }
     });
@@ -380,37 +408,36 @@ export function CourseManagementTable({
 
   const handleReject = () => {
     if (!selectedCourseForApproval) return;
-    setApprovalError(null); // Clear error
+
+    setApprovalError(null);
 
     startTransition(async () => {
       const result = await rejectCoursePublish(
         selectedCourseForApproval.course_id
       );
+
       if (result.success) {
-        notifications.show({
-          title: "Info",
-          message: result.message,
-          color: "blue",
-        });
+        notifyReject(
+          `Permintaan kursus "${selectedCourseForApproval.course_title}"`
+        );
         closeApprovalModal();
-        router.refresh(); // Refresh data tabel
+        router.refresh();
       } else {
-        setApprovalError(result.error || "Gagal menolak."); // Tampilkan error di modal
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        const errorMsg = result.error || "Gagal menolak.";
+        setApprovalError(errorMsg);
+        showErrorNotification({
+          title: "Gagal Menolak",
+          message: errorMsg,
         });
       }
     });
   };
 
-  // --- Fungsi Helper Badge Status (Diperbarui) ---
-  const getStatusBadge = (course: CourseData) => {
+  const getStatusBadge = (course: AdminCourseRowData) => {
     if (course.publish_status === 1) {
       return <Badge color="green">Published</Badge>;
     }
-    // Jika belum published, cek status permintaan
+
     switch (course.publish_request_status) {
       case "pending":
         return (
@@ -424,8 +451,8 @@ export function CourseManagementTable({
             Ditolak
           </Badge>
         );
-      default: // 'none' atau null
-        return <Badge color="gray">Draft</Badge>; // [cite: 1915-1916]
+      default:
+        return <Badge color="gray">Draft</Badge>;
     }
   };
 
@@ -435,10 +462,12 @@ export function CourseManagementTable({
         visible={isPending || isFetchingDetails}
         overlayProps={{ blur: 2 }}
       />
+
+      {/* Form Modal */}
       <Modal
         opened={formModalOpened}
         onClose={closeForm}
-        title={isEditing ? `Edit Kursus` : "Tambah Kursus Baru"}
+        title={isEditing ? "Edit Kursus" : "Tambah Kursus Baru"}
         size="lg"
         centered
       >
@@ -454,6 +483,7 @@ export function CourseManagementTable({
               minRows={3}
               {...form.getInputProps("course_description")}
             />
+
             <Group grow>
               <Select
                 label="Level"
@@ -476,6 +506,7 @@ export function CourseManagementTable({
                 required
               />
             </Group>
+
             <Select
               label="Dosen/Lecturer"
               placeholder="Pilih dosen pengajar"
@@ -489,12 +520,14 @@ export function CourseManagementTable({
               readOnly={isEditing}
               description="Pilih dosen yang akan mengajar kursus ini"
             />
+
             <NumberInput
               label="Harga"
               required
               min={0}
               {...form.getInputProps("course_price")}
             />
+
             <FileInput
               label="Thumbnail Kursus"
               placeholder="Pilih gambar (.jpg, .png, .webp)"
@@ -503,6 +536,7 @@ export function CourseManagementTable({
               clearable
               description="Ukuran maks 5MB"
             />
+
             {thumbnailPreview && (
               <Stack gap="xs">
                 <Text size="sm" fw={500}>
@@ -521,6 +555,7 @@ export function CourseManagementTable({
                 )}
               </Stack>
             )}
+
             <Switch
               label="Publikasikan Kursus"
               description="Jika aktif, kursus tampil. Harga harus > 0."
@@ -542,6 +577,7 @@ export function CourseManagementTable({
         </form>
       </Modal>
 
+      {/* Delete Modal */}
       <Modal
         opened={deleteModalOpened}
         onClose={closeDelete}
@@ -563,18 +599,16 @@ export function CourseManagementTable({
         </Group>
       </Modal>
 
+      {/* Approval Modal */}
       <Modal
         opened={approvalModalOpened}
         onClose={closeApprovalModal}
         title={`Review Permintaan: ${selectedCourseForApproval?.course_title}`}
         centered
         size="xl"
-        overlayProps={{ blur: 1 }}
       >
-        {/* Loading overlay spesifik untuk modal */}
         <LoadingOverlay visible={isFetchingDetails} />
         <Stack gap="lg">
-          {/* Tampilkan error fetch detail */}
           {approvalError && !isFetchingDetails && (
             <Alert
               color="red"
@@ -585,10 +619,8 @@ export function CourseManagementTable({
             </Alert>
           )}
 
-          {/* Tampilkan detail jika sudah loaded */}
           {approvalCourseDetails && !isFetchingDetails && (
             <>
-              {/* Info Dasar */}
               <Paper withBorder p="md" radius="sm">
                 <Group justify="space-between">
                   <div>
@@ -632,12 +664,11 @@ export function CourseManagementTable({
                 </Text>
               </Paper>
 
-              {/* Kurikulum */}
               <Box>
                 <Title order={5} mb="sm">
                   Review Kurikulum
                 </Title>
-                <Accordion variant="separated" /* defaultValue={optional} */>
+                <Accordion variant="separated">
                   {approvalCourseDetails.materials &&
                   approvalCourseDetails.materials.length > 0 ? (
                     approvalCourseDetails.materials.map((material: any) => (
@@ -650,98 +681,88 @@ export function CourseManagementTable({
                         </AccordionControl>
                         <AccordionPanel>
                           <Stack gap="sm">
-                            {" "}
-                            {/* Gunakan Stack untuk grouping */}
-                            {/* Daftar Konten (Material Detail) */}
                             {material.details && material.details.length > 0 ? (
-                              <>
-                                {/* <Text size="xs" fw={500} c="dimmed">Konten:</Text> */}
-                                <List
-                                  spacing="xs"
-                                  size="sm"
-                                  center
-                                  icon={
-                                    <ThemeIcon
-                                      size={16}
-                                      radius="xl"
-                                      variant="light"
-                                      color="gray"
-                                    >
-                                      -
-                                    </ThemeIcon>
-                                  }
-                                >
-                                  {material.details.map((detail: any) => (
-                                    <ListItem
-                                      key={detail.material_detail_id}
-                                      icon={
-                                        <ThemeIcon
-                                          size={20}
-                                          radius="xl"
-                                          variant="light"
-                                        >
-                                          {getMaterialIcon(
-                                            detail.material_detail_type
-                                          )}
-                                        </ThemeIcon>
-                                      }
-                                    >
-                                      {detail.material_detail_name ||
-                                        "Konten Tanpa Judul"}
-                                    </ListItem>
-                                  ))}
-                                </List>
-                              </>
+                              <List
+                                spacing="xs"
+                                size="sm"
+                                center
+                                icon={
+                                  <ThemeIcon
+                                    size={16}
+                                    radius="xl"
+                                    variant="light"
+                                    color="gray"
+                                  >
+                                    -
+                                  </ThemeIcon>
+                                }
+                              >
+                                {material.details.map((detail: any) => (
+                                  <ListItem
+                                    key={detail.material_detail_id}
+                                    icon={
+                                      <ThemeIcon
+                                        size={20}
+                                        radius="xl"
+                                        variant="light"
+                                      >
+                                        {getMaterialIcon(
+                                          detail.material_detail_type
+                                        )}
+                                      </ThemeIcon>
+                                    }
+                                  >
+                                    {detail.material_detail_name ||
+                                      "Konten Tanpa Judul"}
+                                  </ListItem>
+                                ))}
+                              </List>
                             ) : (
                               <Text size="xs" c="dimmed">
                                 Belum ada konten (materi/tugas) di bab ini.
                               </Text>
                             )}
-                            {/* Pemisah jika ada konten dan quiz */}
+
                             {material.details?.length > 0 &&
                               material.quizzes?.length > 0 && (
                                 <Divider my="xs" />
                               )}
-                            {/* Daftar Quiz */}
+
                             {material.quizzes && material.quizzes.length > 0 ? (
-                              <>
-                                {/* <Text size="xs" fw={500} c="dimmed" mt="xs">Quiz:</Text> */}
-                                <List
-                                  spacing="xs"
-                                  size="sm"
-                                  center
-                                  icon={
-                                    <ThemeIcon
-                                      size={16}
-                                      radius="xl"
-                                      variant="light"
-                                      color="gray"
-                                    >
-                                      -
-                                    </ThemeIcon>
-                                  }
-                                >
-                                  {material.quizzes.map((quiz: any) => (
-                                    <ListItem
-                                      key={quiz.quiz_id}
-                                      icon={
-                                        <ThemeIcon
-                                          size={20}
-                                          radius="xl"
-                                          variant="light"
-                                          color="orange"
-                                        >
-                                          <IconQuestionMark size={14} />
-                                        </ThemeIcon>
-                                      }
-                                    >
-                                      {quiz.quiz_title || "Quiz Tanpa Judul"}
-                                    </ListItem>
-                                  ))}
-                                </List>
-                              </>
+                              <List
+                                spacing="xs"
+                                size="sm"
+                                center
+                                icon={
+                                  <ThemeIcon
+                                    size={16}
+                                    radius="xl"
+                                    variant="light"
+                                    color="gray"
+                                  >
+                                    -
+                                  </ThemeIcon>
+                                }
+                              >
+                                {material.quizzes.map((quiz: any) => (
+                                  <ListItem
+                                    key={quiz.quiz_id}
+                                    icon={
+                                      <ThemeIcon
+                                        size={20}
+                                        radius="xl"
+                                        variant="light"
+                                        color="orange"
+                                      >
+                                        <IconQuestionMark size={14} />
+                                      </ThemeIcon>
+                                    }
+                                  >
+                                    {quiz.quiz_title || "Quiz Tanpa Judul"}
+                                  </ListItem>
+                                ))}
+                              </List>
                             ) : (
-                              // Hanya tampilkan jika tidak ada konten DAN tidak ada quiz
                               material.details?.length === 0 && (
                                 <Text size="xs" c="dimmed">
                                   Belum ada quiz di bab ini.
@@ -762,7 +783,6 @@ export function CourseManagementTable({
 
               <Divider />
 
-              {/* Input Harga */}
               <NumberInput
                 label="Harga Kursus (Rp)"
                 description="Masukkan harga final sebelum publikasi."
@@ -783,7 +803,6 @@ export function CourseManagementTable({
                 }
               />
 
-              {/* Tombol Aksi */}
               <Group justify="flex-end" mt="md">
                 <Button
                   variant="outline"
@@ -799,7 +818,6 @@ export function CourseManagementTable({
                   onClick={handleApprove}
                   loading={isPending}
                   leftSection={<IconChecks size={16} />}
-                  // Pastikan ada materi (bab) sebelum bisa publish
                   disabled={
                     !approvalCourseDetails?.materials?.length ||
                     approvalPrice === "" ||
@@ -812,7 +830,6 @@ export function CourseManagementTable({
             </>
           )}
 
-          {/* Tampilkan pesan loading awal */}
           {isFetchingDetails && (
             <Stack align="center" my="xl">
               <Text c="dimmed">Memuat detail kurikulum...</Text>
@@ -821,6 +838,7 @@ export function CourseManagementTable({
         </Stack>
       </Modal>
 
+      {/* Search & Add Button */}
       <Group justify="space-between" mb="md">
         <TextInput
           placeholder="Cari judul kursus..."
@@ -836,7 +854,8 @@ export function CourseManagementTable({
         </Button>
       </Group>
 
-      <DataTable<CourseData>
+      {/* DataTable */}
+      <DataTable<AdminCourseRowData>
         idAccessor="course_id"
         withTableBorder
         borderRadius="sm"
@@ -891,19 +910,16 @@ export function CourseManagementTable({
             title: "Aksi",
             textAlign: "right",
             render: (course) => {
-              // --- Logika Kondisional untuk Tombol Aksi ---
               const isPendingApproval =
                 course.publish_request_status === "pending";
-
               return (
                 <Group gap="xs" justify="flex-end">
                   {isPendingApproval ? (
-                    // Jika Pending: Tombol Review
                     <Tooltip label="Review Permintaan Publish">
                       <Button
                         variant="light"
                         color="yellow"
-                        size="xs" // Ukuran tombol bisa disesuaikan
+                        size="xs"
                         leftSection={<IconEye size={16} />}
                         onClick={() => handleOpenApprovalModal(course)}
                       >
@@ -911,7 +927,6 @@ export function CourseManagementTable({
                       </Button>
                     </Tooltip>
                   ) : (
-                    // Jika Bukan Pending: Tombol Edit & Hapus standar
                     <>
                       <Tooltip label="Edit Kursus">
                         <ActionIcon

@@ -1,4 +1,5 @@
-// src/app/(lecturer)/lecturer/dashboard/assignments/page.tsx
+// lmsistts\src\app\(lecturer)\lecturer\dashboard\assignments\page.tsx
+
 import { Container, Title, Text, Alert } from '@mantine/core';
 import { IconAlertCircle } from '@tabler/icons-react';
 import { getAssignmentsToReviewByLecturer } from '@/app/actions/lecturer.actions';

@@ -51,12 +51,10 @@ export const createCourseSchema = z.object({
     .min(10, "Description must be at least 10 characters")
     .max(5000),
   course_level: courseLevelEnum,
-  course_price: z
-    .number()
-    .int()
-    .min(0, "Price must be at least 0")
-    .max(100000000),
-  course_duration: z.number().int().min(0).default(0),
+  course_price: idFromString.pipe(
+    z.number().max(100000000, "Harga terlalu besar")
+  ),
+  course_duration: idFromString,
   publish_status: z.number().int().min(0).max(1).default(0),
   publish_request_status: publishRequestStatusEnum.default("none"),
   category_id: idFromString.refine((val) => val !== null, {
@@ -83,17 +81,10 @@ export const updateCourseSchema = z
       .trim()
       .optional(),
     course_level: courseLevelEnum.optional(),
-    course_price: z
-      .number()
-      .int("Harga harus berupa bilangan bulat")
-      .min(0, "Harga tidak boleh negatif")
-      .max(100000000, "Harga terlalu besar")
+    course_price: idFromString
+      .pipe(z.number().max(100000000, "Harga terlalu besar"))
       .optional(),
-    course_duration: z
-      .number()
-      .int("Durasi harus berupa bilangan bulat")
-      .min(0, "Durasi tidak boleh negatif")
-      .optional(),
+    course_duration: idFromString.optional(),
     publish_status: z
       .union([z.string(), z.number()])
       .transform((val) => {
@@ -193,6 +184,64 @@ export const lecturerUpdateCourseSchema = lecturerCreateCourseSchema
   .extend({
     thumbnail_file: z.instanceof(File).optional().nullable(),
   });
+
+export const adminCourseRowDataSchema = updateCourseSchema.safeExtend({
+  course_id: z.number(),
+  course_title: z.string().nullable(),
+  thumbnail_url: z.string().nullable().optional(),
+  publish_request_status: publishRequestStatusEnum.nullable().optional(), // ✅ TAMBAH INI
+  rejection_reason: z.string().nullable().optional(), // ✅ TAMBAH INI
+  lecturer: z
+    .object({
+      first_name: z.string().nullable().optional(),
+      last_name: z.string().nullable().optional(),
+    })
+    .optional(),
+  category: z
+    .object({
+      category_name: z.string().nullable().optional(),
+    })
+    .optional(),
+});
+
+export type AdminCourseRowData = z.infer<typeof adminCourseRowDataSchema>;
+
+// ✅ Skema untuk data baris di tabel Dosen (Lecturer)
+export const lecturerCourseDataSchema = z.object({
+  course_id: z.number(),
+  course_title: z.string().nullable(),
+  course_description: z.string().nullable(),
+  course_level: courseLevelEnum.nullable(),
+  category_id: z.number().nullable(),
+  thumbnail_url: z.string().nullable(),
+  publish_status: z.number().nullable(),
+  publish_request_status: publishRequestStatusEnum.nullable().optional(),
+  rejection_reason: z.string().nullable().optional(),
+  course_duration: z.number().nullable().optional(),
+  category: z
+    .object({
+      category_name: z.string().nullable().optional(),
+    })
+    .optional(),
+  materials: z
+    .array(
+      z.object({
+        material_id: z.number(),
+        material_name: z.string().nullable(),
+        details: z
+          .array(
+            z.object({
+              material_detail_id: z.number(),
+              material_detail_name: z.string().nullable(),
+            })
+          )
+          .optional(),
+      })
+    )
+    .optional(),
+});
+
+export type LecturerCourseData = z.infer<typeof lecturerCourseDataSchema>;
 
 export type LecturerCreateCourseInput = z.infer<
   typeof lecturerCreateCourseSchema

@@ -1,4 +1,4 @@
-// src/components/student/ActiveQuizPlayer.tsx
+// lmsistts\src\components\student\ActiveQuizPlayer.tsx
 "use client";
 
 import React, { useState, useEffect, useTransition, useCallback } from 'react';
@@ -8,32 +8,16 @@ import { notifications } from '@mantine/notifications';
 import { submitQuizAttempt } from '@/app/actions/student.actions';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
+import {
+  type QuizWithRelations,
+  type QuizQuestionWithOptions,
+  type QuizAnswerOption
+} from "@/lib/schemas/quiz.schema";
 
 dayjs.extend(duration);
 
-interface QuizQuestionOption {
-    option_id: number;
-    option_text: string | null;
-    is_correct?: boolean | null;
-}
-
-interface QuizQuestionData {
-    question_id: number;
-    question_text: string | null;
-    question_type: 'multiple_choice' | 'checkbox' | 'essay' | null;
-    options?: QuizQuestionOption[] | null;
-}
-
-interface QuizData {
-    quiz_id: number;
-    quiz_title: string | null;
-    time_limit: number;
-    passing_score?: number | null;
-    questions?: QuizQuestionData[] | null;
-}
-
 interface ActiveQuizPlayerProps {
-    quizData: QuizData;
+    quizData: QuizWithRelations;
     courseId: number;
     enrollmentId: number;
     attemptNumber: number;
@@ -42,7 +26,6 @@ interface ActiveQuizPlayerProps {
 
 export function ActiveQuizPlayer({ quizData, courseId, enrollmentId, attemptNumber, onFinish }: ActiveQuizPlayerProps) {
     const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-    // ✅ FIXED: Gunakan number | number[] untuk kompatibilitas dengan server action
     const [studentAnswers, setStudentAnswers] = useState<Record<number, number | number[]>>({});
     const [timeLeft, setTimeLeft] = useState((quizData.time_limit || 1) * 60);
     const [isSubmitting, startSubmitting] = useTransition();

@@ -1,3 +1,5 @@
+// lmsistts\src\components\lecturer\MaterialDetailManager.tsx
+
 "use client";
 
 import { useState, useTransition } from "react";
@@ -27,6 +29,7 @@ import {
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import { notifications } from "@mantine/notifications";
 import {
   IconPlus,
@@ -46,18 +49,12 @@ import {
   updateMaterialDetail,
   deleteMaterialDetail,
 } from "@/app/actions/lecturer.actions";
-
-type MaterialDetailFormValues = {
-  material_detail_name: string;
-  material_detail_description: string;
-  material_detail_type: "1" | "2" | "3" | "4";
-  is_free: boolean;
-  materi_detail_url: string;
-  youtube_url: string;
-  content_file: File | null;
-  template_file: File | null;
-  passing_score: number | null;
-};
+import {
+  createMaterialDetailFormSchema,
+  updateMaterialDetailFormSchema,
+  type CreateMaterialDetailFormInput,
+  type UpdateMaterialDetailFormInput,
+} from "@/lib/schemas/materialDetail.schema";
 
 const typeOptions = [
   { value: "1", label: "Video (Auto-upload ke YouTube)" },
@@ -95,7 +92,6 @@ export function MaterialDetailManager({
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<any | null>(null);
   
-  // ✅ PERBAIKAN: Track original URLs untuk preserve saat edit
   const [originalContentUrl, setOriginalContentUrl] = useState<string | null>(null);
   const [originalTemplateUrl, setOriginalTemplateUrl] = useState<string | null>(null);
   
@@ -104,7 +100,8 @@ export function MaterialDetailManager({
 
   const isEditing = modalMode === "edit";
 
-  const form = useForm<MaterialDetailFormValues>({
+  // ✅ PERBAIKAN: Gunakan zod4Resolver dengan schema yang tepat
+  const form = useForm<CreateMaterialDetailFormInput | UpdateMaterialDetailFormInput>({
     initialValues: {
       material_detail_name: "",
       material_detail_description: "",
@@ -116,6 +113,9 @@ export function MaterialDetailManager({
       template_file: null,
       passing_score: null,
     },
+    validate: zod4Resolver(
+      isEditing ? updateMaterialDetailFormSchema : createMaterialDetailFormSchema
+    ),
   });
 
   const handleOpenCreateModal = () => {
@@ -141,7 +141,7 @@ export function MaterialDetailManager({
       is_free: detail.is_free ?? false,
       materi_detail_url: detail.materi_detail_url ?? "",
       youtube_url: detail.material_detail_type === 3 ? (detail.materi_detail_url ?? "") : "",
-      content_file: null, // Reset file input saat edit
+      content_file: null,
       template_file: null,
       passing_score: detail.passing_score ?? null,
     });
@@ -151,29 +151,6 @@ export function MaterialDetailManager({
   const handleOpenDeleteConfirm = (detail: any) => {
     setSelectedDetail(detail);
     openDeleteConfirm();
-  };
-
-  const uploadFile = async (file: File, fileType: "pdfs" | "assignments"): Promise<string | null> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("fileType", fileType);
-
-    try {
-      const response = await fetch("/api/upload/file", {
-        method: "POST",
-        body: formData,
-      });
-      const result = await response.json();
-      if (!response.ok || !result.success) throw new Error(result.error);
-      return result.url;
-    } catch (error: any) {
-      notifications.show({
-        title: "Upload Gagal",
-        message: error.message || "Terjadi kesalahan saat upload file",
-        color: "red",
-      });
-      return null;
-    }
   };
 
   const uploadVideoToYoutube = async (
@@ -236,66 +213,83 @@ export function MaterialDetailManager({
     }
   };
 
-  const handleSubmit = async (values: MaterialDetailFormValues) => {
-    startTransition(async () => {
-      // ✅ PERBAIKAN: Gunakan URL asli jika tidak ada perubahan
-      let materiUrl: string | null = isEditing ? originalContentUrl : null;
-      let assignmentUrl: string | null = isEditing ? originalTemplateUrl : null;
-
-      // TIPE 1: Upload video ke YouTube
-      if (values.material_detail_type === "1" && values.content_file instanceof File) {
-        const youtubeUrl = await uploadVideoToYoutube(
-          values.content_file,
-          values.material_detail_name,
-          values.material_detail_description,
-          values.is_free
-        );
-        if (!youtubeUrl) return;
-        materiUrl = youtubeUrl;
-      } else if (values.material_detail_type === "1" && !values.content_file && isEditing) {
-        // Tidak ada file baru, gunakan URL lama
-        materiUrl = originalContentUrl;
-      }
-
-      // TIPE 2: Upload PDF
-      if (values.material_detail_type === "2" && values.content_file instanceof File) {
-        const uploaded = await uploadFile(values.content_file, "pdfs");
-        if (!uploaded) return;
-        materiUrl = uploaded;
-      } else if (values.material_detail_type === "2" && !values.content_file && isEditing) {
-        // Tidak ada file baru, gunakan URL lama
-        materiUrl = originalContentUrl;
-      }
-
-      // TIPE 3: YouTube URL manual
-      if (values.material_detail_type === "3") {
-        materiUrl = values.youtube_url;
-      }
-
-      // TIPE 4: Upload template assignment (opsional)
-      if (values.material_detail_type === "4" && values.template_file instanceof File) {
-        const uploaded = await uploadFile(values.template_file, "assignments");
-        if (!uploaded) return;
-        assignmentUrl = uploaded;
-      } else if (values.material_detail_type === "4" && !values.template_file && isEditing) {
-        // Tidak ada file baru, gunakan URL lama
-        assignmentUrl = originalTemplateUrl;
-      }
-
-      const dataToSend = {
-        material_detail_name: values.material_detail_name,
-        material_detail_description: values.material_detail_description,
-        material_detail_type: values.material_detail_type,
-        is_free: values.is_free,
-        materi_detail_url: materiUrl,
-        assignment_template_url: assignmentUrl,
-        passing_score: values.material_detail_type === "4" ? values.passing_score : null,
+  // ✅ Helper untuk convert File ke base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        const base64Data = base64.split(',')[1];
+        resolve(base64Data);
       };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
 
+  const handleSubmit = async (values: CreateMaterialDetailFormInput | UpdateMaterialDetailFormInput) => {
+    startTransition(async () => {
       try {
+        // ✅ Prepare FormData untuk dikirim ke server
+        const formData = new FormData();
+        
+        formData.append("material_detail_name", values.material_detail_name);
+        formData.append("material_detail_description", values.material_detail_description);
+        formData.append("material_detail_type", values.material_detail_type);
+        formData.append("is_free", String(values.is_free));
+        
+        if (values.passing_score !== null && values.passing_score !== undefined) {
+          formData.append("passing_score", String(values.passing_score));
+        }
+
+        // ✅ TIPE 1: Handle video upload ke YouTube
+        if (values.material_detail_type === "1") {
+          if (values.content_file instanceof File) {
+            const youtubeUrl = await uploadVideoToYoutube(
+              values.content_file,
+              values.material_detail_name,
+              values.material_detail_description,
+              values.is_free
+            );
+            if (!youtubeUrl) return;
+            formData.append("materi_detail_url", youtubeUrl);
+          } else if (isEditing && originalContentUrl) {
+            // Gunakan URL lama jika tidak ada file baru
+            formData.append("materi_detail_url", originalContentUrl);
+          }
+        }
+
+        // ✅ TIPE 2: Handle PDF upload
+        if (values.material_detail_type === "2") {
+          if (values.content_file instanceof File) {
+            const base64Data = await fileToBase64(values.content_file);
+            formData.append("file_base64", base64Data);
+            formData.append("file_name", values.content_file.name);
+          } else if (isEditing && originalContentUrl) {
+            formData.append("materi_detail_url", originalContentUrl);
+          }
+        }
+
+        // ✅ TIPE 3: Handle YouTube URL manual
+        if (values.material_detail_type === "3") {
+          formData.append("materi_detail_url", values.youtube_url || "");
+        }
+
+        // ✅ TIPE 4: Handle assignment template upload
+        if (values.material_detail_type === "4") {
+          if (values.template_file instanceof File) {
+            const base64Data = await fileToBase64(values.template_file);
+            formData.append("template_base64", base64Data);
+            formData.append("template_name", values.template_file.name);
+          } else if (isEditing && originalTemplateUrl) {
+            formData.append("assignment_template_url", originalTemplateUrl);
+          }
+        }
+
+        // ✅ Call server action
         const res = isEditing
-          ? await updateMaterialDetail(selectedDetail!.material_detail_id, dataToSend)
-          : await createMaterialDetail(materialId, dataToSend);
+          ? await updateMaterialDetail(selectedDetail!.material_detail_id, formData)
+          : await createMaterialDetail(materialId, formData);
 
         if (res?.success) {
           notifications.show({
@@ -304,7 +298,6 @@ export function MaterialDetailManager({
             color: "green",
           });
           
-          // ✅ PERBAIKAN: Tutup modal dan refresh
           closeFormModal();
           form.reset();
           router.refresh();
@@ -336,7 +329,7 @@ export function MaterialDetailManager({
           color: "teal",
         });
         closeDeleteConfirm();
-        router.refresh(); // ✅ Auto refresh setelah delete
+        router.refresh();
       } else {
         notifications.show({
           title: "Gagal",
@@ -391,7 +384,6 @@ export function MaterialDetailManager({
 
             {showVideoUpload && (
               <>
-                {/* ✅ Tampilkan URL Video yang sudah ada */}
                 {isEditing && originalContentUrl && (
                   <Paper withBorder p="sm" bg="blue.0" mb="xs">
                     <Stack gap="xs">

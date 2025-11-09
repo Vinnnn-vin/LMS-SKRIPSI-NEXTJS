@@ -1,4 +1,5 @@
-// src/components/student/CountdownTimer.tsx
+// lmsistts\src\components\student\CountdownTimer.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";

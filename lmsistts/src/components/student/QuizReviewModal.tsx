@@ -1,46 +1,68 @@
 // lmsistts\src\components\student\QuizReviewModal.tsx
 "use client";
 
-import { Modal, Stack, Title, Text, Paper, Badge, Group, Box, ThemeIcon, Divider, ScrollArea, Button } from "@mantine/core";
-import { IconCheck, IconX, IconCircleCheck, IconCircleX } from "@tabler/icons-react";
+import {
+  Modal,
+  Stack,
+  Title,
+  Text,
+  Paper,
+  Badge,
+  Group,
+  Box,
+  ThemeIcon,
+  Divider,
+  ScrollArea,
+  Button,
+} from "@mantine/core";
+import {
+  IconCheck,
+  IconX,
+  IconCircleCheck,
+  IconCircleX,
+} from "@tabler/icons-react";
+import {
+  type QuizWithRelations,
+  type QuizQuestionWithOptions,
+} from "@/lib/schemas/quiz.schema";
+
+type QuizReviewData = Pick<QuizWithRelations, "quiz_title"> & {
+  questions: QuizQuestionWithOptions[];
+};
 
 interface QuizReviewModalProps {
   opened: boolean;
   onClose: () => void;
-  quizData: {
-    quiz_title: string;
-    questions: Array<{
-      question_id: number;
-      question_text: string;
-      question_type: "multiple_choice" | "checkbox";
-      options: Array<{
-        option_id: number;
-        option_text: string;
-        is_correct: boolean;
-      }>;
-    }>;
-  };
+  quizData: QuizReviewData;
   studentAnswers: Record<number, number | number[]>;
   score: number;
 }
 
-export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, score }: QuizReviewModalProps) {
+export function QuizReviewModal({
+  opened,
+  onClose,
+  quizData,
+  studentAnswers,
+  score,
+}: QuizReviewModalProps) {
   // Hitung statistik
   let correctCount = 0;
   let wrongCount = 0;
 
   quizData.questions.forEach((question) => {
     const studentAnswer = studentAnswers[question.question_id];
-    const correctOptions = question.options.filter(opt => opt.is_correct).map(opt => opt.option_id);
+    const correctOptions = question.options
+      .filter((opt) => opt.is_correct)
+      .map((opt) => opt.option_id);
 
     let isCorrect = false;
     if (question.question_type === "multiple_choice") {
       isCorrect = studentAnswer === correctOptions[0];
     } else {
       const studentAnswerArray = (studentAnswer as number[]) || [];
-      isCorrect = 
+      isCorrect =
         correctOptions.length === studentAnswerArray.length &&
-        correctOptions.every(id => studentAnswerArray.includes(id));
+        correctOptions.every((id) => studentAnswerArray.includes(id));
     }
 
     if (isCorrect) correctCount++;
@@ -61,8 +83,8 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
         </Group>
       }
       styles={{
-        title: { width: '100%' },
-        body: { padding: 0 }
+        title: { width: "100%" },
+        body: { padding: 0 },
       }}
     >
       <ScrollArea h="70vh" px="lg" py="md">
@@ -75,8 +97,12 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                   <IconCircleCheck size={24} />
                 </ThemeIcon>
                 <Box>
-                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Benar</Text>
-                  <Text size="xl" fw={700} c="green">{correctCount}</Text>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Benar
+                  </Text>
+                  <Text size="xl" fw={700} c="green">
+                    {correctCount}
+                  </Text>
                 </Box>
               </Group>
             </Paper>
@@ -87,8 +113,12 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                   <IconCircleX size={24} />
                 </ThemeIcon>
                 <Box>
-                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Salah</Text>
-                  <Text size="xl" fw={700} c="red">{wrongCount}</Text>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Salah
+                  </Text>
+                  <Text size="xl" fw={700} c="red">
+                    {wrongCount}
+                  </Text>
                 </Box>
               </Group>
             </Paper>
@@ -99,8 +129,12 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                   <IconCheck size={24} />
                 </ThemeIcon>
                 <Box>
-                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>Total</Text>
-                  <Text size="xl" fw={700} c="blue">{quizData.questions.length}</Text>
+                  <Text size="xs" c="dimmed" tt="uppercase" fw={700}>
+                    Total
+                  </Text>
+                  <Text size="xl" fw={700} c="blue">
+                    {quizData.questions.length}
+                  </Text>
                 </Box>
               </Group>
             </Paper>
@@ -111,16 +145,18 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
           {/* Questions Review */}
           {quizData.questions.map((question, index) => {
             const studentAnswer = studentAnswers[question.question_id];
-            const correctOptions = question.options.filter(opt => opt.is_correct).map(opt => opt.option_id);
+            const correctOptions = question.options
+              .filter((opt) => opt.is_correct)
+              .map((opt) => opt.option_id);
 
             let isCorrect = false;
             if (question.question_type === "multiple_choice") {
               isCorrect = studentAnswer === correctOptions[0];
             } else {
               const studentAnswerArray = (studentAnswer as number[]) || [];
-              isCorrect = 
+              isCorrect =
                 correctOptions.length === studentAnswerArray.length &&
-                correctOptions.every(id => studentAnswerArray.includes(id));
+                correctOptions.every((id) => studentAnswerArray.includes(id));
             }
 
             return (
@@ -130,8 +166,10 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                 p="lg"
                 radius="md"
                 style={{
-                  borderLeft: `4px solid ${isCorrect ? 'var(--mantine-color-green-6)' : 'var(--mantine-color-red-6)'}`,
-                  backgroundColor: isCorrect ? 'var(--mantine-color-green-0)' : 'var(--mantine-color-red-0)',
+                  borderLeft: `4px solid ${isCorrect ? "var(--mantine-color-green-6)" : "var(--mantine-color-red-6)"}`,
+                  backgroundColor: isCorrect
+                    ? "var(--mantine-color-green-0)"
+                    : "var(--mantine-color-red-0)",
                 }}
               >
                 <Stack gap="md">
@@ -144,7 +182,11 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                         color={isCorrect ? "green" : "red"}
                         variant="light"
                       >
-                        {isCorrect ? <IconCheck size={18} /> : <IconX size={18} />}
+                        {isCorrect ? (
+                          <IconCheck size={18} />
+                        ) : (
+                          <IconX size={18} />
+                        )}
                       </ThemeIcon>
                       <Box style={{ flex: 1 }}>
                         <Group gap="xs" mb="xs">
@@ -166,7 +208,13 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                       size="lg"
                       color={isCorrect ? "green" : "red"}
                       variant="filled"
-                      leftSection={isCorrect ? <IconCheck size={14} /> : <IconX size={14} />}
+                      leftSection={
+                        isCorrect ? (
+                          <IconCheck size={14} />
+                        ) : (
+                          <IconX size={14} />
+                        )
+                      }
                     >
                       {isCorrect ? "BENAR" : "SALAH"}
                     </Badge>
@@ -177,9 +225,12 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                   {/* Options */}
                   <Stack gap="xs">
                     {question.options.map((option) => {
-                      const isStudentAnswer = question.question_type === "multiple_choice"
-                        ? studentAnswer === option.option_id
-                        : (studentAnswer as number[])?.includes(option.option_id);
+                      const isStudentAnswer =
+                        question.question_type === "multiple_choice"
+                          ? studentAnswer === option.option_id
+                          : (studentAnswer as number[])?.includes(
+                              option.option_id
+                            );
 
                       const isCorrectOption = option.is_correct;
 
@@ -208,7 +259,8 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                           radius="md"
                           style={{
                             borderColor,
-                            borderWidth: isStudentAnswer || isCorrectOption ? 2 : 1,
+                            borderWidth:
+                              isStudentAnswer || isCorrectOption ? 2 : 1,
                             backgroundColor: bgColor,
                           }}
                         >
@@ -258,8 +310,8 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
                         <Text size="sm" c="orange.9">
                           <strong>Jawaban yang benar:</strong>{" "}
                           {question.options
-                            .filter(opt => opt.is_correct)
-                            .map(opt => opt.option_text)
+                            .filter((opt) => opt.is_correct)
+                            .map((opt) => opt.option_text)
                             .join(", ")}
                         </Text>
                       </Group>
@@ -273,7 +325,10 @@ export function QuizReviewModal({ opened, onClose, quizData, studentAnswers, sco
       </ScrollArea>
 
       {/* Footer */}
-      <Box p="lg" style={{ borderTop: '1px solid var(--mantine-color-gray-3)' }}>
+      <Box
+        p="lg"
+        style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}
+      >
         <Group justify="space-between">
           <Group gap="md">
             <Badge size="lg" color="green" variant="light">

@@ -30,33 +30,8 @@ import sortBy from "lodash/sortBy";
 import dayjs from "dayjs";
 import { AssignmentGradingModal } from "./AssignmentGradingModal";
 import { getAssignmentsToReviewByLecturer } from "@/app/actions/lecturer.actions";
-
-interface AssignmentRow {
-  submission_id: number;
-  submitted_at: string;
-  status: "submitted" | "under_review" | "approved" | "rejected";
-  student: {
-    user_id: number;
-    first_name?: string | null;
-    last_name?: string | null;
-    email?: string | null;
-  };
-  assignment: {
-    material_detail_id: number;
-    material_detail_name?: string | null;
-    passing_score?: number | null; // ✅ FIXED: Tambahkan passing_score
-  };
-  course: {
-    course_id: number;
-    course_title?: string | null;
-  };
-  score?: number | null;
-  feedback?: string | null;
-  submission_type: "file" | "url" | "text" | "both";
-  file_path?: string | null;
-  submission_url?: string | null;
-  submission_text?: string | null;
-}
+import { notifications } from "@mantine/notifications";
+import { type AssignmentRowData } from "@/lib/schemas/assignmentSubmission.schema";
 
 const PAGE_SIZE = 15;
 
@@ -64,12 +39,12 @@ export function AssignmentReviewTable({
   initialData,
   totalRecords: initialTotal,
 }: {
-  initialData: AssignmentRow[];
+  initialData: AssignmentRowData[];
   totalRecords: number;
 }) {
   const [page, setPage] = useState(1);
   const [sortStatus, setSortStatus] = useState<
-    DataTableSortStatus<AssignmentRow>
+    DataTableSortStatus<AssignmentRowData>
   >({ columnAccessor: "submitted_at", direction: "desc" });
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -79,7 +54,7 @@ export function AssignmentReviewTable({
   const [isPendingAction, startTransitionAction] = useTransition();
 
   const [selectedSubmission, setSelectedSubmission] =
-    useState<AssignmentRow | null>(null);
+    useState<AssignmentRowData | null>(null);
   const [
     gradingModalOpened,
     { open: openGradingModal, close: closeGradingModal },
@@ -90,7 +65,7 @@ export function AssignmentReviewTable({
   };
 
   // FIXED: Fungsi untuk transform data dari server ke format AssignmentRow
-  const transformServerData = (serverData: any[]): AssignmentRow[] => {
+  const transformServerData = (serverData: any[]): AssignmentRowData[] => {
     return serverData.map((item: any) => ({
       submission_id: item.submission_id,
       submitted_at: item.submitted_at,
@@ -141,15 +116,25 @@ export function AssignmentReviewTable({
         statusFilter: options.status ?? undefined,
       });
       if (result.success) {
-        // FIXED: Transform data sebelum set ke state
         const transformedData = transformServerData(result.data);
         setRecords(transformedData);
         setTotalRecords(result.total);
       } else {
         console.error("Failed to fetch assignments:", result.error);
+        notifications.show({
+          title: "Gagal Memuat Data",
+          message:
+            result.error || "Terjadi kesalahan saat mengambil data tugas.",
+          color: "red",
+        });
       }
     } catch (error) {
       console.error("Error fetching assignments:", error);
+      notifications.show({
+        title: "Error",
+        message: error.message || "Terjadi kesalahan server.",
+        color: "red",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -166,7 +151,7 @@ export function AssignmentReviewTable({
   };
 
   const handleSortChange = (
-    newSortStatus: DataTableSortStatus<AssignmentRow>
+    newSortStatus: DataTableSortStatus<AssignmentRowData>
   ) => {
     setSortStatus(newSortStatus);
     setPage(1);
@@ -189,12 +174,12 @@ export function AssignmentReviewTable({
     });
   };
 
-  const handleOpenGrading = (submission: AssignmentRow) => {
+  const handleOpenGrading = (submission: AssignmentRowData) => { 
     setSelectedSubmission(submission);
     openGradingModal();
   };
 
-  const getStatusBadge = (status: AssignmentRow["status"]) => {
+  const getStatusBadge = (status: AssignmentRowData["status"]) => {
     switch (status) {
       case "submitted":
         return (
@@ -225,8 +210,7 @@ export function AssignmentReviewTable({
     }
   };
 
-  // ✅ FIXED: Helper untuk icon submission type
-  const getSubmissionTypeIcon = (submission: AssignmentRow) => {
+  const getSubmissionTypeIcon = (submission: AssignmentRowData) => {
     const type = submission.submission_type;
 
     if (type === "both") {
@@ -329,7 +313,7 @@ export function AssignmentReviewTable({
         />
       </Group>
 
-      <DataTable<AssignmentRow>
+      <DataTable<AssignmentRowData>
         idAccessor="submission_id"
         withTableBorder
         borderRadius="sm"

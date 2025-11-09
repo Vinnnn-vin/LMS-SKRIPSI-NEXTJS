@@ -50,23 +50,13 @@ import {
 import type {
   normalizedQuestionSchema,
   QuizQuestionWithOptions,
+  NormalizedQuestion,
 } from "@/lib/schemas/quiz.schema";
 
-// ✅ Gunakan type dari Zod schema
-type QuestionData = {
-  question_id: number;
-  question_text: string;
-  question_type: "multiple_choice" | "checkbox" | "essay";
-  options: {
-    option_id: number;
-    option_text: string;
-    is_correct: boolean;
-  }[];
-};
 
 interface QuizQuestionManagerProps {
   quizId: number;
-  initialQuestions: QuizQuestionWithOptions[]; // ✅ Accept nullable data dari database
+  initialQuestions: QuizQuestionWithOptions[];
 }
 
 export function QuizQuestionManager({
@@ -74,7 +64,7 @@ export function QuizQuestionManager({
   initialQuestions,
 }: QuizQuestionManagerProps) {
   const [isPending, startTransition] = useTransition();
-  const [questions, setQuestions] = useState<QuestionData[]>(
+  const [questions, setQuestions] = useState<NormalizedQuestion[]>(
     // ✅ Normalize data: filter null/undefined dan set defaults
     initialQuestions
       .filter(
@@ -116,7 +106,6 @@ export function QuizQuestionManager({
     validate: zod4Resolver(createQuestionSchema),
   });
 
-  // ✅ Tambah Opsi Jawaban
   const addOption = () => {
     form.setFieldValue("options", [
       ...form.values.options,
@@ -124,13 +113,11 @@ export function QuizQuestionManager({
     ]);
   };
 
-  // ✅ Hapus Opsi Jawaban
   const removeOption = (index: number) => {
     const updated = form.values.options.filter((_, i) => i !== index);
     form.setFieldValue("options", updated);
   };
 
-  // ✅ Tambah Pertanyaan
   const handleSubmit = (values: CreateQuestionInput) => {
     if (!validateMinimumOptions()) {
       notifications.show({
@@ -162,8 +149,7 @@ export function QuizQuestionManager({
           color: "green",
         });
 
-        // ✅ Normalize data sebelum menambah ke state
-        const normalizedQuestion: QuestionData = {
+        const normalizedQuestion: NormalizedQuestion = {
           question_id: result.data.question_id,
           question_text: result.data.question_text,
           question_type: result.data.question_type,
@@ -187,8 +173,7 @@ export function QuizQuestionManager({
     });
   };
 
-  // ✅ Edit Pertanyaan
-  const handleEdit = (q: QuestionData) => {
+  const handleEdit = (q: NormalizedQuestion) => {
     form.setValues({
       question_text: q.question_text,
       question_type: q.question_type,
@@ -236,8 +221,7 @@ export function QuizQuestionManager({
           color: "green",
         });
 
-        // ✅ Normalize data sebelum update state
-        const normalizedQuestion: QuestionData = {
+        const normalizedQuestion: NormalizedQuestion = {
           question_id: result.data.question_id,
           question_text: result.data.question_text,
           question_type: result.data.question_type,

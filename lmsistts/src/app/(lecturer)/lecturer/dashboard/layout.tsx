@@ -1,6 +1,4 @@
 // lmsistts\src\app\(lecturer)\lecturer\dashboard\layout.tsx
-// Alternative Version: Priority-based matching (lebih robust)
-
 "use client";
 
 import { Box, NavLink, Paper } from "@mantine/core";

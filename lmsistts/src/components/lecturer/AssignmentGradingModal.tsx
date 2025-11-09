@@ -1,6 +1,8 @@
+// lmsistts\src\components\lecturer\AssignmentGradingModal.tsx
+
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Modal,
   Stack,
@@ -14,13 +16,13 @@ import {
   Badge,
   Anchor,
   LoadingOverlay,
-  Box,
   Divider,
   Select,
   Paper,
   ThemeIcon,
 } from "@mantine/core";
 import { useForm } from "@mantine/form";
+import { zod4Resolver } from "mantine-form-zod-resolver";
 import {
   IconAlertCircle,
   IconDownload,
@@ -32,6 +34,7 @@ import {
 import {
   reviewAssignmentSchema,
   ReviewAssignmentInput,
+  type AssignmentRowData,
 } from "@/lib/schemas/assignmentSubmission.schema";
 import { gradeAssignmentByLecturer } from "@/app/actions/lecturer.actions";
 import { notifications } from "@mantine/notifications";
@@ -39,26 +42,7 @@ import { notifications } from "@mantine/notifications";
 interface AssignmentGradingModalProps {
   opened: boolean;
   onClose: () => void;
-  submission: {
-    submission_id: number;
-    student: {
-      first_name?: string | null;
-      last_name?: string | null;
-      email?: string | null;
-    };
-    assignment: {
-      material_detail_id: number;
-      material_detail_name?: string | null;
-      passing_score?: number | null;
-    };
-    status: "submitted" | "under_review" | "approved" | "rejected";
-    score?: number | null;
-    feedback?: string | null;
-    submission_type: "file" | "url" | "text" | "both";
-    file_path?: string | null;
-    submission_url?: string | null;
-    submission_text?: string | null;
-  };
+  submission: AssignmentRowData;
   onGradeSubmit: () => void;
   startTransition: React.TransitionStartFunction;
 }
@@ -71,10 +55,7 @@ export function AssignmentGradingModal({
   startTransition,
 }: AssignmentGradingModalProps) {
   const [isPending, setIsPending] = useState(false);
-
-  console.log(submission);
-  
-  const passingScore = submission.assignment.passing_score;
+  const passingScore = submission.assignment.passing_score ?? 70;
 
   const form = useForm<ReviewAssignmentInput>({
     initialValues: {
@@ -87,48 +68,70 @@ export function AssignmentGradingModal({
       score: submission.score ?? null,
       feedback: submission.feedback ?? "",
     },
-    validate: {
-      status: (value) => (value ? null : "Status harus dipilih"),
-      score: (value, values) => {
-        if (values.status === "approved") {
-          if (value === null || value === undefined) {
-            return "Skor harus diisi untuk status disetujui";
+    validate: zod4Resolver(reviewAssignmentSchema),
+    validateInputOnChange: true,
+    enhanceGetInputProps: () => ({
+      onBlur: () => {
+        const status = form.values.status;
+        const score = form.values.score;
+
+        // Validasi skor berdasarkan status
+        if (status === "approved") {
+          if (score === null || score === undefined) {
+            form.setFieldError("score", "Skor harus diisi untuk status disetujui");
+          } else if (score < passingScore) {
+            form.setFieldError("score", `Skor harus minimal ${passingScore} untuk disetujui`);
+          } else {
+            form.clearFieldError("score");
           }
-          if (value < passingScore) {
-            return `Skor harus minimal ${passingScore} untuk disetujui`;
+        } else if (status === "rejected") {
+          if (score === null || score === undefined) {
+            form.setFieldError("score", "Skor harus diisi untuk status ditolak");
+          } else if (score >= passingScore) {
+            form.setFieldError("score", `Skor harus dibawah ${passingScore} untuk ditolak`);
+          } else {
+            form.clearFieldError("score");
           }
         }
-        if (values.status === "rejected") {
-          if (value === null || value === undefined) {
-            return "Skor harus diisi untuk status ditolak";
-          }
-          if (value >= passingScore) {
-            return `Skor harus dibawah ${passingScore} untuk ditolak`;
-          }
-        }
-        if (value !== null && (value < 0 || value > 100)) {
-          return "Skor harus antara 0-100";
-        }
-        return null;
       },
-    },
+    }),
   });
 
-  useEffect(() => {
-    form.setValues({
-      status:
-        submission.status === "approved"
-          ? "approved"
-          : submission.status === "rejected"
-            ? "rejected"
-            : "submitted",
-      score: submission.score ?? null,
-      feedback: submission.feedback ?? "",
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [submission]);
+  // Validasi tambahan sebelum submit
+  const validateBeforeSubmit = (): boolean => {
+    const { status, score } = form.values;
+
+    if (status === "approved") {
+      if (score === null || score === undefined) {
+        form.setFieldError("score", "Skor harus diisi untuk status disetujui");
+        return false;
+      }
+      if (score < passingScore) {
+        form.setFieldError("score", `Skor harus minimal ${passingScore} untuk disetujui`);
+        return false;
+      }
+    }
+
+    if (status === "rejected") {
+      if (score === null || score === undefined) {
+        form.setFieldError("score", "Skor harus diisi untuk status ditolak");
+        return false;
+      }
+      if (score >= passingScore) {
+        form.setFieldError("score", `Skor harus dibawah ${passingScore} untuk ditolak`);
+        return false;
+      }
+    }
+
+    return true;
+  };
 
   const handleSubmit = (values: ReviewAssignmentInput) => {
+    // Validasi custom sebelum submit
+    if (!validateBeforeSubmit()) {
+      return;
+    }
+
     startTransition(() => {
       setIsPending(true);
       gradeAssignmentByLecturer(submission.submission_id, values)
@@ -174,7 +177,7 @@ export function AssignmentGradingModal({
     submission.submission_type === "both";
   const hasUrl = submission.submission_type === "url";
 
-  // ✅ Helper untuk menentukan min/max score berdasarkan status
+  // Helper untuk menentukan min/max score berdasarkan status
   const getScoreConstraints = () => {
     const status = form.values.status;
     if (status === "approved") {
@@ -196,6 +199,7 @@ export function AssignmentGradingModal({
       size="lg"
       centered
       overlayProps={{ blur: 1 }}
+      key={submission.submission_id}
     >
       <LoadingOverlay visible={isPending} />
       <Stack gap="md">
@@ -208,7 +212,7 @@ export function AssignmentGradingModal({
           </Text>
         </div>
 
-        {/* ✅ Tampilkan Passing Score */}
+        {/* Tampilkan Passing Score */}
         <Alert color="blue" icon={<IconInfoCircle />}>
           <Text size="sm" fw={500}>
             Passing Score: {passingScore}%
@@ -309,6 +313,11 @@ export function AssignmentGradingModal({
               ]}
               required
               {...form.getInputProps("status")}
+              onChange={(value) => {
+                form.setFieldValue("status", value as any);
+                // Reset error skor saat status berubah
+                form.clearFieldError("score");
+              }}
             />
 
             {form.values.status !== "submitted" && (

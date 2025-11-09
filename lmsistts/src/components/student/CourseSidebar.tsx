@@ -1,3 +1,5 @@
+// lmsistts\src\components\student\CourseSidebar.tsx
+
 "use client";
 
 import React from "react";

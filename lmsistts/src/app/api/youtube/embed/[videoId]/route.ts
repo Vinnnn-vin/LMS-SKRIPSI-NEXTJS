@@ -1,3 +1,5 @@
+// lmsistts\src\app\api\youtube\embed\[videoId]\route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(

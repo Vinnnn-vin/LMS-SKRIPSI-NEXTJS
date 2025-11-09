@@ -15,14 +15,19 @@ import {
   ActionIcon,
   Text,
   Tooltip,
-  Menu,
   LoadingOverlay,
   Badge,
   Stack,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-import { useForm, zodResolver } from "@mantine/form";
-import { notifications } from "@mantine/notifications";
+import { useForm } from "@mantine/form";
+import {
+  showSuccessNotification,
+  showErrorNotification,
+  notifyCreate,
+  notifyUpdate,
+  notifyDelete,
+} from "@/lib/notifications";
 import {
   IconPlus,
   IconPencil,
@@ -30,7 +35,6 @@ import {
   IconKey,
   IconSearch,
   IconFilter,
-  IconX,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
@@ -148,51 +152,44 @@ export function UserManagementTable({
     };
   }, [initialUsers, query, selectedRole, sortStatus, page]);
 
-  // Handlers
+  // 3. GANTI function handleCreate:
   const handleCreate = (values: AdminCreateUserInput) => {
     startTransition(async () => {
       const result = await createUserByAdmin(values);
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        notifyCreate(`User "${values.email}"`);
         createForm.reset();
         closeCreate();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Membuat User",
+          message: result.error || "Email mungkin sudah terdaftar.",
         });
       }
     });
   };
 
+  // 4. GANTI function handleEdit:
   const handleEdit = (values: AdminUpdateUserInput) => {
     if (!selectedUser) return;
     startTransition(async () => {
       const result = await updateUserByAdmin(selectedUser.user_id, values);
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        notifyUpdate(`User "${values.email}"`);
         closeEdit();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Memperbarui User",
+          message:
+            result.error || "Email mungkin sudah digunakan oleh user lain.",
         });
       }
     });
   };
 
+  // 5. GANTI function handleChangePassword:
   const handleChangePassword = (values: AdminChangePasswordInput) => {
     if (!selectedUser) return;
     startTransition(async () => {
@@ -201,40 +198,34 @@ export function UserManagementTable({
         values
       );
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
+        showSuccessNotification({
+          title: "Password Berhasil Diubah",
+          message: `Password untuk ${selectedUser.email} telah diperbarui.`,
         });
         passwordForm.reset();
         closePassword();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Mengubah Password",
+          message: result.error || "Password harus minimal 8 karakter.",
         });
       }
     });
   };
 
+  // 6. GANTI function handleDelete:
   const handleDelete = () => {
     if (!selectedUser) return;
     startTransition(async () => {
       const result = await deleteUserByAdmin(selectedUser.user_id);
       if (result.success) {
-        notifications.show({
-          title: "Sukses",
-          message: result.success,
-          color: "green",
-        });
+        notifyDelete(`User "${selectedUser.email}"`);
         closeDelete();
         router.refresh();
       } else {
-        notifications.show({
-          title: "Gagal",
-          message: result.error,
-          color: "red",
+        showErrorNotification({
+          title: "Gagal Menghapus User",
+          message: result.error || "User tidak dapat dihapus.",
         });
       }
     });
