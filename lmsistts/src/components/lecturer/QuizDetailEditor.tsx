@@ -79,7 +79,6 @@ export function QuizDetailEditor({
           color: "green",
         });
 
-        // Update local state
         setCurrentData({
           quiz_title: result.data.quiz_title,
           quiz_description: result.data.quiz_description,
@@ -153,7 +152,6 @@ export function QuizDetailEditor({
         </Text>
       </Paper>
 
-      {/* Modal Edit Detail Quiz */}
       <Modal
         opened={opened}
         onClose={close}

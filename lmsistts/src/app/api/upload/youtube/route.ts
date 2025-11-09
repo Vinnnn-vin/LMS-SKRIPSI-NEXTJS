@@ -5,19 +5,17 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Readable } from "stream";
 
-// Setup OAuth2 Client
 const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
   process.env.YOUTUBE_REDIRECT_URI // http://127.0.0.1:3000/api/upload/youtube
 );
 
-// Set refresh token
+// refresh token
 oauth2Client.setCredentials({
   refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
 });
 
-// POST: Upload video ke YouTube
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -48,7 +46,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Convert file to buffer dan stream
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const stream = Readable.from(buffer);
@@ -61,20 +58,18 @@ export async function POST(request: NextRequest) {
       isFree,
     });
 
-    // Initialize YouTube API
     const youtube = google.youtube({
       version: "v3",
       auth: oauth2Client,
     });
 
-    // Upload video
     const response = await youtube.videos.insert({
       part: ["snippet", "status"],
       requestBody: {
         snippet: {
           title: title || file.name,
           description: description || "Video pembelajaran dari LMS ISTTS",
-          categoryId: "27", // Education
+          categoryId: "27",
         },
         status: {
           privacyStatus: isFree ? "public" : "unlisted",
@@ -125,12 +120,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// GET: Setup OAuth (untuk mendapatkan refresh token)
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
 
-  // Step 2: Exchange code untuk tokens
   if (code) {
     try {
       const { tokens } = await oauth2Client.getToken(code);
@@ -151,7 +144,6 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Step 1: Generate auth URL
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: [

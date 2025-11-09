@@ -54,7 +54,6 @@ const formatPrice = (price: number | null | undefined) => {
   }).format(price);
 };
 
-// --- Floating Elements Component ---
 function FloatingElements() {
   return (
     <>
@@ -66,7 +65,6 @@ function FloatingElements() {
   );
 }
 
-// --- Row 2: Overview / Stats ---
 function StatsSection({ stats }: { stats: any }) {
   const data = [
     {
@@ -149,7 +147,6 @@ function StatsSection({ stats }: { stats: any }) {
   );
 }
 
-// --- Row 3: Featured Courses ---
 function FeaturedCourses({ courses }: { courses: any[] }) {
   const featuredCourses = courses?.slice(0, 6) || [];
 
@@ -286,7 +283,6 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
   );
 }
 
-// --- Row 4: Keunggulan iClick ---
 function FeaturesSection() {
   const features = [
     {
@@ -394,7 +390,6 @@ function FeaturesSection() {
   );
 }
 
-// --- Row 5: Promosi Kategori ---
 function CategoryPromotion({ categories }: { categories: any[] }) {
   const featuredCategories = categories?.slice(0, 8) || [];
 
@@ -477,7 +472,6 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
   );
 }
 
-// --- Row 6: Testimonials ---
 function Testimonials({ reviews }: { reviews: any[] }) {
   if (!reviews || reviews.length === 0) {
     return (
@@ -612,7 +606,6 @@ function Testimonials({ reviews }: { reviews: any[] }) {
   );
 }
 
-// --- CTA Section ---
 function CTASection() {
   return (
     <Box className={classes.ctaSection}>
@@ -654,7 +647,6 @@ function CTASection() {
   );
 }
 
-// --- Komponen Halaman Utama ---
 export default async function HomePage() {
   const [statsResult, coursesResult, categoriesResult, reviewsResult] =
     await Promise.allSettled([

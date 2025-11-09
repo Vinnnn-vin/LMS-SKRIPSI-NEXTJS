@@ -3,7 +3,15 @@
 "use client";
 
 import React from "react";
-import { Box, Group, Tooltip, ActionIcon, Text, Title, Progress } from "@mantine/core";
+import {
+  Box,
+  Group,
+  Tooltip,
+  ActionIcon,
+  Text,
+  Title,
+  Progress,
+} from "@mantine/core";
 import Link from "next/link";
 import { IconArrowLeft } from "@tabler/icons-react";
 

@@ -22,7 +22,6 @@ import { getLecturerDashboardStats } from "@/app/actions/lecturer.actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-// Helper untuk format angka
 const formatNumber = (num: number) =>
   new Intl.NumberFormat("id-ID").format(num);
 const formatRupiah = (num: number) =>
@@ -36,7 +35,6 @@ export default async function LecturerDashboardPage() {
   const session = await getServerSession(authOptions);
   const statsResult = await getLecturerDashboardStats();
 
-  // Tampilkan pesan error jika pengambilan data gagal
   if (!statsResult.success) {
     return (
       <Container py="xl">
@@ -47,7 +45,6 @@ export default async function LecturerDashboardPage() {
     );
   }
 
-  // Data untuk kartu statistik
   const stats = [
     {
       title: "Total Kursus Anda",
@@ -80,7 +77,6 @@ export default async function LecturerDashboardPage() {
         </Text>
       </Stack>
 
-      {/* Kartu Statistik */}
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} mt="xl">
         {stats.map((stat) => (
           <Paper withBorder p="md" radius="md" key={stat.title}>
@@ -109,7 +105,6 @@ export default async function LecturerDashboardPage() {
         ))}
       </SimpleGrid>
 
-      {/* Placeholder untuk fitur mendatang */}
       <Paper withBorder p="lg" radius="md" mt="xl">
         <Title order={5}>Aktivitas Terbaru</Title>
         <Text c="dimmed" size="sm" mt="md">

@@ -113,7 +113,7 @@ export function LecturerCourseTable({
       course_level: "Beginner" as const,
       category_id: null as string | null,
       thumbnail_file: undefined as File | undefined,
-      course_duration: null as number | null, // ✅ PERUBAHAN: Field name sesuai database
+      course_duration: null as number | null,
     },
     validate: zod4Resolver(
       isEditing ? lecturerUpdateCourseSchema : lecturerCreateCourseSchema
@@ -155,7 +155,7 @@ export function LecturerCourseTable({
       course_level: course.course_level ?? "Beginner",
       category_id: course.category_id ? String(course.category_id) : null,
       thumbnail_file: undefined,
-      course_duration: course.course_duration ?? null, // ✅ PERUBAHAN
+      course_duration: course.course_duration ?? null,
     });
     setThumbnailPreview(course.thumbnail_url || null);
     setExistingThumbnailUrl(course.thumbnail_url || null);
@@ -380,7 +380,6 @@ export function LecturerCourseTable({
     <Box pos="relative">
       <LoadingOverlay visible={isPending} />
 
-      {/* Modal Form Create/Edit */}
       <Modal
         opened={formModalOpened}
         onClose={closeForm}
@@ -415,7 +414,6 @@ export function LecturerCourseTable({
               />
             </Group>
 
-            {/* ✅ PERUBAHAN: Input dengan field name course_duration */}
             <NumberInput
               label="Durasi Kursus (Jam)"
               placeholder="e.g., 10"
@@ -531,7 +529,6 @@ export function LecturerCourseTable({
         </Stack>
       </Modal>
 
-      {/* Modal Delete */}
       <Modal
         opened={deleteModalOpened}
         onClose={closeDelete}
@@ -554,7 +551,6 @@ export function LecturerCourseTable({
         </Group>
       </Modal>
 
-      {/* Modal Request Publish */}
       <Modal
         opened={publishModalOpened}
         onClose={closePublish}
@@ -591,7 +587,6 @@ export function LecturerCourseTable({
         </Stack>
       </Modal>
 
-      {/* Modal Cancel Request */}
       <Modal
         opened={cancelModalOpened}
         onClose={closeCancel}
@@ -617,7 +612,6 @@ export function LecturerCourseTable({
         </Group>
       </Modal>
 
-      {/* Filter & Pagination Controls */}
       <Group justify="space-between" mb="md">
         <Group>
           <TextInput
@@ -664,7 +658,6 @@ export function LecturerCourseTable({
             sortable: true,
           },
           {
-            // ✅ PERUBAHAN: Accessor menggunakan course_duration
             accessor: "course_duration",
             title: "Durasi",
             sortable: true,
@@ -709,20 +702,6 @@ export function LecturerCourseTable({
             textAlign: "right",
             render: (course) => (
               <Group gap="xs" justify="flex-end">
-                {/* <Tooltip label="Lihat Tugas Mahasiswa">
-                  <ActionIcon
-                    variant="light"
-                    color="indigo"
-                    onClick={() =>
-                      router.push(
-                        `/lecturer/dashboard/assignments`
-                      )
-                    }
-                  >
-                    <IconClipboardList size={16} />
-                  </ActionIcon>
-                </Tooltip> */}
-
                 <Tooltip label="Lihat Mahasiswa Terdaftar">
                   <ActionIcon
                     variant="light"

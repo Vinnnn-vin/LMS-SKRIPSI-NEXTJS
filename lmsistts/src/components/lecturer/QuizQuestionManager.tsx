@@ -53,7 +53,6 @@ import type {
   NormalizedQuestion,
 } from "@/lib/schemas/quiz.schema";
 
-
 interface QuizQuestionManagerProps {
   quizId: number;
   initialQuestions: QuizQuestionWithOptions[];
@@ -65,7 +64,6 @@ export function QuizQuestionManager({
 }: QuizQuestionManagerProps) {
   const [isPending, startTransition] = useTransition();
   const [questions, setQuestions] = useState<NormalizedQuestion[]>(
-    // ✅ Normalize data: filter null/undefined dan set defaults
     initialQuestions
       .filter(
         (q): q is QuizQuestionWithOptions =>
@@ -251,7 +249,6 @@ export function QuizQuestionManager({
     });
   };
 
-  // ✅ Hapus Pertanyaan
   const handleDelete = (question_id: number) => {
     if (!confirm("Yakin ingin menghapus pertanyaan ini?")) return;
 
@@ -290,14 +287,12 @@ export function QuizQuestionManager({
 
   const handleCorrectAnswerChange = (index: number, checked: boolean) => {
     if (form.values.question_type === "multiple_choice") {
-      // Untuk multiple choice: uncheck semua, lalu check yang dipilih
       const updatedOptions = form.values.options.map((opt, i) => ({
         ...opt,
         is_correct: i === index ? checked : false,
       }));
       form.setFieldValue("options", updatedOptions);
     } else {
-      // Untuk checkbox: toggle individual
       form.setFieldValue(`options.${index}.is_correct`, checked);
     }
   };
@@ -325,7 +320,6 @@ export function QuizQuestionManager({
         </Button>
       </Group>
 
-      {/* Modal Tambah/Edit Pertanyaan */}
       <Modal
         opened={formModalOpened}
         onClose={() => {
@@ -370,7 +364,6 @@ export function QuizQuestionManager({
               {...form.getInputProps("question_type")}
               onChange={(value) => {
                 form.setFieldValue("question_type", value as any);
-                // Reset semua jawaban benar saat tipe berubah
                 const resetOptions = form.values.options.map((opt) => ({
                   ...opt,
                   is_correct: false,
@@ -410,7 +403,6 @@ export function QuizQuestionManager({
                     style={{ flex: 1 }}
                   />
 
-                  {/* ✅ Conditional: Radio untuk multiple_choice, Checkbox untuk checkbox */}
                   {form.values.question_type === "multiple_choice" ? (
                     <Radio
                       label="Benar"
@@ -463,7 +455,6 @@ export function QuizQuestionManager({
         </form>
       </Modal>
 
-      {/* Accordion Pertanyaan */}
       {questions.length > 0 ? (
         <Accordion variant="separated">
           {questions.map((q, idx) => (

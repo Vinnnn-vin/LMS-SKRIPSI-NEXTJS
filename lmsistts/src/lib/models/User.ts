@@ -49,7 +49,6 @@ export class User
   declare deleted_at: Date | null;
   declare image: string | null;
 
-  // Associations
   declare readonly courses?: Course[];
   declare readonly enrollments?: Enrollment[];
   declare readonly payments?: Payment[];

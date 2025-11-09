@@ -54,7 +54,6 @@ import { useRouter } from "next/navigation";
 import sortBy from "lodash/sortBy";
 import { zodResolver } from "mantine-form-zod-resolver";
 
-// Import notification utilities
 import {
   notifyCreate,
   notifyUpdate,
@@ -64,7 +63,6 @@ import {
   showErrorNotification,
 } from "@/lib/notifications";
 
-// Import schemas
 import {
   createCourseSchema,
   updateCourseSchema,
@@ -73,7 +71,6 @@ import {
   type AdminCourseRowData,
 } from "@/lib/schemas/course.schema";
 
-// Import actions
 import {
   getCourseByIdForAdmin,
   createCourseByAdmin,
@@ -84,15 +81,6 @@ import {
 } from "@/app/actions/admin.actions";
 
 import type { CategoryAttributes } from "@/lib/models/Category";
-
-// type CourseData = UpdateCourseInput & {
-//   course_id: number;
-//   course_title: string | null;
-//   thumbnail_url?: string | null;
-//   lecturer?: { first_name?: string | null; last_name?: string | null };
-//   category?: { category_name?: string | null };
-//   publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
-// };
 
 const PAGE_SIZE = 10;
 
@@ -125,15 +113,16 @@ export function CourseManagementTable({
   const [isFetchingDetails, setIsFetchingDetails] = useState(false);
 
   const [page, setPage] = useState(1);
-  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<AdminCourseRowData>>(
-    {
-      columnAccessor: "course_title",
-      direction: "asc",
-    }
-  );
+  const [sortStatus, setSortStatus] = useState<
+    DataTableSortStatus<AdminCourseRowData>
+  >({
+    columnAccessor: "course_title",
+    direction: "asc",
+  });
   const [query, setQuery] = useState("");
 
-  const [selectedCourse, setSelectedCourse] = useState<AdminCourseRowData | null>(null);
+  const [selectedCourse, setSelectedCourse] =
+    useState<AdminCourseRowData | null>(null);
   const [formModalOpened, { open: openForm, close: closeForm }] =
     useDisclosure(false);
   const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
@@ -463,7 +452,6 @@ export function CourseManagementTable({
         overlayProps={{ blur: 2 }}
       />
 
-      {/* Form Modal */}
       <Modal
         opened={formModalOpened}
         onClose={closeForm}
@@ -577,7 +565,6 @@ export function CourseManagementTable({
         </form>
       </Modal>
 
-      {/* Delete Modal */}
       <Modal
         opened={deleteModalOpened}
         onClose={closeDelete}
@@ -599,7 +586,6 @@ export function CourseManagementTable({
         </Group>
       </Modal>
 
-      {/* Approval Modal */}
       <Modal
         opened={approvalModalOpened}
         onClose={closeApprovalModal}
@@ -838,7 +824,6 @@ export function CourseManagementTable({
         </Stack>
       </Modal>
 
-      {/* Search & Add Button */}
       <Group justify="space-between" mb="md">
         <TextInput
           placeholder="Cari judul kursus..."
@@ -854,7 +839,6 @@ export function CourseManagementTable({
         </Button>
       </Group>
 
-      {/* DataTable */}
       <DataTable<AdminCourseRowData>
         idAccessor="course_id"
         withTableBorder

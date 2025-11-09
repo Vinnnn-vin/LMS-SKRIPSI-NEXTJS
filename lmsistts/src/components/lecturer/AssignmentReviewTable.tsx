@@ -64,7 +64,6 @@ export function AssignmentReviewTable({
     return direction === "asc" ? "ASC" : "DESC";
   };
 
-  // FIXED: Fungsi untuk transform data dari server ke format AssignmentRow
   const transformServerData = (serverData: any[]): AssignmentRowData[] => {
     return serverData.map((item: any) => ({
       submission_id: item.submission_id,
@@ -84,7 +83,7 @@ export function AssignmentReviewTable({
           item.material_detail_name ||
           null,
         passing_score:
-          item.assignment?.passing_score || item.passing_score || null, // ✅ FIXED
+          item.assignment?.passing_score || item.passing_score || null,
       },
       course: {
         course_id: item.course?.course_id || item.course_id,
@@ -174,7 +173,7 @@ export function AssignmentReviewTable({
     });
   };
 
-  const handleOpenGrading = (submission: AssignmentRowData) => { 
+  const handleOpenGrading = (submission: AssignmentRowData) => {
     setSelectedSubmission(submission);
     openGradingModal();
   };

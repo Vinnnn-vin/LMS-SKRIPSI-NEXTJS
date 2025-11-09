@@ -3,8 +3,25 @@
 "use client";
 
 import React from "react";
-import { Paper, Group, Title, Badge, Box, Accordion, Stack, NavLink, ThemeIcon, Text, Alert } from "@mantine/core";
-import { IconLock, IconInfoCircle, IconCircleCheckFilled, IconQuestionMark } from "@tabler/icons-react";
+import {
+  Paper,
+  Group,
+  Title,
+  Badge,
+  Box,
+  Accordion,
+  Stack,
+  NavLink,
+  ThemeIcon,
+  Text,
+  Alert,
+} from "@mantine/core";
+import {
+  IconLock,
+  IconInfoCircle,
+  IconCircleCheckFilled,
+  IconQuestionMark,
+} from "@tabler/icons-react";
 import { CountdownTimer } from "@/components/student/CountdownTimer";
 
 export function CourseSidebar({
@@ -60,9 +77,7 @@ export function CourseSidebar({
       )}
 
       {course.materials?.length === 0 && (
-        <Alert color="gray">
-          Belum ada materi tersedia untuk kursus ini.
-        </Alert>
+        <Alert color="gray">Belum ada materi tersedia untuk kursus ini.</Alert>
       )}
 
       <Accordion
@@ -77,7 +92,8 @@ export function CourseSidebar({
           let completedCount = 0;
           material.details?.forEach((d: any) => {
             if (d.material_detail_type === 4) {
-              if (completedAssignments.has(d.material_detail_id)) completedCount++;
+              if (completedAssignments.has(d.material_detail_id))
+                completedCount++;
             } else {
               if (completedDetails.has(d.material_detail_id)) completedCount++;
             }
@@ -85,16 +101,22 @@ export function CourseSidebar({
           material.quizzes?.forEach((q: any) => {
             if (completedQuizzes.has(q.quiz_id)) completedCount++;
           });
-          const isChapterComplete = totalItems > 0 && completedCount === totalItems;
+          const isChapterComplete =
+            totalItems > 0 && completedCount === totalItems;
 
           return (
-            <Accordion.Item key={material.material_id} value={String(material.material_id)}>
+            <Accordion.Item
+              key={material.material_id}
+              value={String(material.material_id)}
+            >
               <Accordion.Control>
                 <Group justify="space-between" wrap="nowrap">
                   <Text size="sm" fw={500} lineClamp={2}>
                     {material.material_name}
                   </Text>
-                  {isChapterComplete && <IconCircleCheckFilled size={16} color="green" />}
+                  {isChapterComplete && (
+                    <IconCircleCheckFilled size={16} color="green" />
+                  )}
                 </Group>
                 <Text size="xs" c="dimmed" mt={4}>
                   {completedCount}/{totalItems} selesai
@@ -112,13 +134,20 @@ export function CourseSidebar({
                         key={`detail-${detail.material_detail_id}`}
                         label={detail.material_detail_name}
                         leftSection={
-                          <ThemeIcon variant="light" color={isCompleted ? "green" : "gray"} size={20}>
+                          <ThemeIcon
+                            variant="light"
+                            color={isCompleted ? "green" : "gray"}
+                            size={20}
+                          >
                             {detail.material_detail_type === 1 ? null : null}
                           </ThemeIcon>
                         }
                         rightSection={
                           isCompleted ? (
-                            <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} />
+                            <IconCircleCheckFilled
+                              size={16}
+                              style={{ color: "var(--mantine-color-green-5)" }}
+                            />
                           ) : null
                         }
                         onClick={() => handleSelectContent(detail, "detail")}
@@ -135,13 +164,20 @@ export function CourseSidebar({
                         key={`quiz-${quiz.quiz_id}`}
                         label={quiz.quiz_title}
                         leftSection={
-                          <ThemeIcon variant="light" color={isCompleted ? "green" : "orange"} size={20}>
+                          <ThemeIcon
+                            variant="light"
+                            color={isCompleted ? "green" : "orange"}
+                            size={20}
+                          >
                             <IconQuestionMark size={16} />
                           </ThemeIcon>
                         }
                         rightSection={
                           isCompleted ? (
-                            <IconCircleCheckFilled size={16} style={{ color: "var(--mantine-color-green-5)" }} />
+                            <IconCircleCheckFilled
+                              size={16}
+                              style={{ color: "var(--mantine-color-green-5)" }}
+                            />
                           ) : null
                         }
                         onClick={() => handleSelectContent(quiz, "quiz")}

@@ -24,7 +24,6 @@ import {
 } from "@/app/actions/admin.actions";
 import { SalesChart } from "@/components/admin/SalesChart";
 
-// Helper untuk format angka
 const formatNumber = (num: number) =>
   new Intl.NumberFormat("id-ID").format(num);
 const formatRupiah = (num: number) =>
@@ -110,7 +109,6 @@ export default async function AdminDashboardPage() {
 
       <SimpleGrid cols={{ base: 1, lg: 2 }} mt="xl">
         <SalesChart data={salesDataResult.data as any[]} />
-        {/* Placeholder untuk chart atau statistik lainnya */}
         <Paper withBorder p="lg" radius="md">
           <Title order={5}>Statistik Lainnya</Title>
           <Text c="dimmed" size="sm" mt="md">

@@ -4,7 +4,6 @@
 
 import { Box, NavLink, Paper } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
-// Impor ikon yang relevan untuk mahasiswa
 import {
   IconLayoutDashboard,
   IconSchool,
@@ -13,9 +12,8 @@ import {
 } from "@tabler/icons-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { StudentHeader } from "@/components/student/StudentHeader"; // Impor header baru
+import { StudentHeader } from "@/components/student/StudentHeader";
 
-// Link navigasi khusus mahasiswa
 const navLinks = [
   { href: "/student/dashboard", label: "Dashboard", icon: IconLayoutDashboard },
   {
@@ -50,7 +48,6 @@ export default function StudentDashboardLayout({
     >
       <StudentHeader navbarOpened={navbarOpened} toggleNavbar={toggleNavbar} />
       <Box style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Sidebar Mobile (slide-in) */}
         <Box
           component="nav"
           w={{ base: "80%", sm: 250 }}
@@ -75,12 +72,11 @@ export default function StudentDashboardLayout({
               leftSection={<link.icon size="1rem" stroke={1.5} />}
               component={Link}
               active={pathname === link.href}
-              onClick={toggleNavbar} // Tutup saat diklik
+              onClick={toggleNavbar}
             />
           ))}
         </Box>
 
-        {/* Sidebar Desktop (statis) */}
         <Paper
           component="nav"
           withBorder
@@ -102,7 +98,6 @@ export default function StudentDashboardLayout({
           ))}
         </Paper>
 
-        {/* Konten Utama */}
         <Box
           component="main"
           style={{

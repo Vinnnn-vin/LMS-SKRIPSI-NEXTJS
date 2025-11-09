@@ -40,7 +40,6 @@ export const createAssignmentSubmissionSchema = z
     }
   );
 
-// ✅ PERBAIKAN: Validasi dinamis berdasarkan passing_score
 export const reviewAssignmentSchema = z.object({
   status: submissionStatusEnum,
   score: z.coerce.number().int().min(0).max(100).nullable().optional(),
@@ -53,7 +52,7 @@ export const submissionIdParamSchema = z.object({
 
 export const assignmentRowDataSchema = z.object({
   submission_id: z.number(),
-  submitted_at: z.string(), // Tetap string karena akan diformat
+  submitted_at: z.string(),
   status: submissionStatusEnum,
   student: z.object({
     user_id: z.number(),
@@ -79,16 +78,13 @@ export const assignmentRowDataSchema = z.object({
 });
 
 export const studentSubmissionFormSchema = z.object({
-  // Kita gunakan 'unknown()' karena 'instanceof(File)'
-  // kadang bermasalah dengan state management form
   file: z.unknown().refine((val) => val === null || val instanceof File, {
     message: "File tidak valid",
   }).nullable(),
   text: z.string(),
 }).refine((data) => data.file !== null || data.text.trim() !== '', {
-  // Validasi gabungan
   message: "Anda harus memilih file ATAU mengisi jawaban teks.",
-  path: ["file"], // Tampilkan error di field pertama
+  path: ["file"], 
 });
 
 export type StudentSubmissionFormInput = z.infer<

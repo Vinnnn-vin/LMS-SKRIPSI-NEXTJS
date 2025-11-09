@@ -25,7 +25,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [userClicked, setUserClicked] = useState(false);
 
-  // Extract video ID dari berbagai format URL
   const extractVideoId = (url: string): string | null => {
     try {
       console.log(
@@ -35,17 +34,15 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
       console.log("🔍 [YouTubeEmbed] URL type:", typeof url);
       console.log("🔍 [YouTubeEmbed] URL length:", url?.length);
 
-      // Remove whitespace
       url = url.trim();
       console.log("🔍 [YouTubeEmbed] Trimmed URL:", url);
 
-      // Pattern untuk berbagai format YouTube URL
       const patterns = [
-        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/, // Standard
-        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/, // Short URL
-        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/, // Embed URL
-        /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/, // Old embed
-        /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/, // With params
+        /(?:youtube\.com\/watch\?v=)([a-zA-Z0-9_-]{11})/,
+        /(?:youtu\.be\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/v\/)([a-zA-Z0-9_-]{11})/,
+        /(?:youtube\.com\/watch\?.*v=)([a-zA-Z0-9_-]{11})/,
       ];
 
       for (let i = 0; i < patterns.length; i++) {
@@ -86,7 +83,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     }
   };
 
-  // Verify video dapat di-embed
   const verifyVideo = async (videoId: string): Promise<boolean> => {
     try {
       console.log(
@@ -94,8 +90,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
       );
       console.log("🔍 [YouTubeEmbed] Verifying video ID:", videoId);
 
-      // Simple check: coba load thumbnail
-      // Jika thumbnail berhasil load, video kemungkinan besar valid
       const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
       console.log("🔍 [YouTubeEmbed] Thumbnail URL:", thumbnailUrl);
 
@@ -157,7 +151,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
         "✅ [YouTubeEmbed] Extraction successful, proceeding to verify..."
       );
 
-      // Verify video
       const isValid = await verifyVideo(id);
 
       if (!isValid) {
@@ -180,7 +173,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     checkVideo();
   }, [url]);
 
-  // Loading state
   if (isLoading) {
     return (
       <Box
@@ -201,7 +193,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     );
   }
 
-  // Error state
   if (error || !videoId) {
     return (
       <Alert
@@ -240,8 +231,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     );
   }
 
-  // Success: Show video with user interaction requirement
-  // Ini mengatasi ERR_BLOCKED_BY_ORB dengan meminta user click dulu
   if (!userClicked) {
     return (
       <Box
@@ -294,7 +283,6 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     );
   }
 
-  // Show actual iframe after user interaction
   const iframeSrc = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&rel=0&modestbranding=1`;
   console.log("🎬 [YouTubeEmbed] ============ RENDERING IFRAME ============");
   console.log("🎬 [YouTubeEmbed] Video ID:", videoId);

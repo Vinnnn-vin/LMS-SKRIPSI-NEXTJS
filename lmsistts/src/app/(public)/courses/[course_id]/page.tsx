@@ -37,9 +37,7 @@ import {
   IconClock,
   IconUsers,
   IconTrophy,
-  IconDeviceLaptop,
   IconCertificate,
-  IconInfinity,
   IconCheck,
   IconPlayerPlay,
   IconChevronRight,
@@ -52,7 +50,6 @@ import classes from "./CourseDetail.module.css";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
 
-// Helper untuk format harga
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
   return new Intl.NumberFormat("id-ID", {
@@ -62,7 +59,6 @@ const formatPrice = (price: number | null | undefined) => {
   }).format(price);
 };
 
-// Fungsi untuk mendapatkan ikon berdasarkan tipe materi
 function getMaterialIcon(type: number) {
   const iconSize = { width: rem(18), height: rem(18) };
   switch (type) {
@@ -79,7 +75,6 @@ function getMaterialIcon(type: number) {
   }
 }
 
-// Fungsi untuk mendapatkan label tipe materi
 function getMaterialTypeLabel(type: number) {
   switch (type) {
     case 1:
@@ -105,9 +100,8 @@ export default async function CourseDetailPage({
     notFound();
   }
 
-  // Ambil data sesi pengguna di server component
   const session = await getServerSession(authOptions);
-  const userRole = session?.user?.role; // Ambil role ('admin', 'lecturer', 'student', atau undefined)
+  const userRole = session?.user?.role;
 
   const { success, data: course, error } = await getCourseDetailsById(courseId);
 
@@ -138,7 +132,6 @@ export default async function CourseDetailPage({
     buttonIcon = <IconTool size={18} />;
   }
 
-  // Hitung total durasi dan materi
   const totalMaterials =
     course.materials?.reduce(
       (acc: number, mat: any) => acc + (mat.details?.length || 0),
@@ -149,7 +142,6 @@ export default async function CourseDetailPage({
 
   return (
     <>
-      {/* Hero Section dengan Thumbnail */}
       <Box className={classes.heroSection}>
         <Container size="xl">
           <Grid gutter="xl" align="center">
@@ -325,7 +317,6 @@ export default async function CourseDetailPage({
         </Container>
       </Box>
 
-      {/* Course Stats */}
       <Box className={classes.statsSection}>
         <Container size="xl">
           <Grid>
@@ -401,11 +392,9 @@ export default async function CourseDetailPage({
         </Container>
       </Box>
 
-      {/* Main Content */}
       <Container size="xl" py={60}>
         <Grid gutter="xl">
           <GridCol span={{ base: 12, md: 8 }}>
-            {/* Kurikulum Kursus */}
             <Stack gap="xl">
               <Box>
                 <Title order={2} mb="md">
@@ -501,7 +490,6 @@ export default async function CourseDetailPage({
 
           <GridCol span={{ base: 12, md: 4 }}>
             <Stack gap="lg">
-              {/* Yang Akan Anda Pelajari */}
               <Paper p="lg" radius="md" withBorder>
                 <Title order={3} size="h4" mb="md">
                   Yang Akan Anda Pelajari
@@ -522,7 +510,6 @@ export default async function CourseDetailPage({
                 </List>
               </Paper>
 
-              {/* Persyaratan */}
               <Paper p="lg" radius="md" withBorder>
                 <Title order={3} size="h4" mb="md">
                   Persyaratan
@@ -534,7 +521,6 @@ export default async function CourseDetailPage({
                 </List>
               </Paper>
 
-              {/* Share CTA */}
               <Paper p="lg" radius="md" withBorder className={classes.ctaCard}>
                 <Stack gap="md" align="center" ta="center">
                   <ThemeIcon

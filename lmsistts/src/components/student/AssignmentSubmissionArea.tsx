@@ -73,31 +73,20 @@ export function AssignmentSubmissionArea({
       file: null,
       text: "",
     },
-    validate: zod4Resolver(studentSubmissionFormSchema), // <-- Gunakan skema yang diimpor
+    validate: zod4Resolver(studentSubmissionFormSchema),
   });
 
-  // const [file, setFile] = useState<File | null>(null);
-  // const [text, setText] = useState<string>("");
-  // const [error, setError] = useState<string | null>(null);
-
-  // ✅ Hitung canSubmit berdasarkan status
   const status = existingSubmission?.status;
   const isApproved = status === "approved";
   const canSubmit = !isApproved;
 
   const handleSubmit = (values: StudentSubmissionFormInput) => {
-    // setError(null);
-
-    // if (!file && !text.trim()) {
-    //   setError("Anda harus memilih file ATAU mengisi jawaban teks (atau keduanya).");
-    //   return;
-    // }
     const { file, text } = values;
 
     startTransition(async () => {
       let uploadedFilePath: string | null = null;
 
-      if (file) {
+      if (file && file instanceof File) {
         setIsUploading(true);
         console.log("📤 Uploading assignment file:", file.name);
         const uploadFormData = new FormData();
@@ -125,7 +114,6 @@ export function AssignmentSubmissionArea({
         }
       }
 
-      // Step 2: Panggil Server Action
       const formData = new FormData();
       formData.append("materialDetailId", String(materialDetailId));
       formData.append("courseId", String(courseId));
@@ -160,10 +148,7 @@ export function AssignmentSubmissionArea({
             icon: <IconChecks size={16} />,
           });
 
-          // setFile(null);
-          // setText("");
-          // setError(null);
-          onSubmit(); // Trigger refresh
+          onSubmit();
         } else {
           form.setErrors({
             root: actionResult.error || "Gagal mengumpulkan tugas.",
@@ -247,15 +232,13 @@ export function AssignmentSubmissionArea({
           icon={<IconAlertCircle />}
           title="Error"
           withCloseButton
-          onClose={() => form.clearErrors()} // ✅ GANTI: Bersihkan error form
+          onClose={() => form.clearErrors()}
           mb="md"
         >
-                    {form.errors.root}{" "}
-          {/* ✅ GANTI: Tampilkan error dari form */}       {" "}
+          {form.errors.root}
         </Alert>
       )}
 
-      {/* Status Pengumpulan Terbaru */}
       {existingSubmission && (
         <Card
           withBorder
@@ -290,7 +273,6 @@ export function AssignmentSubmissionArea({
 
             <Divider />
 
-            {/* File/Text yang dikumpulkan */}
             {submissionFileUrl && (
               <Group gap="xs">
                 <ThemeIcon size="sm" color="blue" variant="light">
@@ -320,7 +302,6 @@ export function AssignmentSubmissionArea({
               </Paper>
             )}
 
-            {/* Penilaian dari Dosen */}
             {(existingSubmission.status === "approved" ||
               existingSubmission.status === "rejected") && (
               <>
@@ -377,7 +358,6 @@ export function AssignmentSubmissionArea({
         </Card>
       )}
 
-      {/* History Timeline */}
       {submissionHistory && submissionHistory.length > 1 && (
         <>
           <Divider label="Riwayat Pengumpulan" labelPosition="center" mb="md" />
@@ -428,7 +408,6 @@ export function AssignmentSubmissionArea({
         </>
       )}
 
-      {/* Form Submit/Resubmit */}
       {canSubmit ? (
         <>
           <Divider label="Kumpulkan Tugas" labelPosition="center" mb="md" />
@@ -446,15 +425,11 @@ export function AssignmentSubmissionArea({
 
             <FileInput
               label="Upload File Jawaban (Opsional)"
-              // placeholder={
-              //   file ? file.name : "Pilih file (.pdf, .docx, .zip, .jpg, .png)"
-              // }
-              // onChange={setFile}
               clearable
               accept=".pdf,.doc,.docx,.zip,.jpg,.jpeg,.png"
               disabled={isProcessing}
               leftSection={<IconUpload size={16} />}
-              {...form.getInputProps('file')}
+              {...form.getInputProps("file")}
             />
 
             <Divider label="DAN/ATAU" labelPosition="center" />
@@ -463,18 +438,14 @@ export function AssignmentSubmissionArea({
               label="Tulis Jawaban Teks (Opsional)"
               placeholder="Ketik jawaban Anda di sini..."
               minRows={4}
-              // onChange={(e) => setText(e.currentTarget.value)}
-              // value={text}
               disabled={isProcessing}
-              {...form.getInputProps('text')}
+              {...form.getInputProps("text")}
             />
 
             <Button
-              // onClick={handleSubmit}
               type="submit"
               loading={isProcessing}
               leftSection={<IconUpload size={16} />}
-              // disabled={(!file && !text.trim()) || isProcessing}
               mt="md"
             >
               {isUploading

@@ -20,7 +20,7 @@ export const createMaterialDetailFormSchema = z
       .max(5000, "Deskripsi maksimal 5000 karakter"),
     material_detail_type: materialDetailTypeEnum,
     is_free: z.boolean().default(false),
-    materi_detail_url: z.string().optional().default(""), // Dipakai sbg placeholder
+    materi_detail_url: z.string().optional().default(""),
     youtube_url: z.string().optional().default(""),
     content_file: z.instanceof(File).nullable().optional(),
     template_file: z.instanceof(File).nullable().optional(),
@@ -33,7 +33,6 @@ export const createMaterialDetailFormSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
-    // Validasi untuk tipe Video
     if (data.material_detail_type === "1" && !data.content_file) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -42,7 +41,6 @@ export const createMaterialDetailFormSchema = z
       });
     }
 
-    // Validasi untuk tipe PDF
     if (data.material_detail_type === "2" && !data.content_file) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -51,7 +49,6 @@ export const createMaterialDetailFormSchema = z
       });
     }
 
-    // Validasi untuk tipe YouTube Manual
     if (data.material_detail_type === "3") {
       if (!data.youtube_url || data.youtube_url.trim() === "") {
         ctx.addIssue({
@@ -60,7 +57,6 @@ export const createMaterialDetailFormSchema = z
           path: ["youtube_url"],
         });
       } else {
-        // Validasi format URL YouTube
         const youtubeRegex =
           /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;
         if (!youtubeRegex.test(data.youtube_url)) {
@@ -74,7 +70,6 @@ export const createMaterialDetailFormSchema = z
     }
   });
 
-// ✅ Schema untuk validasi di backend (setelah file diupload)
 export const createMaterialDetailSchema = z.object({
   material_detail_name: z
     .string()
@@ -84,7 +79,7 @@ export const createMaterialDetailSchema = z.object({
     .string()
     .min(1, "Deskripsi wajib diisi")
     .max(5000),
-  material_detail_type: materialDetailTypeEnum, // Tipe dari FormData tetap string "1", "2", dst.
+  material_detail_type: materialDetailTypeEnum,
   materi_detail_url: z.string().optional().nullable(),
   is_free: z.boolean().default(false),
   assignment_template_url: z.string().optional().nullable(),
@@ -101,19 +96,17 @@ export const updateMaterialDetailBackendSchema = z.object({
   passing_score: z.coerce.number().int().min(0).max(100).nullable().optional(),
 });
 
-// Skema untuk data MaterialDetail (saat dibaca dari DB)
 export const materialDetailDataSchema = z.object({
   material_detail_id: z.number(),
   material_detail_name: z.string(),
   material_detail_description: z.string(),
-  material_detail_type: z.number(), // Tipe di DB adalah angka (1, 2, 3, 4)
+  material_detail_type: z.number(),
   materi_detail_url: z.string().nullable().optional(),
   material_id: z.number().nullable(),
   passing_score: z.coerce.number().int().min(0).max(100).nullable().optional(),
   is_free: z.boolean(),
 });
 
-// Skema untuk data Quiz (saat dibaca dari DB)
 export const quizDataSchema = z.object({
   quiz_id: z.number(),
   quiz_title: z.string().nullable(),
@@ -133,7 +126,7 @@ export const updateMaterialDetailFormSchema = z
       .optional(),
     material_detail_type: materialDetailTypeEnum.optional(),
     is_free: z.boolean().optional(),
-    materi_detail_url: z.string().optional().default(""), // Dipakai sbg placeholder
+    materi_detail_url: z.string().optional().default(""),
     youtube_url: z.string().optional().default(""),
     content_file: z.instanceof(File).nullable().optional(),
     template_file: z.instanceof(File).nullable().optional(),
@@ -146,7 +139,6 @@ export const updateMaterialDetailFormSchema = z
       .optional(),
   })
   .superRefine((data, ctx) => {
-    // Validasi URL YouTube jika tipe adalah "3"
     if (data.material_detail_type === "3" && data.youtube_url) {
       const youtubeRegex =
         /^(https?:\/\/)?(www\.)?(youtube\.com|youtu\.be)\/.+$/;

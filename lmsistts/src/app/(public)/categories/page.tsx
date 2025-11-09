@@ -21,7 +21,11 @@ import Link from "next/link";
 import { getAllCategoriesWithCourseCount } from "@/app/actions/category.actions";
 
 export default async function CategoriesPage() {
-  const { success, data: categories, error } = await getAllCategoriesWithCourseCount();
+  const {
+    success,
+    data: categories,
+    error,
+  } = await getAllCategoriesWithCourseCount();
 
   return (
     <Container py="xl" size="lg">
@@ -30,7 +34,8 @@ export default async function CategoriesPage() {
           Jelajahi Berdasarkan Kategori
         </Title>
         <Text c="dimmed" ta="center" size="lg" maw={600}>
-          Temukan kursus berdasarkan bidang yang paling Anda minati dan mulai belajar sekarang.
+          Temukan kursus berdasarkan bidang yang paling Anda minati dan mulai
+          belajar sekarang.
         </Text>
       </Stack>
 
@@ -82,12 +87,7 @@ export default async function CategoriesPage() {
                       <Text size="sm">{category.course_count} Kursus</Text>
                     </Group>
 
-                    <Badge
-                      mt="sm"
-                      variant="light"
-                      color="blue"
-                      size="sm"
-                    >
+                    <Badge mt="sm" variant="light" color="blue" size="sm">
                       Lihat Kursus
                     </Badge>
                   </Stack>

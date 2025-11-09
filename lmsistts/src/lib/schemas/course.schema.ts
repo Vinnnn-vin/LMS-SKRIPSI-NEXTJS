@@ -40,7 +40,6 @@ const idFromString = z.preprocess((val) => {
   return val === "" ? null : val;
 }, z.number().int().positive("ID harus berupa angka positif").nullable());
 
-// Schema untuk CREATE
 export const createCourseSchema = z.object({
   course_title: z
     .string()
@@ -189,8 +188,8 @@ export const adminCourseRowDataSchema = updateCourseSchema.safeExtend({
   course_id: z.number(),
   course_title: z.string().nullable(),
   thumbnail_url: z.string().nullable().optional(),
-  publish_request_status: publishRequestStatusEnum.nullable().optional(), // ✅ TAMBAH INI
-  rejection_reason: z.string().nullable().optional(), // ✅ TAMBAH INI
+  publish_request_status: publishRequestStatusEnum.nullable().optional(),
+  rejection_reason: z.string().nullable().optional(),
   lecturer: z
     .object({
       first_name: z.string().nullable().optional(),
@@ -206,7 +205,6 @@ export const adminCourseRowDataSchema = updateCourseSchema.safeExtend({
 
 export type AdminCourseRowData = z.infer<typeof adminCourseRowDataSchema>;
 
-// ✅ Skema untuk data baris di tabel Dosen (Lecturer)
 export const lecturerCourseDataSchema = z.object({
   course_id: z.number(),
   course_title: z.string().nullable(),

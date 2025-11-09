@@ -23,7 +23,6 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCategoryDetailsById } from "@/app/actions/category.actions";
 
-// Helper untuk format harga (bisa dipindahkan ke file utilitas nanti)
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
   return new Intl.NumberFormat("id-ID", {
@@ -41,7 +40,11 @@ export default async function CategoryDetailPage({
   const categoryId = parseInt((await params).category_id, 10);
   if (isNaN(categoryId)) notFound();
 
-  const { success, data: category, error } = await getCategoryDetailsById(categoryId);
+  const {
+    success,
+    data: category,
+    error,
+  } = await getCategoryDetailsById(categoryId);
 
   if (!success || !category) {
     if (error === "Kategori tidak ditemukan.") notFound();
@@ -58,15 +61,7 @@ export default async function CategoryDetailPage({
 
   return (
     <Container py="xl" size="lg">
-      {/* HEADER */}
-      <Paper
-        radius="md"
-        p="xl"
-        mb="xl"
-        withBorder
-        shadow="xs"
-        ta="center"
-      >
+      <Paper radius="md" p="xl" mb="xl" withBorder shadow="xs" ta="center">
         <Stack align="center" gap="sm">
           <ThemeIcon variant="light" color="blue" size={60} radius="xl">
             <IconBook size={34} />
@@ -88,7 +83,6 @@ export default async function CategoryDetailPage({
         </Stack>
       </Paper>
 
-      {/* DAFTAR KURSUS */}
       {error && (
         <Alert
           color="red"
@@ -150,12 +144,7 @@ export default async function CategoryDetailPage({
                   <Text size="lg" fw={700} c="blue">
                     {formatPrice(course.course_price)}
                   </Text>
-                  <Button
-                    variant="light"
-                    color="blue"
-                    size="xs"
-                    radius="md"
-                  >
+                  <Button variant="light" color="blue" size="xs" radius="md">
                     Lihat Detail
                   </Button>
                 </Group>

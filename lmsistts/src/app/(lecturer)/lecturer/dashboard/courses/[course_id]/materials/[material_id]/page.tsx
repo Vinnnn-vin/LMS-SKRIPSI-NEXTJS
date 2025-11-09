@@ -24,7 +24,6 @@ export default async function ManageMaterialDetailsPage({
 
   if (isNaN(courseId) || isNaN(materialId)) notFound();
 
-  // Ambil data detail materi (termasuk info material induknya)
   const result = await getMaterialDetailsForLecturer(materialId);
 
   if (!result.success) {
@@ -40,7 +39,6 @@ export default async function ManageMaterialDetailsPage({
 
   const { material, details, quizzes } = result.data;
 
-  // Breadcrumbs
   const items = [
     { title: "Dashboard", href: "/lecturer/dashboard" },
     { title: "Manajemen Kursus", href: "/lecturer/dashboard/courses" },
@@ -73,7 +71,6 @@ export default async function ManageMaterialDetailsPage({
         materialId={materialId}
         courseId={courseId}
       />
-
     </Container>
   );
 }

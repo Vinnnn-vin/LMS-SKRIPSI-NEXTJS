@@ -1,11 +1,10 @@
 // lmsistts\src\lib\youtubeUploader.ts
 
-import { google } from 'googleapis';
-import { Readable } from 'stream';
+import { google } from "googleapis";
+import { Readable } from "stream";
 
 const OAuth2 = google.auth.OAuth2;
 
-// Inisialisasi OAuth2 Client
 const getOAuth2Client = () => {
   return new OAuth2(
     process.env.YOUTUBE_CLIENT_ID,
@@ -14,7 +13,6 @@ const getOAuth2Client = () => {
   );
 };
 
-// Set credentials dari refresh token yang tersimpan
 const setCredentials = (oauth2Client: any) => {
   oauth2Client.setCredentials({
     refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
@@ -32,27 +30,31 @@ const setCredentials = (oauth2Client: any) => {
 export async function uploadToYouTube(
   videoBuffer: Buffer,
   title: string,
-  description: string = '',
+  description: string = "",
   isPublic: boolean = false
-): Promise<{ success: boolean; url?: string; videoId?: string; error?: string }> {
+): Promise<{
+  success: boolean;
+  url?: string;
+  videoId?: string;
+  error?: string;
+}> {
   try {
     const oauth2Client = getOAuth2Client();
     setCredentials(oauth2Client);
 
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
-    // Convert buffer ke readable stream
     const videoStream = Readable.from(videoBuffer);
 
-    const privacyStatus = isPublic ? 'public' : 'private';
+    const privacyStatus = isPublic ? "public" : "private";
 
     const response = await youtube.videos.insert({
-      part: ['snippet', 'status'],
+      part: ["snippet", "status"],
       requestBody: {
         snippet: {
           title,
           description,
-          categoryId: '27',
+          categoryId: "27",
         },
         status: {
           privacyStatus,
@@ -66,7 +68,7 @@ export async function uploadToYouTube(
     const videoId = response.data.id;
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    console.log('✅ Video uploaded to YouTube:', videoUrl);
+    console.log("✅ Video uploaded to YouTube:", videoUrl);
 
     return {
       success: true,
@@ -74,10 +76,10 @@ export async function uploadToYouTube(
       videoId: videoId || undefined,
     };
   } catch (error: any) {
-    console.error('❌ YouTube upload error:', error);
+    console.error("❌ YouTube upload error:", error);
     return {
       success: false,
-      error: error.message || 'Failed to upload video to YouTube',
+      error: error.message || "Failed to upload video to YouTube",
     };
   }
 }
@@ -95,24 +97,24 @@ export async function updateVideoPrivacy(
     const oauth2Client = getOAuth2Client();
     setCredentials(oauth2Client);
 
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
     await youtube.videos.update({
-      part: ['status'],
+      part: ["status"],
       requestBody: {
         id: videoId,
         status: {
-          privacyStatus: isPublic ? 'public' : 'private',
+          privacyStatus: isPublic ? "public" : "private",
         },
       },
     });
 
     return { success: true };
   } catch (error: any) {
-    console.error('❌ Update privacy error:', error);
+    console.error("❌ Update privacy error:", error);
     return {
       success: false,
-      error: error.message || 'Failed to update video privacy',
+      error: error.message || "Failed to update video privacy",
     };
   }
 }
@@ -128,7 +130,7 @@ export async function deleteYouTubeVideo(
     const oauth2Client = getOAuth2Client();
     setCredentials(oauth2Client);
 
-    const youtube = google.youtube({ version: 'v3', auth: oauth2Client });
+    const youtube = google.youtube({ version: "v3", auth: oauth2Client });
 
     await youtube.videos.delete({
       id: videoId,
@@ -136,10 +138,10 @@ export async function deleteYouTubeVideo(
 
     return { success: true };
   } catch (error: any) {
-    console.error('❌ Delete video error:', error);
+    console.error("❌ Delete video error:", error);
     return {
       success: false,
-      error: error.message || 'Failed to delete video',
+      error: error.message || "Failed to delete video",
     };
   }
 }

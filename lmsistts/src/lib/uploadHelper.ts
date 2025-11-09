@@ -1,9 +1,9 @@
 // lmsistts\src\lib\uploadHelper.ts
 
-import { writeFile, mkdir, unlink, rm } from 'fs/promises';
-import { existsSync } from 'fs';
-import path from 'path';
-import { sanitizeFilename } from './fileUtils';
+import { writeFile, mkdir, unlink, rm } from "fs/promises";
+import { existsSync } from "fs";
+import path from "path";
+import { sanitizeFilename } from "./fileUtils";
 
 /**
  * Upload file ke folder public
@@ -13,7 +13,7 @@ import { sanitizeFilename } from './fileUtils';
  */
 export async function uploadToPublic(
   file: File,
-  subFolder: 'videos' | 'pdfs' | 'assignments' | 'thumbnails' | string
+  subFolder: "videos" | "pdfs" | "assignments" | "thumbnails" | string
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     const buffer = await file.arrayBuffer();
@@ -21,8 +21,8 @@ export async function uploadToPublic(
     const sanitized = sanitizeFilename(file.name);
     const fileName = `${timestamp}_${sanitized}`;
 
-    const publicDir = path.join(process.cwd(), 'public', subFolder);
-    
+    const publicDir = path.join(process.cwd(), "public", subFolder);
+
     if (!existsSync(publicDir)) {
       await mkdir(publicDir, { recursive: true });
     }
@@ -31,11 +31,11 @@ export async function uploadToPublic(
     await writeFile(filePath, Buffer.from(buffer));
 
     const relativePath = `/${subFolder}/${fileName}`;
-    
+
     return { success: true, url: relativePath };
   } catch (error: any) {
-    console.error('❌ Upload file error:', error);
-    return { success: false, error: error.message || 'Failed to upload file' };
+    console.error("❌ Upload file error:", error);
+    return { success: false, error: error.message || "Failed to upload file" };
   }
 }
 
@@ -44,23 +44,21 @@ export async function uploadToPublic(
  * @param filePath - Path relatif file (e.g., /pdfs/123_file.pdf)
  * @returns Success status
  */
-export async function deleteFromPublic(
-  filePath: string
-): Promise<boolean> {
+export async function deleteFromPublic(filePath: string): Promise<boolean> {
   try {
-    if (!filePath || !filePath.startsWith('/')) return false;
-    
-    const fullPath = path.join(process.cwd(), 'public', filePath);
-    
+    if (!filePath || !filePath.startsWith("/")) return false;
+
+    const fullPath = path.join(process.cwd(), "public", filePath);
+
     if (existsSync(fullPath)) {
       await unlink(fullPath);
-      console.log('🗑️ File deleted:', filePath);
+      console.log("🗑️ File deleted:", filePath);
       return true;
     }
-    
+
     return false;
   } catch (error: any) {
-    console.error('❌ Delete file error:', error);
+    console.error("❌ Delete file error:", error);
     return false;
   }
 }
@@ -74,17 +72,17 @@ export async function deleteFolderFromPublic(
   folderPath: string
 ): Promise<boolean> {
   try {
-    const fullPath = path.join(process.cwd(), 'public', folderPath);
-    
+    const fullPath = path.join(process.cwd(), "public", folderPath);
+
     if (existsSync(fullPath)) {
       await rm(fullPath, { recursive: true, force: true });
-      console.log('🗑️ Folder deleted:', folderPath);
+      console.log("🗑️ Folder deleted:", folderPath);
       return true;
     }
-    
+
     return false;
   } catch (error: any) {
-    console.error('❌ Delete folder error:', error);
+    console.error("❌ Delete folder error:", error);
     return false;
   }
 }
@@ -102,21 +100,21 @@ export function validateFile(
   allowedTypes: string[]
 ): { valid: boolean; error?: string } {
   const fileSizeMB = file.size / 1024 / 1024;
-  
+
   if (fileSizeMB > maxSizeMB) {
     return {
       valid: false,
       error: `Ukuran file ${fileSizeMB.toFixed(2)}MB melebihi batas maksimal ${maxSizeMB}MB`,
     };
   }
-  
+
   if (!allowedTypes.includes(file.type)) {
     return {
       valid: false,
       error: `Tipe file ${file.type} tidak diperbolehkan`,
     };
   }
-  
+
   return { valid: true };
 }
 
@@ -129,9 +127,9 @@ export function validateImageFile(file: File): {
   valid: boolean;
   error?: string;
 } {
-  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
   const maxSize = 5; // 5MB
-  
+
   return validateFile(file, maxSize, allowedTypes);
 }
 
@@ -151,7 +149,7 @@ export function generateUniqueFilename(originalName: string): string {
   const ext = getFileExtension(originalName);
   const nameWithoutExt = path.basename(originalName, ext);
   const sanitized = sanitizeFilename(nameWithoutExt);
-  
+
   return `${timestamp}_${random}_${sanitized}${ext}`;
 }
 
@@ -165,18 +163,15 @@ export function generateCourseThumbnailFolder(
   courseName: string,
   courseId: number
 ): string {
-  // Sanitize nama course untuk nama folder
   let folderName = courseName
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-') // Ganti spasi & karakter khusus dengan dash
-    .replace(/^-|-$/g, ''); // Hapus dash di awal/akhir
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 
-  // Batasi panjang folder name (max 50 karakter)
   if (folderName.length > 50) {
-    folderName = folderName.substring(0, 50).replace(/-$/, '');
+    folderName = folderName.substring(0, 50).replace(/-$/, "");
   }
 
-  // Format: thumbnails/course-{id}-{nama}
   return `thumbnails/course-${courseId}-${folderName}`;
 }
 
@@ -193,38 +188,35 @@ export async function uploadCourseThumbnail(
   courseId: number
 ): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    // 1. Validasi file gambar
     const validation = validateImageFile(file);
     if (!validation.valid) {
       return { success: false, error: validation.error };
     }
 
-    // 2. Generate folder path
     const folderPath = generateCourseThumbnailFolder(courseName, courseId);
 
-    // 3. Generate unique filename
     const uniqueFileName = generateUniqueFilename(file.name);
 
-    // 4. Create full path
-    const publicDir = path.join(process.cwd(), 'public', folderPath);
-    
+    const publicDir = path.join(process.cwd(), "public", folderPath);
+
     if (!existsSync(publicDir)) {
       await mkdir(publicDir, { recursive: true });
     }
 
-    // 5. Save file
     const buffer = await file.arrayBuffer();
     const filePath = path.join(publicDir, uniqueFileName);
     await writeFile(filePath, Buffer.from(buffer));
 
-    // 6. Return relative URL
     const relativePath = `/${folderPath}/${uniqueFileName}`;
-    
-    console.log('✅ Thumbnail uploaded:', relativePath);
+
+    console.log("✅ Thumbnail uploaded:", relativePath);
     return { success: true, url: relativePath };
   } catch (error: any) {
-    console.error('❌ Upload thumbnail error:', error);
-    return { success: false, error: error.message || 'Failed to upload thumbnail' };
+    console.error("❌ Upload thumbnail error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to upload thumbnail",
+    };
   }
 }
 
@@ -242,7 +234,7 @@ export async function deleteCourseThumbnailFolder(
     const folderPath = generateCourseThumbnailFolder(courseName, courseId);
     return await deleteFolderFromPublic(folderPath);
   } catch (error: any) {
-    console.error('❌ Delete course thumbnail folder error:', error);
+    console.error("❌ Delete course thumbnail folder error:", error);
     return false;
   }
 }

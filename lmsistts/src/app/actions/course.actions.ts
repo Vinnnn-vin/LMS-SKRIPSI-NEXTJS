@@ -1,3 +1,5 @@
+// lmsistts\src\app\actions\course.actions.ts
+
 "use server";
 
 import { Course, User, Category, MaterialDetail, Material } from "@/lib/models";
@@ -7,17 +9,15 @@ import {
 } from "@/lib/schemas/course.schema";
 import { Op } from "sequelize";
 
-// Interface untuk filter parameters
 export interface CourseFilterParams {
   search?: string;
   category?: string;
   level?: string;
-  sortBy?: 'popular' | 'newest' | 'rating' | 'price_low' | 'price_high';
+  sortBy?: "popular" | "newest" | "rating" | "price_low" | "price_high";
   minPrice?: number;
   maxPrice?: number;
 }
 
-// Mengambil semua kursus yang sudah di-publish
 export async function getAllPublishedCourses(): Promise<{
   success: boolean;
   data?: CourseCardData[];
@@ -80,7 +80,6 @@ export async function getAllPublishedCourses(): Promise<{
   }
 }
 
-// Fungsi baru: Mengambil kursus dengan filter
 export async function getFilteredCourses(
   filters: CourseFilterParams = {}
 ): Promise<{
@@ -93,17 +92,15 @@ export async function getFilteredCourses(
       search,
       category,
       level,
-      sortBy = 'newest',
+      sortBy = "newest",
       minPrice,
       maxPrice,
     } = filters;
 
-    // Build where clause untuk Course
     const whereClause: any = {
       publish_status: 1,
     };
 
-    // Filter berdasarkan search (judul atau deskripsi)
     if (search && search.trim()) {
       whereClause[Op.or] = [
         { course_title: { [Op.like]: `%${search.trim()}%` } },
@@ -111,12 +108,10 @@ export async function getFilteredCourses(
       ];
     }
 
-    // Filter berdasarkan level (asumsi ada field course_level di database)
-    if (level && level !== 'Semua Level') {
+    if (level && level !== "Semua Level") {
       whereClause.course_level = level;
     }
 
-    // Filter berdasarkan harga
     if (minPrice !== undefined || maxPrice !== undefined) {
       whereClause.course_price = {};
       if (minPrice !== undefined) {
@@ -127,39 +122,34 @@ export async function getFilteredCourses(
       }
     }
 
-    // Build include untuk Category filter
     const includeCategory: any = {
       model: Category,
       as: "category",
       attributes: ["category_name"],
     };
 
-    // Filter berdasarkan kategori
     if (category && category.trim()) {
       includeCategory.where = {
         category_name: category.trim(),
       };
-      includeCategory.required = true; // Inner join
+      includeCategory.required = true;
     }
 
-    // Build order clause
     let orderClause: any[];
     switch (sortBy) {
-      case 'newest':
+      case "newest":
         orderClause = [["created_at", "DESC"]];
         break;
-      case 'popular':
-        // Asumsi ada field enrollment_count atau bisa menggunakan created_at
+      case "popular":
         orderClause = [["created_at", "DESC"]];
         break;
-      case 'rating':
-        // Asumsi ada field rating
+      case "rating":
         orderClause = [["created_at", "DESC"]];
         break;
-      case 'price_low':
+      case "price_low":
         orderClause = [["course_price", "ASC"]];
         break;
-      case 'price_high':
+      case "price_high":
         orderClause = [["course_price", "DESC"]];
         break;
       default:
@@ -218,7 +208,6 @@ export async function getFilteredCourses(
   }
 }
 
-// Fungsi untuk mendapatkan semua kategori unik
 export async function getAllCategories(): Promise<{
   success: boolean;
   data?: string[];
@@ -242,7 +231,6 @@ export async function getAllCategories(): Promise<{
   }
 }
 
-// Mengambil semua kursus yang sudah dipublikasikan tanpa pagination
 export async function getAllCourses(): Promise<{
   success: boolean;
   data?: CourseCardData[];

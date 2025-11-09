@@ -52,7 +52,6 @@ import {
 import type { CategoryAttributes } from "@/lib/models/Category";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 
-/* 🔹 Hapus interface manual & gunakan Zod sebagai sumber kebenaran */
 type CourseData = UpdateCourseInput & {
   course_id: number;
   course_title: string | null;
@@ -95,7 +94,6 @@ export function CourseManagementTable({
   const [thumbnailPreview, setThumbnailPreview] = useState<string | null>(null);
   const isEditing = !!selectedCourse;
 
-  /* 🔹 Gunakan zod4Resolver sesuai mode edit/create */
   const form = useForm<CreateCourseInput | UpdateCourseInput>({
     initialValues: {
       course_title: "",

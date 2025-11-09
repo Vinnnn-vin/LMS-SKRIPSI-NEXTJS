@@ -1,5 +1,4 @@
-// src/lib/utils/notifications.ts
-// Tempatkan file ini di: src/lib/utils/notifications.ts
+// lmsistts\src\lib\notifications.ts
 
 import { notifications } from '@mantine/notifications';
 import {
@@ -80,7 +79,6 @@ export const showInfoNotification = ({
   });
 };
 
-// Helper functions untuk operasi umum
 export const notifyCreate = (entityName: string) => {
   showSuccessNotification({
     title: 'Berhasil Dibuat',

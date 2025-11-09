@@ -19,9 +19,7 @@ import { CheckEnrollmentStatus } from "@/app/actions/payment.actions";
 import Link from "next/link";
 import { CheckoutButton } from "@/components/payment/CheckoutButton";
 
-// Helper format harga
 const formatPrice = (price: number | null | undefined) => {
-  // ... (implementasi formatPrice)
   if (price === null || price === undefined || price === 0) return "Gratis";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
@@ -39,9 +37,7 @@ export default async function CheckoutPage({
 }) {
   const session = await getServerSession(authOptions);
 
-  // 1. Cek Login
   if (!session?.user?.id) {
-    // Redirect ke login, simpan halaman checkout sebagai callbackUrl
     const callbackUrl = encodeURIComponent(
       `/courses/${params.course_id}/checkout`
     );
@@ -53,7 +49,6 @@ export default async function CheckoutPage({
     notFound();
   }
 
-  // 2. Ambil Detail Kursus
   const courseResult = await getCourseDetailsById(courseId);
   if (!courseResult.success || !courseResult.data) {
     if (courseResult.error === "Kursus tidak ditemukan.") {
@@ -78,21 +73,15 @@ export default async function CheckoutPage({
   }
   const course = courseResult.data;
 
-  // 3. Cek apakah user sudah terdaftar/membeli kursus ini
   const enrollmentStatus = await CheckEnrollmentStatus(
     courseId,
     parseInt(session.user.id)
   );
   if (enrollmentStatus.isEnrolled) {
-    // Jika sudah terdaftar, arahkan ke halaman belajar
     redirect(`/student/courses/${courseId}/learn`);
   }
 
-  // 4. Handle pembayaran gratis
   if (course.course_price === 0) {
-    // Jika gratis, langsung daftarkan (perlu action baru `enrollFreeCourse`) dan redirect
-    // redirect(`/student/courses/${courseId}/learn?enrolled=free`);
-    // Untuk sementara, tampilkan pesan:
     return (
       <Container py="xl" size="sm">
         <Paper withBorder p="xl" radius="md" ta="center">
@@ -101,7 +90,6 @@ export default async function CheckoutPage({
             Kursus "{course.course_title}" ini gratis. Anda akan segera
             didaftarkan.
           </Text>
-          {/* Idealnya ada tombol/redirect otomatis setelah action enroll gratis */}
           <Button component={Link} href={`/student/courses/${courseId}/learn`}>
             Masuk ke Kursus
           </Button>
@@ -110,7 +98,7 @@ export default async function CheckoutPage({
     );
   }
 
-  const paymentStatus = searchParams?.payment; // 'success' atau 'failed'
+  const paymentStatus = searchParams?.payment;
 
   return (
     <Container py="xl" size="sm">
@@ -118,7 +106,6 @@ export default async function CheckoutPage({
         Checkout
       </Title>
 
-      {/* Tampilkan pesan status pembayaran jika ada */}
       {paymentStatus === "failed" && (
         <Alert
           color="red"
@@ -130,7 +117,6 @@ export default async function CheckoutPage({
         </Alert>
       )}
       {paymentStatus === "success" && (
-        // Seharusnya redirect ke 'my-courses', tapi bisa tampilkan pesan jika kembali ke checkout
         <Alert
           color="green"
           title="Pembayaran Berhasil"
@@ -167,11 +153,10 @@ export default async function CheckoutPage({
           </Text>
           <Text size="sm">{session.user.name || session.user.email}</Text>
 
-          {/* Tombol Checkout (Client Component) */}
           <CheckoutButton
             courseId={course.course_id!}
             userId={parseInt(session.user.id)}
-            amount={course.course_price!} // Harga pasti > 0 di sini
+            amount={course.course_price!}
             email={session.user.email!}
             name={session.user.name || ""}
           />

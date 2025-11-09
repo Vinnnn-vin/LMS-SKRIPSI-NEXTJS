@@ -24,11 +24,11 @@ import {
   IconCertificate,
   IconPlayerPlay,
   IconAlertCircle,
-  IconBookmark, // ✅ Icon untuk checkpoint
+  IconBookmark,
 } from "@tabler/icons-react";
 import {
   getStudentDashboardStats,
-  getMyEnrolledCoursesWithProgress, // ✅ Ganti dengan yang ada checkpoint
+  getMyEnrolledCoursesWithProgress,
 } from "@/app/actions/student.actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -42,7 +42,7 @@ export default async function StudentDashboardPage() {
 
   const [statsResult, coursesResult] = await Promise.all([
     getStudentDashboardStats(),
-    getMyEnrolledCoursesWithProgress(), // ✅ Sudah include checkpoint
+    getMyEnrolledCoursesWithProgress(),
   ]);
 
   if (!statsResult.success || !coursesResult.success) {
@@ -86,7 +86,6 @@ export default async function StudentDashboardPage() {
         <Text c="dimmed">Mari lanjutkan perjalanan belajar Anda hari ini!</Text>
       </Stack>
 
-      {/* Kartu Statistik Ringkas */}
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         {stats.map((stat) => (
           <Paper withBorder p="md" radius="md" key={stat.title}>
@@ -115,7 +114,6 @@ export default async function StudentDashboardPage() {
         ))}
       </SimpleGrid>
 
-      {/* Kursus Aktif */}
       {activeCourses.length > 0 && (
         <>
           <Title order={4} mt="xl" mb="md">
@@ -151,13 +149,11 @@ export default async function StudentDashboardPage() {
                   </Badge>
                 </Group>
 
-                {/* Progress Bar */}
                 <Stack gap="xs" mt="sm">
                   <Group justify="space-between">
                     <Text size="xs" c="dimmed">
                       {course.progress}% Selesai
                     </Text>
-                    {/* ✅ Indicator checkpoint */}
                     {course.lastCheckpoint && (
                       <Tooltip label="Ada checkpoint tersimpan">
                         <Badge
@@ -178,7 +174,6 @@ export default async function StudentDashboardPage() {
                   />
                 </Stack>
 
-                {/* ✅ Tombol Lanjutkan/Mulai Belajar */}
                 <Button
                   component={Link}
                   href={`/student/courses/${course.course_id}/learn`}
@@ -197,7 +192,6 @@ export default async function StudentDashboardPage() {
         </>
       )}
 
-      {/* Kursus Selesai */}
       {completedCourses.length > 0 && (
         <>
           <Title order={4} mt="xl" mb="md">
@@ -251,7 +245,6 @@ export default async function StudentDashboardPage() {
         </>
       )}
 
-      {/* Jika tidak ada kursus sama sekali */}
       {activeCourses.length === 0 && completedCourses.length === 0 && (
         <Paper withBorder p="xl" radius="md" ta="center" mt="xl">
           <Text c="dimmed">Anda belum mendaftar di kursus apa pun.</Text>

@@ -76,17 +76,25 @@ export function CategoryManagementTable({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [page, setPage] = useState(1);
-  const [sortStatus, setSortStatus] = useState<DataTableSortStatus<CategoryData>>({
+  const [sortStatus, setSortStatus] = useState<
+    DataTableSortStatus<CategoryData>
+  >({
     columnAccessor: "category_name",
     direction: "asc",
   });
   const [query, setQuery] = useState("");
 
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<CategoryData | null>(null);
-  const [deleteConfirmOpened, { open: openDeleteConfirm, close: closeDeleteConfirm }] = useDisclosure(false);
-  const [formModalOpened, { open: openFormModal, close: closeFormModal }] = useDisclosure(false);
-  
+  const [selectedCategory, setSelectedCategory] = useState<CategoryData | null>(
+    null
+  );
+  const [
+    deleteConfirmOpened,
+    { open: openDeleteConfirm, close: closeDeleteConfirm },
+  ] = useDisclosure(false);
+  const [formModalOpened, { open: openFormModal, close: closeFormModal }] =
+    useDisclosure(false);
+
   const isEditing = modalMode === "edit";
 
   const form = useForm<CreateCategoryInput | UpdateCategoryInput>({
@@ -95,30 +103,28 @@ export function CategoryManagementTable({
       category_description: "",
       image_url: "",
     },
-    validate: zodResolver(isEditing ? updateCategorySchema : createCategorySchema),
+    validate: zodResolver(
+      isEditing ? updateCategorySchema : createCategorySchema
+    ),
   });
 
-  // Compute filtered and sorted data using useMemo
   const { records, totalRecords } = useMemo(() => {
     let data = [...initialCategories];
-    
-    // Filter
+
     if (query) {
       data = data.filter((cat) =>
         cat.category_name?.toLowerCase().includes(query.toLowerCase())
       );
     }
-    
+
     const total = data.length;
-    
-    // Sort
+
     data = sortBy(data, sortStatus.columnAccessor) as CategoryData[];
     if (sortStatus.direction === "desc") data.reverse();
-    
-    // Paginate
+
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE;
-    
+
     return {
       records: data.slice(from, to),
       totalRecords: total,
@@ -151,7 +157,10 @@ export function CategoryManagementTable({
   const handleSubmit = (values: CreateCategoryInput | UpdateCategoryInput) => {
     startTransition(async () => {
       const result = isEditing
-        ? await updateCategory(selectedCategory!.category_id, values as UpdateCategoryInput)
+        ? await updateCategory(
+            selectedCategory!.category_id,
+            values as UpdateCategoryInput
+          )
         : await createCategory(values as CreateCategoryInput);
 
       if (result?.success) {
@@ -165,7 +174,8 @@ export function CategoryManagementTable({
       } else {
         showErrorNotification({
           title: isEditing ? "Gagal Memperbarui" : "Gagal Membuat",
-          message: result?.error || "Terjadi kesalahan saat menyimpan kategori.",
+          message:
+            result?.error || "Terjadi kesalahan saat menyimpan kategori.",
         });
       }
     });
@@ -182,7 +192,9 @@ export function CategoryManagementTable({
       } else {
         showErrorNotification({
           title: "Gagal Menghapus",
-          message: result?.error || "Kategori tidak dapat dihapus. Mungkin masih digunakan oleh kursus.",
+          message:
+            result?.error ||
+            "Kategori tidak dapat dihapus. Mungkin masih digunakan oleh kursus.",
         });
       }
     });
@@ -192,7 +204,6 @@ export function CategoryManagementTable({
     <Box pos="relative">
       <LoadingOverlay visible={isPending} overlayProps={{ blur: 2 }} />
 
-      {/* Modal Form Create/Edit */}
       <Modal
         opened={formModalOpened}
         onClose={closeFormModal}
@@ -222,7 +233,6 @@ export function CategoryManagementTable({
         </form>
       </Modal>
 
-      {/* Modal Konfirmasi Delete */}
       <Modal
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}
@@ -245,7 +255,6 @@ export function CategoryManagementTable({
         </Group>
       </Modal>
 
-      {/* Filter & Add Button */}
       <Group justify="space-between" mb="md">
         <TextInput
           placeholder="Cari nama kategori..."
@@ -264,7 +273,6 @@ export function CategoryManagementTable({
         </Button>
       </Group>
 
-      {/* Tabel Kategori */}
       <DataTable<CategoryData>
         idAccessor="category_id"
         withTableBorder
@@ -288,7 +296,11 @@ export function CategoryManagementTable({
               return (
                 <Popover width={300} withArrow shadow="md" position="bottom">
                   <PopoverTarget>
-                    <Group gap="xs" justify="center" style={{ cursor: "pointer" }}>
+                    <Group
+                      gap="xs"
+                      justify="center"
+                      style={{ cursor: "pointer" }}
+                    >
                       <IconBook size={16} />
                       <Text size="sm">{courseCount}</Text>
                     </Group>

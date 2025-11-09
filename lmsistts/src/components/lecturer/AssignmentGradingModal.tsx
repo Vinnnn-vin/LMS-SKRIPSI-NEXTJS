@@ -75,20 +75,31 @@ export function AssignmentGradingModal({
         const status = form.values.status;
         const score = form.values.score;
 
-        // Validasi skor berdasarkan status
         if (status === "approved") {
           if (score === null || score === undefined) {
-            form.setFieldError("score", "Skor harus diisi untuk status disetujui");
+            form.setFieldError(
+              "score",
+              "Skor harus diisi untuk status disetujui"
+            );
           } else if (score < passingScore) {
-            form.setFieldError("score", `Skor harus minimal ${passingScore} untuk disetujui`);
+            form.setFieldError(
+              "score",
+              `Skor harus minimal ${passingScore} untuk disetujui`
+            );
           } else {
             form.clearFieldError("score");
           }
         } else if (status === "rejected") {
           if (score === null || score === undefined) {
-            form.setFieldError("score", "Skor harus diisi untuk status ditolak");
+            form.setFieldError(
+              "score",
+              "Skor harus diisi untuk status ditolak"
+            );
           } else if (score >= passingScore) {
-            form.setFieldError("score", `Skor harus dibawah ${passingScore} untuk ditolak`);
+            form.setFieldError(
+              "score",
+              `Skor harus dibawah ${passingScore} untuk ditolak`
+            );
           } else {
             form.clearFieldError("score");
           }
@@ -97,7 +108,6 @@ export function AssignmentGradingModal({
     }),
   });
 
-  // Validasi tambahan sebelum submit
   const validateBeforeSubmit = (): boolean => {
     const { status, score } = form.values;
 
@@ -107,7 +117,10 @@ export function AssignmentGradingModal({
         return false;
       }
       if (score < passingScore) {
-        form.setFieldError("score", `Skor harus minimal ${passingScore} untuk disetujui`);
+        form.setFieldError(
+          "score",
+          `Skor harus minimal ${passingScore} untuk disetujui`
+        );
         return false;
       }
     }
@@ -118,7 +131,10 @@ export function AssignmentGradingModal({
         return false;
       }
       if (score >= passingScore) {
-        form.setFieldError("score", `Skor harus dibawah ${passingScore} untuk ditolak`);
+        form.setFieldError(
+          "score",
+          `Skor harus dibawah ${passingScore} untuk ditolak`
+        );
         return false;
       }
     }
@@ -127,7 +143,6 @@ export function AssignmentGradingModal({
   };
 
   const handleSubmit = (values: ReviewAssignmentInput) => {
-    // Validasi custom sebelum submit
     if (!validateBeforeSubmit()) {
       return;
     }
@@ -177,7 +192,6 @@ export function AssignmentGradingModal({
     submission.submission_type === "both";
   const hasUrl = submission.submission_type === "url";
 
-  // Helper untuk menentukan min/max score berdasarkan status
   const getScoreConstraints = () => {
     const status = form.values.status;
     if (status === "approved") {
@@ -212,7 +226,6 @@ export function AssignmentGradingModal({
           </Text>
         </div>
 
-        {/* Tampilkan Passing Score */}
         <Alert color="blue" icon={<IconInfoCircle />}>
           <Text size="sm" fw={500}>
             Passing Score: {passingScore}%
@@ -315,7 +328,6 @@ export function AssignmentGradingModal({
               {...form.getInputProps("status")}
               onChange={(value) => {
                 form.setFieldValue("status", value as any);
-                // Reset error skor saat status berubah
                 form.clearFieldError("score");
               }}
             />

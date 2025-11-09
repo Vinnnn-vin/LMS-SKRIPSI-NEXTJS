@@ -26,11 +26,19 @@ export function CompleteButton({
 
   const handleClick = () => {
     startTransition(async () => {
-      const result = await markMaterialAsComplete(materialDetailId, courseId, enrollmentId);
+      const result = await markMaterialAsComplete(
+        materialDetailId,
+        courseId,
+        enrollmentId
+      );
       if (result.success) {
         notifications.show({
-          title: result.certificateGranted ? "🎉 Selamat! Kursus Selesai!" : "Progres Disimpan!",
-          message: result.certificateGranted ? "Anda telah menyelesaikan seluruh kursus! Sertifikat Anda telah dibuat." : "Materi telah ditandai selesai.",
+          title: result.certificateGranted
+            ? "🎉 Selamat! Kursus Selesai!"
+            : "Progres Disimpan!",
+          message: result.certificateGranted
+            ? "Anda telah menyelesaikan seluruh kursus! Sertifikat Anda telah dibuat."
+            : "Materi telah ditandai selesai.",
           color: result.certificateGranted ? "green" : "blue",
           autoClose: result.certificateGranted ? 10000 : 3000,
         });
@@ -46,7 +54,19 @@ export function CompleteButton({
   };
 
   return (
-    <Button color={isCompleted ? "green" : "blue"} leftSection={isCompleted ? <IconCircleCheckFilled size={16} /> : <IconPlayerPlay size={16} />} onClick={handleClick} loading={isPending} disabled={isCompleted}>
+    <Button
+      color={isCompleted ? "green" : "blue"}
+      leftSection={
+        isCompleted ? (
+          <IconCircleCheckFilled size={16} />
+        ) : (
+          <IconPlayerPlay size={16} />
+        )
+      }
+      onClick={handleClick}
+      loading={isPending}
+      disabled={isCompleted}
+    >
       {isCompleted ? "Telah Selesai" : "Tandai Selesai"}
     </Button>
   );

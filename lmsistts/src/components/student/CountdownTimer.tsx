@@ -3,8 +3,20 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Paper, Group, Text, ThemeIcon, Stack, Progress, Badge } from "@mantine/core";
-import { IconClock, IconAlertCircle, IconCalendarTime } from "@tabler/icons-react";
+import {
+  Paper,
+  Group,
+  Text,
+  ThemeIcon,
+  Stack,
+  Progress,
+  Badge,
+} from "@mantine/core";
+import {
+  IconClock,
+  IconAlertCircle,
+  IconCalendarTime,
+} from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
 import relativeTime from "dayjs/plugin/relativeTime";
@@ -20,7 +32,7 @@ interface CountdownTimerProps {
   title?: string;
   showProgress?: boolean;
   startedAt?: Date | string;
-  onExpire?: () => void; // ✅ event handler untuk waktu habis
+  onExpire?: () => void;
 }
 
 export function CountdownTimer({
@@ -43,11 +55,10 @@ export function CountdownTimer({
       const end = dayjs(expiresAt);
       const diff = end.diff(now);
 
-      // Jika waktu sudah habis
       if (diff <= 0) {
         if (!isExpired) {
           setIsExpired(true);
-          if (onExpire) onExpire(); // ✅ trigger event onExpire sekali
+          if (onExpire) onExpire();
         }
         setTimeLeft("Waktu Habis");
         setProgressPercentage(0);
@@ -68,12 +79,14 @@ export function CountdownTimer({
 
       setTimeLeft(timeString);
 
-      // Hitung progress bar
       if (showProgress && startedAt) {
         const start = dayjs(startedAt);
         const total = end.diff(start);
         const elapsed = now.diff(start);
-        const percentage = Math.max(0, Math.min(100, ((total - elapsed) / total) * 100));
+        const percentage = Math.max(
+          0,
+          Math.min(100, ((total - elapsed) / total) * 100)
+        );
         setProgressPercentage(percentage);
       } else if (showProgress && !startedAt) {
         const daysLeft = end.diff(now, "day");
@@ -87,7 +100,6 @@ export function CountdownTimer({
     return () => clearInterval(interval);
   }, [expiresAt, showProgress, startedAt, onExpire, isExpired]);
 
-  // Jika kursus tidak memiliki batas waktu
   if (!expiresAt) {
     return (
       <Paper withBorder p="sm" radius="md" bg="gray.0">
@@ -112,7 +124,13 @@ export function CountdownTimer({
       p="md"
       radius="md"
       bg={
-        isExpired ? "red.0" : isCritical ? "red.0" : isUrgent ? "orange.0" : "blue.0"
+        isExpired
+          ? "red.0"
+          : isCritical
+            ? "red.0"
+            : isUrgent
+              ? "orange.0"
+              : "blue.0"
       }
     >
       <Stack gap="sm">
@@ -121,7 +139,13 @@ export function CountdownTimer({
             <ThemeIcon
               size="md"
               color={
-                isExpired ? "red" : isCritical ? "red" : isUrgent ? "orange" : "blue"
+                isExpired
+                  ? "red"
+                  : isCritical
+                    ? "red"
+                    : isUrgent
+                      ? "orange"
+                      : "blue"
               }
               variant="light"
             >
@@ -141,7 +165,15 @@ export function CountdownTimer({
               <Text
                 size="sm"
                 fw={700}
-                c={isExpired ? "red" : isCritical ? "red" : isUrgent ? "orange" : "blue"}
+                c={
+                  isExpired
+                    ? "red"
+                    : isCritical
+                      ? "red"
+                      : isUrgent
+                        ? "orange"
+                        : "blue"
+                }
               >
                 {timeLeft}
               </Text>
@@ -165,7 +197,13 @@ export function CountdownTimer({
             size="sm"
             radius="xl"
             color={
-              isExpired ? "red" : isCritical ? "red" : isUrgent ? "orange" : "blue"
+              isExpired
+                ? "red"
+                : isCritical
+                  ? "red"
+                  : isUrgent
+                    ? "orange"
+                    : "blue"
             }
             animated={!isExpired}
           />
@@ -179,7 +217,6 @@ export function CountdownTimer({
   );
 }
 
-// ✅ Komponen khusus untuk timer kuis yang lebih kecil
 export function QuizTimer({ timeLeftSeconds }: { timeLeftSeconds: number }) {
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -205,8 +242,8 @@ export function QuizTimer({ timeLeftSeconds }: { timeLeftSeconds: number }) {
             isCritical
               ? "var(--mantine-color-red-7)"
               : isLowTime
-              ? "var(--mantine-color-orange-7)"
-              : "var(--mantine-color-blue-7)"
+                ? "var(--mantine-color-orange-7)"
+                : "var(--mantine-color-blue-7)"
           }
         />
         <Text

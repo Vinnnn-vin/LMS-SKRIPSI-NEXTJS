@@ -38,25 +38,19 @@ export default function LecturerDashboardLayout({
   const [navbarOpened, { toggle: toggleNavbar }] = useDisclosure(false);
   const pathname = usePathname();
 
-  // ✅ FIXED: Fungsi untuk menentukan active link dengan prioritas
-  // Link yang lebih spesifik (lebih panjang) akan diprioritaskan
   const getActiveLink = () => {
-    // Sort links by length (descending) untuk prioritas matching
     const sortedLinks = [...navLinks].sort(
       (a, b) => b.href.length - a.href.length
     );
 
-    // Cari link pertama yang match
     for (const link of sortedLinks) {
       if (pathname === link.href) {
-        return link.href; // Exact match
+        return link.href;
       }
       if (pathname.startsWith(link.href + "/")) {
-        return link.href; // Child path match
+        return link.href;
       }
     }
-
-    // Fallback ke dashboard jika tidak ada yang match
     return "/lecturer/dashboard";
   };
 
@@ -73,7 +67,6 @@ export default function LecturerDashboardLayout({
     >
       <LecturerHeader navbarOpened={navbarOpened} toggleNavbar={toggleNavbar} />
       <Box style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Sidebar Mobile */}
         <Box
           component="nav"
           w={{ base: "100%", sm: 250 }}
@@ -97,13 +90,12 @@ export default function LecturerDashboardLayout({
               label={link.label}
               leftSection={<link.icon size="1rem" />}
               component={Link}
-              active={activeHref === link.href} // ✅ FIXED: Hanya satu yang active
+              active={activeHref === link.href}
               onClick={toggleNavbar}
             />
           ))}
         </Box>
-        
-        {/* Sidebar Desktop */}
+
         <Paper withBorder radius={0} w={250} p="md" visibleFrom="sm">
           {navLinks.map((link) => (
             <NavLink
@@ -112,12 +104,11 @@ export default function LecturerDashboardLayout({
               label={link.label}
               leftSection={<link.icon size="1rem" />}
               component={Link}
-              active={activeHref === link.href} // ✅ FIXED: Hanya satu yang active
+              active={activeHref === link.href}
             />
           ))}
         </Paper>
-        
-        {/* Konten Utama */}
+
         <Box
           component="main"
           style={{

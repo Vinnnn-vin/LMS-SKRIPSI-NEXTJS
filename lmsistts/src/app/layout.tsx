@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   title: "LMS",
   description: "Learning Management System",
   icons: {
-    icon: "/icon.png", // atau "/favicon.ico" kalau nanti kamu punya file valid
+    icon: "/icon.png",
   },
 };
 

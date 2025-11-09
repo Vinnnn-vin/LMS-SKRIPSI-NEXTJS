@@ -79,7 +79,6 @@ export function UserManagementTable({
   });
   const [selectedUser, setSelectedUser] = useState<UserData | null>(null);
 
-  // Modals
   const [createModalOpened, { open: openCreate, close: closeCreate }] =
     useDisclosure(false);
   const [editModalOpened, { open: openEdit, close: closeEdit }] =
@@ -89,7 +88,6 @@ export function UserManagementTable({
   const [deleteModalOpened, { open: openDelete, close: closeDelete }] =
     useDisclosure(false);
 
-  // Forms
   const createForm = useForm<AdminCreateUserInput>({
     initialValues: {
       first_name: "",
@@ -114,15 +112,12 @@ export function UserManagementTable({
     validate: zod4Resolver(adminChangePasswordSchema),
   });
 
-  // Filtering State
   const [query, setQuery] = useState("");
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
 
-  // Derived Data dengan useMemo (menggantikan useState dengan side effect)
   const { records, totalRecords } = useMemo(() => {
     let filteredData = initialUsers;
 
-    // Filter by query (name/email)
     if (query) {
       filteredData = filteredData.filter(
         (user) =>
@@ -133,16 +128,13 @@ export function UserManagementTable({
       );
     }
 
-    // Filter by role
     if (selectedRole) {
       filteredData = filteredData.filter((user) => user.role === selectedRole);
     }
 
-    // Apply sorting
     const sortedData = sortBy(filteredData, sortStatus.columnAccessor);
     if (sortStatus.direction === "desc") sortedData.reverse();
 
-    // Apply pagination
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE;
 
@@ -152,7 +144,6 @@ export function UserManagementTable({
     };
   }, [initialUsers, query, selectedRole, sortStatus, page]);
 
-  // 3. GANTI function handleCreate:
   const handleCreate = (values: AdminCreateUserInput) => {
     startTransition(async () => {
       const result = await createUserByAdmin(values);
@@ -170,7 +161,6 @@ export function UserManagementTable({
     });
   };
 
-  // 4. GANTI function handleEdit:
   const handleEdit = (values: AdminUpdateUserInput) => {
     if (!selectedUser) return;
     startTransition(async () => {
@@ -188,8 +178,6 @@ export function UserManagementTable({
       }
     });
   };
-
-  // 5. GANTI function handleChangePassword:
   const handleChangePassword = (values: AdminChangePasswordInput) => {
     if (!selectedUser) return;
     startTransition(async () => {
@@ -213,7 +201,6 @@ export function UserManagementTable({
     });
   };
 
-  // 6. GANTI function handleDelete:
   const handleDelete = () => {
     if (!selectedUser) return;
     startTransition(async () => {
@@ -256,7 +243,6 @@ export function UserManagementTable({
     <Box>
       <LoadingOverlay visible={isPending} />
 
-      {/* Create Modal */}
       <Modal
         opened={createModalOpened}
         onClose={closeCreate}
@@ -300,7 +286,6 @@ export function UserManagementTable({
         </form>
       </Modal>
 
-      {/* Edit Modal */}
       <Modal
         opened={editModalOpened}
         onClose={closeEdit}
@@ -338,7 +323,6 @@ export function UserManagementTable({
         </form>
       </Modal>
 
-      {/* Password Modal */}
       <Modal
         opened={passwordModalOpened}
         onClose={closePassword}
@@ -361,7 +345,6 @@ export function UserManagementTable({
         </form>
       </Modal>
 
-      {/* Delete Modal */}
       <Modal
         opened={deleteModalOpened}
         onClose={closeDelete}
@@ -382,7 +365,6 @@ export function UserManagementTable({
         </Group>
       </Modal>
 
-      {/* Filter and Add Button */}
       <Group justify="space-between" mb="md">
         <Group>
           <TextInput
@@ -409,7 +391,6 @@ export function UserManagementTable({
         </Button>
       </Group>
 
-      {/* DataTable */}
       <DataTable
         idAccessor="user_id"
         withTableBorder

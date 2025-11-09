@@ -282,7 +282,7 @@ export async function getCourseLearningData(courseId: number) {
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"], // Tambahkan ini
+          attributes: ["course_duration"],
         },
       ],
     });
@@ -299,14 +299,10 @@ export async function getCourseLearningData(courseId: number) {
       }
     }
 
-    // ✅ CEK EXPIRED - TAPI JANGAN LANGSUNG RESET DI SINI
-    // Biarkan client yang handle dengan GlobalTimer
     const isAccessExpired =
       enrollment.access_expires_at &&
       dayjs().isAfter(dayjs(enrollment.access_expires_at));
 
-    // Jika expired, kembalikan flag tapi tetap load data
-    // (Client akan tampilkan modal/alert)
     const course = await Course.findByPk(courseId, {
       include: [
         {
@@ -349,7 +345,6 @@ export async function getCourseLearningData(courseId: number) {
 
     if (!course) throw new Error("Kursus tidak ditemukan.");
 
-    // Load progress data seperti biasa...
     const progressDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
       attributes: ["material_detail_id"],
@@ -475,16 +470,16 @@ export async function getCourseLearningData(courseId: number) {
         submissionHistoryMap: submissionHistoryObj,
         accessExpiresAt: enrollment.access_expires_at,
         enrolledAt: enrollment.enrolled_at,
-        learningStartedAt: enrollment.learning_started_at, // ✅ Tambahkan ini
-        courseDuration: (course as any).course_duration || 0, // ✅ Tambahkan ini
-        isAccessExpired: isAccessExpired, // ✅ Flag expired
+        learningStartedAt: enrollment.learning_started_at,
+        courseDuration: (course as any).course_duration || 0,
+        isAccessExpired: isAccessExpired,
         lastCheckpoint: enrollment.checkpoint_id
           ? {
               type: enrollment.checkpoint_type!,
               id: enrollment.checkpoint_id,
               updatedAt: enrollment.checkpoint_updated_at!,
             }
-          : null, // ✅ NEW: Checkpoint data
+          : null,
       },
     };
   } catch (error: any) {
@@ -977,7 +972,6 @@ export async function resetCourseProgressAndExtendAccess(
   try {
     const { userId } = await getStudentSession();
 
-    // Validasi enrollment
     const enrollment = await Enrollment.findOne({
       where: {
         enrollment_id: enrollmentId,
@@ -988,7 +982,7 @@ export async function resetCourseProgressAndExtendAccess(
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"], // Asumsi ada field ini dalam jam
+          attributes: ["course_duration"],
         },
       ],
     });
@@ -998,51 +992,44 @@ export async function resetCourseProgressAndExtendAccess(
     }
 
     const course = enrollment.course as any;
-    const courseDuration = course?.course_duration || 0; // dalam jam
+    const courseDuration = course?.course_duration || 0;
 
     await sequelize.transaction(async (t) => {
-      // 1. Hapus semua progress
       await StudentProgress.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
-      // 2. Hapus semua quiz attempts
       await StudentQuizAnswer.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
-      // 3. Hapus semua assignment submissions
       await AssignmentSubmission.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
-      // 4. Hapus certificate jika ada
       await Certificate.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
       });
 
-      // 5. Update enrollment - EXTEND ACCESS, bukan hapus
       const updateData: any = {
-        status: "active", // Tetap active
-        completed_at: null, // Reset completion
-        learning_started_at: new Date(), // Reset learning start time
-        // ✅ Reset checkpoint
+        status: "active",
+        completed_at: null,
+        learning_started_at: new Date(),
         checkpoint_type: null,
         checkpoint_id: null,
         checkpoint_updated_at: null,
       };
 
-      // Set new access_expires_at jika ada durasi
       if (courseDuration > 0) {
         updateData.access_expires_at = dayjs()
           .add(courseDuration, "hour")
           .toDate();
       } else {
-        updateData.access_expires_at = null; // Unlimited
+        updateData.access_expires_at = null;
       }
 
       await enrollment.update(updateData, { transaction: t });
@@ -1065,18 +1052,16 @@ export async function resetCourseProgressAndExtendAccess(
   }
 }
 
-
 export async function saveCheckpoint(payload: {
   courseId: number;
   enrollmentId: number;
   contentType: "detail" | "quiz";
-  contentId: number; // material_detail_id atau quiz_id
+  contentId: number;
 }) {
   try {
     const { userId } = await getStudentSession();
     const { courseId, enrollmentId, contentType, contentId } = payload;
 
-    // Validasi enrollment
     const enrollment = await Enrollment.findOne({
       where: {
         enrollment_id: enrollmentId,
@@ -1090,12 +1075,6 @@ export async function saveCheckpoint(payload: {
       throw new Error("Enrollment tidak valid.");
     }
 
-    // Update checkpoint di enrollment
-    // CATATAN: Perlu tambah field di model Enrollment:
-    // - checkpoint_type: "detail" | "quiz" | null
-    // - checkpoint_id: number | null
-    // - checkpoint_updated_at: Date | null
-    
     await enrollment.update({
       checkpoint_type: contentType,
       checkpoint_id: contentId,
@@ -1126,11 +1105,7 @@ export async function getLastCheckpoint(
         user_id: userId,
         course_id: courseId,
       },
-      attributes: [
-        "checkpoint_type",
-        "checkpoint_id",
-        "checkpoint_updated_at",
-      ],
+      attributes: ["checkpoint_type", "checkpoint_id", "checkpoint_updated_at"],
     });
 
     if (!enrollment || !enrollment.checkpoint_id) {
@@ -1158,7 +1133,6 @@ export async function getNextIncompleteContent(
   try {
     const { userId } = await getStudentSession();
 
-    // Ambil course dengan semua materials
     const course = await Course.findByPk(courseId, {
       include: [
         {
@@ -1199,7 +1173,6 @@ export async function getNextIncompleteContent(
       return { success: false, error: "Course tidak memiliki materi." };
     }
 
-    // Ambil completed items
     const completedDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
       attributes: ["material_detail_id"],
@@ -1216,9 +1189,7 @@ export async function getNextIncompleteContent(
       ],
       raw: true,
     });
-    const completedQuizSet = new Set(
-      passedQuizzes.map((q: any) => q.quiz_id)
-    );
+    const completedQuizSet = new Set(passedQuizzes.map((q: any) => q.quiz_id));
 
     const approvedAssignments = await AssignmentSubmission.findAll({
       where: { user_id: userId, course_id: courseId, status: "approved" },
@@ -1234,7 +1205,6 @@ export async function getNextIncompleteContent(
       approvedAssignments.map((a: any) => a.material_detail_id)
     );
 
-    // Cari first incomplete content
     for (const material of course.materials) {
       // Check details
       if (material.details && material.details.length > 0) {
@@ -1258,7 +1228,6 @@ export async function getNextIncompleteContent(
         }
       }
 
-      // Check quizzes
       if (material.quizzes && material.quizzes.length > 0) {
         for (const quiz of material.quizzes) {
           if (!completedQuizSet.has(quiz.quiz_id)) {
@@ -1276,10 +1245,9 @@ export async function getNextIncompleteContent(
       }
     }
 
-    // Semua sudah selesai
     return {
       success: true,
-      data: null, // null = course completed
+      data: null,
     };
   } catch (error: any) {
     console.error("[GET_NEXT_INCOMPLETE_ERROR]", error);

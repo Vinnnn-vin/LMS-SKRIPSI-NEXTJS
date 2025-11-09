@@ -61,13 +61,10 @@ export const authOptions: NextAuthOptions = {
         token.role = user.role;
       }
 
-      // PENTING: Saat updateSession() dipanggil dari client
-      // trigger akan bernilai "update", maka kita fetch data terbaru dari database
       if (trigger === "update") {
         try {
           const dbUser = await User.findByPk(parseInt(token.id as string));
           if (dbUser) {
-            // Update token dengan data terbaru dari database
             token.name = `${dbUser.first_name} ${dbUser.last_name}`.trim();
             token.image = dbUser.image;
             token.email = dbUser.email;
@@ -95,7 +92,7 @@ export const authOptions: NextAuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 hari
+    maxAge: 30 * 24 * 60 * 60,
   },
 
   jwt: {

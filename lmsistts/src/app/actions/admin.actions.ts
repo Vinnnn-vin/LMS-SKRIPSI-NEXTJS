@@ -137,14 +137,13 @@ export async function getCourseByIdForAdmin(courseId: number) {
               ],
               required: false,
             },
-            // --- TAMBAHKAN INCLUDE QUIZ DI SINI ---
+
             {
               model: Quiz,
-              as: "quizzes", // Pastikan alias ini benar di model Material
-              attributes: ["quiz_id", "quiz_title"], // Ambil ID & judul quiz
-              required: false, // Gunakan LEFT JOIN
+              as: "quizzes",
+              attributes: ["quiz_id", "quiz_title"],
+              required: false,
             },
-            // --- AKHIR TAMBAHAN QUIZ ---
           ],
         },
       ],
@@ -156,23 +155,21 @@ export async function getCourseByIdForAdmin(courseId: number) {
           "material_detail_id",
           "ASC",
         ],
-        // --- TAMBAHKAN ORDER UNTUK QUIZ ---
+
         [
           { model: Material, as: "materials" },
-          { model: Quiz, as: "quizzes" }, // Order quiz dalam material
+          { model: Quiz, as: "quizzes" },
           "quiz_id",
-          "ASC", // Urutkan berdasarkan ID quiz
+          "ASC",
         ],
-        // --- AKHIR ORDER QUIZ ---
       ],
     });
 
-    if (!course) return { success: false, error: "Kursus tidak ditemukan" }; // Ubah pesan error
-    // Kembalikan success: true agar bisa dibedakan antara not found dan error lain
+    if (!course) return { success: false, error: "Kursus tidak ditemukan" };
     return { success: true, data: course.toJSON() };
   } catch (error) {
-    console.error(`[GET_COURSE_BY_ID_ADMIN_ERROR] ID: ${courseId}`, error); // Log error
-    return { success: false, error: "Gagal mengambil data kursus." }; // Kembalikan success: false
+    console.error(`[GET_COURSE_BY_ID_ADMIN_ERROR] ID: ${courseId}`, error);
+    return { success: false, error: "Gagal mengambil data kursus." };
   }
 }
 
@@ -247,7 +244,6 @@ export async function createCourseByAdmin(formData: FormData) {
   try {
     await Course.create({
       ...courseData,
-      // user_id sudah ada di courseData dari form, tidak perlu ambil dari session
       thumbnail_url: thumbnailUrl,
     });
     revalidatePath("/admin/dashboard/courses");
@@ -335,7 +331,7 @@ export async function updateCourseByAdmin(
 export async function getAllLecturersForAdmin() {
   try {
     const lecturers = await User.findAll({
-      where: { role: "lecturer" }, // Filter hanya lecturer
+      where: { role: "lecturer" },
       attributes: ["user_id", "first_name", "last_name", "email"],
       order: [["first_name", "ASC"]],
     });
@@ -351,7 +347,6 @@ export async function deleteCourseByAdmin(courseId: number) {
     const course = await Course.findByPk(courseId);
     if (!course) return { error: "Kursus tidak ditemukan." };
 
-    // Validasi: Jangan hapus jika sudah ada yang mendaftar
     const enrollmentCount = await Enrollment.count({
       where: { course_id: courseId },
     });
@@ -395,7 +390,7 @@ export async function createUserByAdmin(values: AdminCreateUserInput) {
       ...validatedFields.data,
       password_hash: hashedPassword,
     });
-    revalidatePath("/admin/dashboard/users"); // Gunakan router.refresh() di client
+    revalidatePath("/admin/dashboard/users");
     return { success: "User berhasil dibuat!" };
   } catch (error) {
     console.error("[CREATE_USER_ERROR]", error);
@@ -413,7 +408,6 @@ export async function updateUserByAdmin(
     const user = await User.findByPk(userId);
     if (!user) return { error: "User tidak ditemukan." };
 
-    // Cek jika email diubah dan sudah ada
     if (values.email !== user.email) {
       const existingEmail = await User.findOne({
         where: { email: values.email },
@@ -423,10 +417,9 @@ export async function updateUserByAdmin(
     }
 
     await user.update(validatedFields.data);
-    // revalidatePath('/admin/dashboard/users');
     return { success: "User berhasil diperbarui!" };
   } catch (error) {
-    /* ... */ return { error: "Gagal memperbarui user." };
+    return { error: "Gagal memperbarui user." };
   }
 }
 
@@ -454,10 +447,9 @@ export async function deleteUserByAdmin(userId: number) {
     if (!user) return { error: "User tidak ditemukan." };
 
     await user.destroy();
-    // revalidatePath('/admin/dashboard/users');
     return { success: "User berhasil dihapus!" };
   } catch (error) {
-    /* ... */ return { error: "Gagal menghapus user." };
+    return { error: "Gagal menghapus user." };
   }
 }
 
@@ -528,7 +520,6 @@ export async function deleteCategory(categoryId: number) {
       where: { category_id: categoryId },
     });
     if (courseCount > 0) {
-      // Pastikan pesan error ini muncul jika validasi gagal
       return {
         error: `Tidak dapat menghapus. Masih ada ${courseCount} kursus dalam kategori ini.`,
       };
@@ -539,7 +530,6 @@ export async function deleteCategory(categoryId: number) {
     return { success: "Kategori berhasil dihapus!" };
   } catch (error) {
     console.error("[DELETE_CATEGORY_ERROR]", error);
-    // Berikan pesan error yang lebih spesifik jika memungkinkan
     return { error: "Gagal menghapus kategori. Terjadi kesalahan server." };
   }
 }
@@ -550,26 +540,23 @@ export async function getAllPaymentsForAdmin(filters?: {
   endDate?: Date;
 }) {
   try {
-    const whereClause: any = {}; // Objek untuk kondisi filter
+    const whereClause: any = {};
 
-    // Tambahkan filter tanggal jika ada
     if (filters?.startDate || filters?.endDate) {
       whereClause.paid_at = {};
       if (filters.startDate) {
         whereClause.paid_at[Op.gte] = filters.startDate;
       }
       if (filters.endDate) {
-        // Tambahkan 1 hari ke endDate untuk mencakup seluruh hari tersebut
         const nextDay = new Date(filters.endDate);
         nextDay.setDate(nextDay.getDate() + 1);
         whereClause.paid_at[Op.lt] = nextDay;
       }
     }
-    // Hanya ambil yang sudah dibayar untuk manajemen penjualan
     whereClause.status = "paid";
 
     const payments = await Payment.findAll({
-      where: whereClause, // Terapkan filter
+      where: whereClause,
       include: [
         {
           model: User,
@@ -578,7 +565,7 @@ export async function getAllPaymentsForAdmin(filters?: {
         },
         { model: Course, as: "course", attributes: ["course_title"] },
       ],
-      order: [["paid_at", "DESC"]], // Urutkan berdasarkan tanggal bayar
+      order: [["paid_at", "DESC"]],
     });
     return { success: true, data: payments.map((p) => p.toJSON()) };
   } catch (error) {
@@ -595,7 +582,7 @@ export async function getCourseSalesStats() {
       attributes: [
         "course_id",
         [sequelize.fn("COUNT", sequelize.col("payment_id")), "salesCount"],
-        [sequelize.col("course.course_title"), "course_title"], // ✅ pakai col, bukan literal
+        [sequelize.col("course.course_title"), "course_title"],
       ],
       include: [
         {
@@ -605,7 +592,7 @@ export async function getCourseSalesStats() {
           required: true,
         },
       ],
-      group: ["Payment.course_id", "course.course_title"], // ✅ gunakan string, bukan literal
+      group: ["Payment.course_id", "course.course_title"],
       order: [[sequelize.col("salesCount"), "DESC"]],
       limit: 10,
       raw: true,
@@ -635,17 +622,15 @@ export async function getFinancialTrendData() {
       where: {
         status: "paid",
         paid_at: {
-          [Op.gte]: new Date(new Date().setDate(new Date().getDate() - 30)), // Ambil data 30 hari terakhir
+          [Op.gte]: new Date(new Date().setDate(new Date().getDate() - 30)),
         },
       },
       attributes: [
-        // Kelompokkan berdasarkan tanggal
         [sequelize.fn("DATE", sequelize.col("paid_at")), "date"],
-        // Jumlahkan total pemasukan per hari
         [sequelize.fn("SUM", sequelize.col("amount")), "dailyTotal"],
       ],
       group: ["date"],
-      order: [["date", "ASC"]], // Urutkan dari tanggal terlama
+      order: [["date", "ASC"]],
       raw: true,
     });
 
@@ -671,7 +656,7 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
       include: [
         {
           model: User,
-          as: "student", 
+          as: "student",
           attributes: ["user_id", "first_name", "last_name", "email"],
           required: true,
         },
@@ -694,7 +679,7 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
         success: true,
         data: enrollments.map((e) => ({
           ...e.toJSON(),
-          student: (e.student as User).toJSON(), 
+          student: (e.student as User).toJSON(),
           progress: 0,
         })),
       };
@@ -729,7 +714,7 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
     );
 
     const combinedData = enrollments.map((enrollment) => {
-      const user = (enrollment.student as User).toJSON(); 
+      const user = (enrollment.student as User).toJSON();
       const completedCount = progressMap[user.user_id] || 0;
       const progress = Math.round((completedCount / totalMaterials) * 100);
 
@@ -750,7 +735,6 @@ export async function getCourseEnrollmentsForAdmin(courseId: number) {
   }
 }
 
-// Fungsi baru: Approve permintaan publikasi
 export async function approvePublishRequest(courseId: number) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
@@ -783,7 +767,6 @@ export async function approvePublishRequest(courseId: number) {
   }
 }
 
-// Fungsi baru: Reject permintaan publikasi
 export async function rejectPublishRequest(courseId: number, reason: string) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "admin") return { error: "Akses ditolak." };

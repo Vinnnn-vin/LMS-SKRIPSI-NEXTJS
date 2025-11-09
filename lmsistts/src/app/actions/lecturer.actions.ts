@@ -62,7 +62,6 @@ import {
   reviewAssignmentSchema,
 } from "@/lib/schemas/assignmentSubmission.schema";
 
-// Helper function untuk memeriksa sesi dosen
 async function getLecturerSession() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "lecturer") {
@@ -88,7 +87,6 @@ export async function getAssignmentsToReviewByLecturer(options: {
       statusFilter,
     } = options;
 
-    // ✅ Ambil ID kursus milik dosen
     const lecturerCourses = await Course.findAll({
       where: { user_id: userId },
       attributes: ["course_id"],
@@ -100,7 +98,6 @@ export async function getAssignmentsToReviewByLecturer(options: {
       return { success: true, data: [], total: 0 };
     }
 
-    // ✅ Build where clause
     const whereClause: any = {
       course_id: { [Op.in]: courseIds },
     };
@@ -109,10 +106,8 @@ export async function getAssignmentsToReviewByLecturer(options: {
       whereClause.status = statusFilter;
     }
 
-    // ✅ Count total records
     const total = await AssignmentSubmission.count({ where: whereClause });
 
-    // ✅ Fetch paginated data
     const offset = (page - 1) * limit;
     const submissions = await AssignmentSubmission.findAll({
       where: whereClause,
@@ -168,7 +163,6 @@ export async function gradeAssignmentByLecturer(
   try {
     const { userId } = await getLecturerSession();
 
-    // Ambil submission dengan passing score
     const submission = await AssignmentSubmission.findOne({
       where: { submission_id: submissionId },
       include: [
@@ -194,7 +188,6 @@ export async function gradeAssignmentByLecturer(
 
     const passingScore = submission.assignment?.passing_score || 70;
 
-    // ✅ Validasi dengan Zod
     const validatedFields = reviewAssignmentSchema.safeParse(values);
 
     if (!validatedFields.success) {
@@ -206,7 +199,6 @@ export async function gradeAssignmentByLecturer(
 
     const { status, score, feedback } = validatedFields.data;
 
-    // ✅ Validasi bisnis logic
     if (status === "approved" && score !== null && score !== undefined) {
       if (score < passingScore) {
         return {
@@ -223,7 +215,6 @@ export async function gradeAssignmentByLecturer(
       }
     }
 
-    // Update submission
     await submission.update({
       status,
       score,
@@ -246,44 +237,36 @@ export async function gradeAssignmentByLecturer(
   }
 }
 
-// --- FUNGSI BARU UNTUK OVERVIEW DASHBOARD LECTURER ---
 export async function getLecturerDashboardStats() {
   try {
     const { userId } = await getLecturerSession();
 
-    // 1. Hitung total kursus milik dosen (tetap sama)
     const totalCourses = await Course.count({ where: { user_id: userId } });
 
-    // --- PERBAIKAN: Ambil ID Kursus Dosen Terlebih Dahulu ---
     const lecturerCourseIds = await Course.findAll({
       where: { user_id: userId },
-      attributes: ["course_id"], // Hanya ambil ID
-      raw: true, // Hasilnya array objek biasa { course_id: ... }
-    }).then((courses) => courses.map((c) => c.course_id)); // Ubah menjadi array ID [1, 5, 10]
+      attributes: ["course_id"],
+      raw: true,
+    }).then((courses) => courses.map((c) => c.course_id));
 
-    // 2. Hitung total siswa unik yang terdaftar di kursus-kursus tersebut
     const totalStudents = await Enrollment.count({
       distinct: true,
       col: "user_id",
-      // Gunakan ID kursus yang sudah didapat
       where: {
         course_id: {
-          [Op.in]: lecturerCourseIds, // Filter berdasarkan array ID kursus
+          [Op.in]: lecturerCourseIds,
         },
       },
     });
 
-    // 3. Hitung total pendapatan dari kursus-kursus tersebut
     const totalSales = await Payment.sum("amount", {
-      // Gunakan ID kursus yang sudah didapat
       where: {
         status: "paid",
         course_id: {
-          [Op.in]: lecturerCourseIds, // Filter berdasarkan array ID kursus
+          [Op.in]: lecturerCourseIds,
         },
       },
     });
-    // --- AKHIR PERBAIKAN ---
 
     return {
       success: true,
@@ -301,7 +284,6 @@ export async function getLecturerDashboardStats() {
   }
 }
 
-// Mengambil kursus milik dosen yang login
 export async function getCoursesByLecturer() {
   try {
     const { userId } = await getLecturerSession();
@@ -313,7 +295,6 @@ export async function getCoursesByLecturer() {
           as: "category",
           attributes: ["category_name"],
         },
-        // ✅ TAMBAHKAN INI: Include materials dan details
         {
           model: Material,
           as: "materials",
@@ -361,16 +342,14 @@ export async function createCourseByLecturer(formData: FormData) {
 
     const { thumbnail_file, ...courseData } = validatedFields.data;
 
-    // ✅ PERBAIKAN 1: Buat course dulu untuk dapat courseId
     const newCourse = await Course.create({
       ...courseData,
       user_id: userId,
       publish_status: 0,
       publish_request_status: "none",
-      thumbnail_url: null, // Set null dulu
+      thumbnail_url: null,
     });
 
-    // ✅ PERBAIKAN 2: Upload thumbnail setelah course dibuat
     let thumbnailUrl = null;
     if (thumbnail_file) {
       const uploadResult = await uploadCourseThumbnail(
@@ -380,14 +359,12 @@ export async function createCourseByLecturer(formData: FormData) {
       );
 
       if (!uploadResult.success) {
-        // Rollback: hapus course jika upload gagal
         await newCourse.destroy();
         return { error: uploadResult.error || "Gagal mengupload thumbnail." };
       }
 
       thumbnailUrl = uploadResult.url;
 
-      // Update course dengan thumbnail URL
       await newCourse.update({ thumbnail_url: thumbnailUrl });
     }
 
@@ -403,7 +380,6 @@ export async function createCourseByLecturer(formData: FormData) {
   }
 }
 
-// ============= UPDATE COURSE =============
 export async function updateCourseByLecturer(
   courseId: number,
   formData: FormData
@@ -443,14 +419,11 @@ export async function updateCourseByLecturer(
       validatedFields.data;
     let newThumbnailUrl: string | null | undefined = undefined;
 
-    // ✅ PERBAIKAN: Handle upload thumbnail dengan benar
     if (thumbnail_file instanceof File) {
-      // 1. Hapus thumbnail lama jika ada
       if (course.thumbnail_url) {
         await deleteFromPublic(course.thumbnail_url);
       }
 
-      // 2. Upload thumbnail baru
       const courseTitleForUpload = course_title || course.course_title;
       const uploadResult = await uploadCourseThumbnail(
         thumbnail_file,
@@ -464,15 +437,11 @@ export async function updateCourseByLecturer(
 
       newThumbnailUrl = uploadResult.url;
     } else if (thumbnail_file === null) {
-      // User explicitly cleared the thumbnail
       if (course.thumbnail_url) {
         await deleteFromPublic(course.thumbnail_url);
       }
       newThumbnailUrl = null;
     }
-    // else: undefined = tidak ada perubahan, gunakan nilai lama
-
-    // 3. Prepare update data
     const updateData: any = { ...restCourseData };
 
     if (course_title !== undefined) {
@@ -483,7 +452,6 @@ export async function updateCourseByLecturer(
       updateData.thumbnail_url = newThumbnailUrl;
     }
 
-    // 4. Update course
     await course.update(updateData);
 
     revalidatePath("/lecturer/dashboard/courses");
@@ -496,7 +464,6 @@ export async function updateCourseByLecturer(
   }
 }
 
-// ============= DELETE COURSE =============
 export async function deleteCourseByLecturer(courseId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -520,12 +487,10 @@ export async function deleteCourseByLecturer(courseId: number) {
       };
     }
 
-    // ✅ PERBAIKAN: Hapus thumbnail dan folder course sebelum hapus course
     if (course.thumbnail_url) {
       await deleteFromPublic(course.thumbnail_url);
     }
 
-    // Hapus seluruh folder course thumbnail
     await deleteCourseThumbnailFolder(courseId, course.course_title);
 
     await course.destroy();
@@ -537,7 +502,6 @@ export async function deleteCourseByLecturer(courseId: number) {
     return { error: error.message || "Gagal menghapus kursus." };
   }
 }
-// Dosen meminta publish kursus
 export async function requestCoursePublish(courseId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -555,7 +519,6 @@ export async function requestCoursePublish(courseId: number) {
       return { error: "Permintaan publish sudah dikirim." };
     }
 
-    // ✅ PERBAIKAN 1: Cek apakah ada material (Bab)
     const materialCount = await Material.count({
       where: { course_id: courseId },
     });
@@ -567,7 +530,6 @@ export async function requestCoursePublish(courseId: number) {
       };
     }
 
-    // ✅ PERBAIKAN 2: Cek apakah setiap material memiliki konten (MaterialDetail)
     const materialsWithoutContent = await Material.findAll({
       where: { course_id: courseId },
       include: [
@@ -593,7 +555,6 @@ export async function requestCoursePublish(courseId: number) {
       };
     }
 
-    // ✅ PERBAIKAN 3: Cek apakah ada minimal 1 konten yang bukan gratis (untuk monetisasi)
     const paidContentCount = await MaterialDetail.count({
       include: [
         {
@@ -613,7 +574,6 @@ export async function requestCoursePublish(courseId: number) {
       };
     }
 
-    // Semua validasi lolos, set status pending
     course.publish_request_status = "pending";
     await course.save();
 
@@ -652,9 +612,6 @@ export async function cancelPublishRequest(courseId: number) {
   }
 }
 
-// --- FUNGSI BARU UNTUK CRUD MATERIAL ---
-
-// Mengambil semua material untuk satu kursus
 export async function getMaterialsByCourseId(courseId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -693,7 +650,6 @@ export async function createMaterial(
     });
     if (!course) throw new Error("Kursus tidak ditemukan.");
 
-    // Validasi objek 'values'
     const validatedFields = createMaterialSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -733,7 +689,6 @@ export async function updateMaterial(
     });
     if (!material) throw new Error("Materi tidak ditemukan.");
 
-    // Validasi objek 'values'
     const validatedFields = updateMaterialSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -752,7 +707,6 @@ export async function updateMaterial(
   }
 }
 
-// Dosen menghapus material
 export async function deleteMaterial(materialId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -765,18 +719,20 @@ export async function deleteMaterial(materialId: number) {
           where: { user_id: userId },
           attributes: ["course_id"],
         },
-      ], // Ambil course_id untuk revalidate
+      ],
     });
     if (!material)
       throw new Error(
         "Materi tidak ditemukan atau Anda tidak berhak menghapusnya."
       );
 
-    // TODO: Tambahkan validasi jika materi sudah punya detail/konten?
-    // const detailCount = await MaterialDetail.count({ where: { material_id: materialId } });
-    // if (detailCount > 0) return { error: 'Hapus dulu semua konten di dalam bab ini.' };
+    const detailCount = await MaterialDetail.count({
+      where: { material_id: materialId },
+    });
+    if (detailCount > 0)
+      return { error: "Hapus dulu semua konten di dalam bab ini." };
 
-    const courseId = material.course?.course_id; // Simpan course_id sebelum destroy
+    const courseId = material.course?.course_id;
     await material.destroy();
 
     if (courseId)
@@ -787,7 +743,6 @@ export async function deleteMaterial(materialId: number) {
   }
 }
 
-// Mengambil semua MaterialDetail untuk satu Material (Bab)
 export async function getMaterialDetailsForLecturer(materialId: number) {
   try {
     const { userId } = await getLecturerSession();
@@ -818,7 +773,7 @@ export async function getMaterialDetailsForLecturer(materialId: number) {
     return {
       success: true,
       data: { material: material.toJSON(), details, quizzes },
-    }; // Kembalikan details dan quizzes
+    };
   } catch (error: any) {
     return {
       success: false,
@@ -863,7 +818,6 @@ export async function createMaterialDetail(
   try {
     const { userId } = await getLecturerSession();
 
-    // Verify material ownership
     const material = await Material.findOne({
       where: { material_id: materialId },
       include: [
@@ -877,7 +831,6 @@ export async function createMaterialDetail(
     });
     if (!material) throw new Error("Bab/Seksi tidak ditemukan.");
 
-    // Parse FormData
     const material_detail_name =
       formData.get("material_detail_name")?.toString() || "";
     const material_detail_description =
@@ -899,7 +852,6 @@ export async function createMaterialDetail(
     const templateBase64 = formData.get("template_base64")?.toString();
     const templateName = formData.get("template_name")?.toString();
 
-    // ✅ Validasi dengan Zod SEBELUM operasi database
     const validationResult = createMaterialDetailSchema.safeParse({
       material_detail_name,
       material_detail_description,
@@ -920,7 +872,6 @@ export async function createMaterialDetail(
     let contentUrl = materi_detail_url || "";
     let assignmentTemplateUrl: string | null = null;
 
-    // Upload file dari base64 jika ada
     if (fileBase64 && fileName) {
       let subFolder: "videos" | "pdfs" | "assignments";
       if (detailType === 1) subFolder = "videos";
@@ -947,7 +898,6 @@ export async function createMaterialDetail(
       }
     }
 
-    // Upload template untuk assignment
     if (detailType === 4 && templateBase64 && templateName) {
       const uploadResult = await uploadBase64ToPublic(
         templateBase64,
@@ -960,7 +910,6 @@ export async function createMaterialDetail(
       assignmentTemplateUrl = uploadResult.url!;
     }
 
-    // Validasi akhir
     if (
       (detailType === 1 || detailType === 2 || detailType === 3) &&
       !contentUrl
@@ -968,7 +917,6 @@ export async function createMaterialDetail(
       return { error: "Konten file atau URL YouTube wajib diisi." };
     }
 
-    // Simpan ke database dengan data yang sudah divalidasi
     await MaterialDetail.create({
       material_detail_name: validationResult.data.material_detail_name,
       material_detail_description:
@@ -1023,7 +971,6 @@ export async function updateMaterialDetail(
       throw new Error("Konten tidak ditemukan atau Anda tidak berhak.");
     }
 
-    // Parse FormData
     const material_detail_name = formData
       .get("material_detail_name")
       ?.toString();
@@ -1047,7 +994,6 @@ export async function updateMaterialDetail(
     const templateBase64 = formData.get("template_base64")?.toString();
     const templateName = formData.get("template_name")?.toString();
 
-    // ✅ Validasi dengan Zod
     const validatedFields = updateMaterialDetailSchema.safeParse({
       material_detail_name: material_detail_name || undefined,
       material_detail_description: material_detail_description || undefined,
@@ -1068,9 +1014,7 @@ export async function updateMaterialDetail(
     let newContentUrl: string | undefined | null = undefined;
     let newTemplateUrl: string | undefined | null = undefined;
 
-    // Upload file baru jika ada
     if (fileBase64 && fileName) {
-      // Hapus file lama
       if (
         detail.materi_detail_url &&
         detail.materi_detail_url.startsWith("/")
@@ -1100,7 +1044,6 @@ export async function updateMaterialDetail(
       newContentUrl = detailData.materi_detail_url || "";
     }
 
-    // Upload template baru untuk assignment
     if (templateBase64 && templateName) {
       if (
         detail.assignment_template_url &&
@@ -1121,7 +1064,6 @@ export async function updateMaterialDetail(
       newTemplateUrl = uploadResult.url!;
     }
 
-    // Prepare update data
     const updateData: any = { ...detailData };
     if (newContentUrl !== undefined) {
       updateData.materi_detail_url = newContentUrl;
@@ -1130,7 +1072,6 @@ export async function updateMaterialDetail(
       updateData.assignment_template_url = newTemplateUrl;
     }
 
-    // Update ke database
     await detail.update(updateData);
 
     const courseId = detail.material?.course?.course_id;
@@ -1175,7 +1116,6 @@ export async function deleteMaterialDetail(materialDetailId: number) {
       throw new Error("Konten tidak ditemukan atau Anda tidak berhak.");
     }
 
-    // ✅ Hapus file fisik jika ada
     if (detail.materi_detail_url && detail.materi_detail_url.startsWith("/")) {
       await deleteFromPublic(detail.materi_detail_url);
     }
@@ -1211,7 +1151,6 @@ export async function createQuiz(
   try {
     const { userId } = await getLecturerSession();
 
-    // ✅ Verify course ownership
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
@@ -1219,7 +1158,6 @@ export async function createQuiz(
       throw new Error("Kursus tidak ditemukan atau Anda tidak berhak.");
     }
 
-    // ✅ Validasi input dengan Zod
     const validatedFields = createQuizSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -1228,7 +1166,6 @@ export async function createQuiz(
       return { error: firstError || "Input data quiz tidak valid!" };
     }
 
-    // ✅ Create quiz
     const newQuiz = await Quiz.create({
       ...validatedFields.data,
       course_id: courseId,
@@ -1251,24 +1188,24 @@ export async function getQuizForEditPage(quizId: number) {
       where: { quiz_id: quizId },
       include: [
         {
-          model: Course, // Pastikan dosen pemilik kursus
+          model: Course,
           as: "course",
           where: { user_id: userId },
           attributes: ["course_id", "course_title"],
           required: true,
         },
         {
-          model: Material, // Ambil info Bab
+          model: Material,
           as: "material",
           attributes: ["material_id", "material_name"],
         },
         {
-          model: QuizQuestion, // Ambil semua pertanyaan
+          model: QuizQuestion,
           as: "questions",
           required: false,
           include: [
             {
-              model: QuizAnswerOption, // Ambil semua pilihan jawaban
+              model: QuizAnswerOption,
               as: "options",
               required: false,
             },
@@ -1276,7 +1213,6 @@ export async function getQuizForEditPage(quizId: number) {
         },
       ],
       order: [
-        // Urutkan pertanyaan dan jawaban berdasarkan ID
         [{ model: QuizQuestion, as: "questions" }, "question_id", "ASC"],
         [
           { model: QuizQuestion, as: "questions" },
@@ -1310,7 +1246,6 @@ export async function addQuestionToQuiz(
   try {
     const { userId } = await getLecturerSession();
 
-    // ✅ Verify ownership
     const quiz = await Quiz.findOne({
       where: { quiz_id: quizId },
       include: [
@@ -1328,7 +1263,6 @@ export async function addQuestionToQuiz(
       throw new Error("Quiz tidak ditemukan.");
     }
 
-    // ✅ Validasi input dengan Zod
     const validatedFields = createQuestionSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -1340,7 +1274,6 @@ export async function addQuestionToQuiz(
 
     const { question_text, question_type, options } = validatedFields.data;
 
-    // ✅ Create Question
     const newQuestion = await QuizQuestion.create(
       {
         quiz_id: quizId,
@@ -1352,7 +1285,6 @@ export async function addQuestionToQuiz(
 
     const questionId = newQuestion.question_id;
 
-    // ✅ Create Answer Options
     const newOptions = await Promise.all(
       options.map((opt) => {
         return QuizAnswerOption.create(
@@ -1369,7 +1301,6 @@ export async function addQuestionToQuiz(
 
     await t.commit();
 
-    // ✅ Prepare response data
     const createdQuestion = {
       question_id: questionId,
       question_text,
@@ -1404,7 +1335,6 @@ export async function updateQuestionInQuiz(
   try {
     const { userId } = await getLecturerSession();
 
-    // ✅ Verify ownership
     const question = await QuizQuestion.findOne({
       where: { question_id: questionId },
       include: [
@@ -1430,7 +1360,6 @@ export async function updateQuestionInQuiz(
       );
     }
 
-    // ✅ Validasi input dengan Zod
     const validatedFields = createQuestionSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -1442,16 +1371,13 @@ export async function updateQuestionInQuiz(
 
     const { question_text, question_type, options } = validatedFields.data;
 
-    // ✅ Update question
     await question.update({ question_text, question_type }, { transaction: t });
 
-    // ✅ Delete old options
     await QuizAnswerOption.destroy({
       where: { question_id: questionId },
       transaction: t,
     });
 
-    // ✅ Create new options
     const newOptions = await Promise.all(
       options.map((opt) =>
         QuizAnswerOption.create(
@@ -1468,7 +1394,6 @@ export async function updateQuestionInQuiz(
 
     await t.commit();
 
-    // ✅ Prepare response
     const updatedQuestion = {
       question_id: questionId,
       question_text,
@@ -1498,7 +1423,6 @@ export async function deleteQuestionFromQuiz(questionId: number) {
   try {
     const { userId } = await getLecturerSession();
 
-    // ✅ Verify ownership
     const question = await QuizQuestion.findOne({
       where: { question_id: questionId },
       include: [
@@ -1523,7 +1447,6 @@ export async function deleteQuestionFromQuiz(questionId: number) {
       );
     }
 
-    // ✅ Delete question (cascade akan hapus options)
     await question.destroy();
 
     revalidatePath(
@@ -1538,7 +1461,6 @@ export async function deleteQuestionFromQuiz(questionId: number) {
 export async function deleteQuiz(quizId: number) {
   try {
     const { userId } = await getLecturerSession();
-    // Validasi kepemilikan quiz
     const quiz = await Quiz.findOne({
       where: { quiz_id: quizId },
       include: [
@@ -1572,7 +1494,6 @@ export async function updateQuizDetails(
   try {
     const { userId } = await getLecturerSession();
 
-    // ✅ Verify ownership
     const quiz = await Quiz.findOne({
       where: { quiz_id: quizId },
       include: [
@@ -1590,7 +1511,6 @@ export async function updateQuizDetails(
       throw new Error("Quiz tidak ditemukan atau Anda tidak berhak.");
     }
 
-    // ✅ Validasi input dengan Zod
     const validatedFields = updateQuizSchema.safeParse(values);
     if (!validatedFields.success) {
       const firstError = Object.values(
@@ -1599,10 +1519,8 @@ export async function updateQuizDetails(
       return { error: firstError || "Input data tidak valid!" };
     }
 
-    // ✅ Update quiz
     await quiz.update(validatedFields.data);
 
-    // ✅ Fetch updated data untuk return
     const updatedQuiz = await Quiz.findByPk(quizId, {
       attributes: [
         "quiz_id",
@@ -1632,7 +1550,6 @@ export async function getCourseEnrollmentsForLecturer(courseId: number) {
   try {
     const { userId } = await getLecturerSession();
 
-    // 1. Verifikasi dosen memiliki kursus ini
     const course = await Course.findOne({
       where: { course_id: courseId, user_id: userId },
     });
@@ -1642,7 +1559,6 @@ export async function getCourseEnrollmentsForLecturer(courseId: number) {
       );
     }
 
-    // 2. Ambil semua pendaftaran
     const enrollments = await Enrollment.findAll({
       where: { course_id: courseId },
       include: [
@@ -1656,7 +1572,6 @@ export async function getCourseEnrollmentsForLecturer(courseId: number) {
       order: [["enrolled_at", "DESC"]],
     });
 
-    // 3. Ambil total materi (sama seperti admin action)
     const totalMaterials = await MaterialDetail.count({
       include: [
         {
@@ -1678,7 +1593,6 @@ export async function getCourseEnrollmentsForLecturer(courseId: number) {
       };
     }
 
-    // 4. Ambil data progres (sama seperti admin action)
     const userIds = enrollments
       .map((e) => e.user_id)
       .filter((id) => id !== null) as number[];
@@ -1706,7 +1620,6 @@ export async function getCourseEnrollmentsForLecturer(courseId: number) {
       {} as { [key: number]: number }
     );
 
-    // 5. Gabungkan data (sama seperti admin action)
     const combinedData = enrollments.map((enrollment) => {
       const user = (enrollment.student as User).toJSON();
       const completedCount = progressMap[user.user_id] || 0;

@@ -1,6 +1,6 @@
 // lmsistts\src\types\next-auth.d.ts
 
-import NextAuth, { type DefaultSession } from "next-auth"
+import NextAuth, { type DefaultSession } from "next-auth";
 
 type UserRole = "admin" | "lecturer" | "student";
 
@@ -12,13 +12,13 @@ declare module "next-auth" {
     user: {
       id: string;
       role: UserRole;
-    } & DefaultSession["user"]
+    } & DefaultSession["user"];
   }
 }
 
 declare module "next-auth/jwt" {
   interface JWT {
     id?: string;
-    role?: UserRole
+    role?: UserRole;
   }
 }

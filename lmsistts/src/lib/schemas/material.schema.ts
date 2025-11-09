@@ -1,7 +1,10 @@
 // lmsistts\src\lib\schemas\material.schema.ts
 
 import { z } from "zod";
-import { materialDetailDataSchema, quizDataSchema } from "./materialDetail.schema";
+import {
+  materialDetailDataSchema,
+  quizDataSchema,
+} from "./materialDetail.schema";
 
 export const createMaterialSchema = z.object({
   material_name: z

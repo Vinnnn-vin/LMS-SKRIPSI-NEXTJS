@@ -109,10 +109,8 @@ function ProfileForm({
       }
 
       if (result.success) {
-        // PENTING: Trigger update session untuk refresh token & session
         await updateSession();
 
-        // Tunggu sebentar untuk memastikan session terupdate
         await new Promise((resolve) => setTimeout(resolve, 500));
 
         notifications.show({
@@ -122,7 +120,6 @@ function ProfileForm({
           icon: <IconCheck size={16} />,
         });
 
-        // Redirect setelah notifikasi
         setTimeout(() => router.push("/"), 1500);
       }
     });
@@ -159,7 +156,6 @@ function ProfileForm({
           </Alert>
         )}
 
-        {/* Avatar Section */}
         <Center mb="lg">
           <Box pos="relative">
             <Avatar
@@ -220,7 +216,6 @@ function ProfileForm({
 
         <Divider my="lg" label="Informasi Pribadi" labelPosition="center" />
 
-        {/* Form Fields */}
         <Stack gap="md" mt="sm">
           <TextInput
             label="Nama Depan"

@@ -45,7 +45,6 @@ export function QuizReviewModal({
   studentAnswers,
   score,
 }: QuizReviewModalProps) {
-  // Hitung statistik
   let correctCount = 0;
   let wrongCount = 0;
 
@@ -89,7 +88,6 @@ export function QuizReviewModal({
     >
       <ScrollArea h="70vh" px="lg" py="md">
         <Stack gap="lg">
-          {/* Summary Stats */}
           <Group grow>
             <Paper withBorder p="md" radius="md" bg="green.0">
               <Group gap="xs">
@@ -142,7 +140,6 @@ export function QuizReviewModal({
 
           <Divider label="Detail Jawaban" labelPosition="center" />
 
-          {/* Questions Review */}
           {quizData.questions.map((question, index) => {
             const studentAnswer = studentAnswers[question.question_id];
             const correctOptions = question.options
@@ -173,7 +170,6 @@ export function QuizReviewModal({
                 }}
               >
                 <Stack gap="md">
-                  {/* Question Header */}
                   <Group justify="space-between" align="flex-start">
                     <Group align="flex-start" gap="sm">
                       <ThemeIcon
@@ -222,7 +218,6 @@ export function QuizReviewModal({
 
                   <Divider />
 
-                  {/* Options */}
                   <Stack gap="xs">
                     {question.options.map((option) => {
                       const isStudentAnswer =
@@ -234,7 +229,6 @@ export function QuizReviewModal({
 
                       const isCorrectOption = option.is_correct;
 
-                      // Determine border and background
                       let borderColor = "var(--mantine-color-gray-3)";
                       let bgColor = "white";
                       let icon = null;
@@ -300,7 +294,6 @@ export function QuizReviewModal({
                     })}
                   </Stack>
 
-                  {/* Explanation for wrong answers */}
                   {!isCorrect && (
                     <Paper withBorder p="sm" radius="md" bg="orange.0">
                       <Group gap="xs">
@@ -324,7 +317,6 @@ export function QuizReviewModal({
         </Stack>
       </ScrollArea>
 
-      {/* Footer */}
       <Box
         p="lg"
         style={{ borderTop: "1px solid var(--mantine-color-gray-3)" }}

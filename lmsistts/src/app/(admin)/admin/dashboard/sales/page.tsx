@@ -1,4 +1,5 @@
 // lmsistts\src\app\(admin)\admin\dashboard\sales\page.tsx
+
 import { Container, SimpleGrid, Title, Alert, Stack } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import {
@@ -15,7 +16,6 @@ import { SalesChart } from "@/components/admin/SalesChart";
 import { FinancialTrendChart } from "@/components/admin/FinancialTrendChart";
 
 export default async function ManageSalesPage() {
-  // Ambil data secara paralel
   const [
     paymentsResult,
     courseStatsResult,
@@ -69,17 +69,14 @@ export default async function ManageSalesPage() {
         </Alert>
       ) : (
         <Stack gap="xl">
-          {/* Tabel Penjualan */}
           <div>
             <Title order={4} mb="sm">
               Detail Transaksi
             </Title>
             <SalesManagementTable payments={paymentsResult.data as any[]} />
           </div>
-          {/* Chart Baru: Pergerakan Keuangan */}
           <FinancialTrendChart data={trendDataResult.data as any[]} />
 
-          {/* Chart yang sudah ada */}
           <SimpleGrid cols={{ base: 1, lg: 2 }}>
             <SalesChart data={salesDataResult.data as any[]} />
             <CoursePopularityChart data={courseStatsResult.data as any[]} />

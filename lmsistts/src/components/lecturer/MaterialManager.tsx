@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useTransition } from "react"; // ❌ Hapus useEffect
+import { useState, useTransition } from "react";
 import {
   Box,
   Button,
@@ -46,7 +46,7 @@ import {
   updateMaterialSchema,
   CreateMaterialInput,
   UpdateMaterialInput,
-  type MaterialWithChildren
+  type MaterialWithChildren,
 } from "@/lib/schemas/material.schema";
 import {
   createMaterial,
@@ -55,7 +55,6 @@ import {
 } from "@/app/actions/lecturer.actions";
 import { zod4Resolver } from "mantine-form-zod-resolver";
 
-// Ikon berdasarkan tipe materi
 const getMaterialIcon = (type: number) => {
   switch (type) {
     case 1:
@@ -82,9 +81,8 @@ export function MaterialManager({
   const [isPending, startTransition] = useTransition();
 
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
-  const [selectedMaterial, setSelectedMaterial] = useState<MaterialWithChildren | null>(
-    null
-  );
+  const [selectedMaterial, setSelectedMaterial] =
+    useState<MaterialWithChildren | null>(null);
 
   const [
     deleteConfirmOpened,
@@ -95,7 +93,6 @@ export function MaterialManager({
 
   const isEditing = modalMode === "edit";
 
-  // Form tambah/edit
   const form = useForm<CreateMaterialInput | UpdateMaterialInput>({
     initialValues: { material_name: "", material_description: "" },
     validate: zod4Resolver(
@@ -103,7 +100,6 @@ export function MaterialManager({
     ),
   });
 
-  // ---- Modal handlers ----
   const handleOpenCreateModal = () => {
     setModalMode("create");
     setSelectedMaterial(null);
@@ -126,7 +122,6 @@ export function MaterialManager({
     openDeleteConfirm();
   };
 
-  // ---- Submit ----
   const handleSubmit = (values: CreateMaterialInput | UpdateMaterialInput) => {
     startTransition(async () => {
       const result = isEditing
@@ -134,8 +129,7 @@ export function MaterialManager({
             selectedMaterial!.material_id,
             values as UpdateMaterialInput
           )
-        : // Kirim objek 'values' langsung
-          await createMaterial(courseId, values as CreateMaterialInput);
+        : await createMaterial(courseId, values as CreateMaterialInput);
 
       if (result?.success) {
         notifications.show({
@@ -144,7 +138,7 @@ export function MaterialManager({
           color: "green",
         });
         closeFormModal();
-        router.refresh(); // Panggil refresh untuk mengambil data baru
+        router.refresh();
       } else {
         notifications.show({
           title: "Gagal",
@@ -177,15 +171,13 @@ export function MaterialManager({
     });
   };
 
-  // ---- Render ----
   return (
     <Box
       pos="relative"
-      // key={initialMaterials.map((m) => m.material_id).join("-")} // <== TRIK PENGGANTI useEffect
+      key={initialMaterials.map((m) => m.material_id).join("-")}
     >
       <LoadingOverlay visible={isPending} overlayProps={{ blur: 2 }} />
 
-      {/* Modal Tambah/Edit */}
       <Modal
         opened={formModalOpened}
         onClose={closeFormModal}
@@ -216,7 +208,6 @@ export function MaterialManager({
         </form>
       </Modal>
 
-      {/* Konfirmasi Hapus */}
       <Modal
         opened={deleteConfirmOpened}
         onClose={closeDeleteConfirm}
@@ -238,7 +229,6 @@ export function MaterialManager({
         </Group>
       </Modal>
 
-      {/* Tombol Tambah */}
       <Group justify="flex-end" mb="md">
         <Button
           leftSection={<IconPlus size={16} />}
@@ -248,7 +238,6 @@ export function MaterialManager({
         </Button>
       </Group>
 
-      {/* Accordion Daftar Materi */}
       {initialMaterials.length > 0 ? (
         <Accordion variant="separated">
           {initialMaterials.map((material) => (
@@ -312,7 +301,6 @@ export function MaterialManager({
                     Konten Materi (Tugas, Video, PDF, Link):
                   </Title>
 
-                  {/* Pisahkan detail berdasarkan tipe */}
                   {(() => {
                     const videos =
                       material.details?.filter(
@@ -333,7 +321,6 @@ export function MaterialManager({
 
                     return (
                       <>
-                        {/* VIDEO */}
                         <Title order={6} mt="xs">
                           🎥 Video:
                         </Title>
@@ -372,7 +359,6 @@ export function MaterialManager({
                           </Text>
                         )}
 
-                        {/* PDF */}
                         <Title order={6} mt="xs">
                           📄 PDF:
                         </Title>
@@ -411,7 +397,6 @@ export function MaterialManager({
                           </Text>
                         )}
 
-                        {/* LINK */}
                         <Title order={6} mt="xs">
                           🔗 Link:
                         </Title>
@@ -450,7 +435,6 @@ export function MaterialManager({
                           </Text>
                         )}
 
-                        {/* TUGAS */}
                         <Title order={6} mt="xs">
                           🧾 Tugas:
                         </Title>

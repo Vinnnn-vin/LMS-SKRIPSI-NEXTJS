@@ -52,11 +52,9 @@ export default function AdminDashboardLayout({
         overflow: "hidden",
       }}
     >
-      {/* Gunakan AdminHeader baru, teruskan state dan toggle */}
       <AdminHeader navbarOpened={navbarOpened} toggleNavbar={toggleNavbar} />
 
       <Box style={{ flex: 1, display: "flex", overflow: "hidden" }}>
-        {/* Sidebar */}
         <Box
           component="nav"
           w={{ base: "100%", sm: 250 }}
@@ -74,7 +72,6 @@ export default function AdminDashboardLayout({
           visibleFrom="base"
           hiddenFrom="sm"
         >
-          {/* Sidebar Mobile */}
           {navLinks.map((link) => (
             <NavLink
               key={link.label}
@@ -88,7 +85,6 @@ export default function AdminDashboardLayout({
           ))}
         </Box>
         <Paper withBorder radius={0} w={250} p="md" visibleFrom="sm">
-          {/* Sidebar Desktop */}
           {navLinks.map((link) => (
             <NavLink
               key={link.label}
@@ -101,7 +97,6 @@ export default function AdminDashboardLayout({
           ))}
         </Paper>
 
-        {/* Konten Utama */}
         <Box
           component="main"
           style={{

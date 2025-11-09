@@ -7,7 +7,7 @@ import Link from 'next/link';
 import {
   Paper, Title, Text, TextInput, PasswordInput, Button, Container, Stack, Alert, Anchor,
 } from '@mantine/core';
-import { useForm, zodResolver } from '@mantine/form';
+import { useForm } from '@mantine/form';
 import { IconAlertCircle, IconUser, IconAt, IconLock } from '@tabler/icons-react';
 import { registerFormSchema } from '@/lib/schemas/user.schema';
 import { register } from '@/app/actions/user.actions';

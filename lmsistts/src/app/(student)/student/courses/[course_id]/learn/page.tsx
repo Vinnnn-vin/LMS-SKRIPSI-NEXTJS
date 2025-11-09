@@ -16,10 +16,7 @@ import { notFound } from "next/navigation";
 import { CourseLearningClientUI } from "@/components/student/CourseLearningClientUI";
 import { Suspense } from "react";
 import Link from "next/link";
-import {
-  IconAlertCircle,
-  IconArrowLeft,
-} from "@tabler/icons-react";
+import { IconAlertCircle, IconArrowLeft } from "@tabler/icons-react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
@@ -110,11 +107,11 @@ export default async function LearnCoursePage({
 
   const validQuizAttempts = initialQuizAttempts
     ? initialQuizAttempts.filter(
-        (attempt: any) => attempt.status === "passed" || attempt.status === "failed"
+        (attempt: any) =>
+          attempt.status === "passed" || attempt.status === "failed"
       )
     : [];
 
-  // ✅ RESOLVE CHECKPOINT DI SERVER
   let initialContent = null;
   let initialContentType: "detail" | "quiz" | null = null;
 
@@ -122,7 +119,6 @@ export default async function LearnCoursePage({
     console.log("📌 [SERVER] Resolving checkpoint:", lastCheckpoint);
 
     if (lastCheckpoint.type === "detail") {
-      // Cari material detail berdasarkan checkpoint
       for (const material of course.materials || []) {
         const detail = material.details?.find(
           (d: any) => d.material_detail_id === lastCheckpoint.id
@@ -130,12 +126,13 @@ export default async function LearnCoursePage({
         if (detail) {
           initialContent = detail;
           initialContentType = "detail";
-          console.log(`✅ [SERVER] Found checkpoint detail: ${detail.material_detail_name}`);
+          console.log(
+            `✅ [SERVER] Found checkpoint detail: ${detail.material_detail_name}`
+          );
           break;
         }
       }
     } else if (lastCheckpoint.type === "quiz") {
-      // Cari quiz berdasarkan checkpoint
       for (const material of course.materials || []) {
         const quiz = material.quizzes?.find(
           (q: any) => q.quiz_id === lastCheckpoint.id
@@ -173,7 +170,6 @@ export default async function LearnCoursePage({
         isAccessExpired={isAccessExpired}
         submissionHistoryMap={submissionHistoryMap || {}}
         lastCheckpoint={lastCheckpoint}
-        // ✅ NEW: Pass resolved content dari server
         initialContent={initialContent}
         initialContentType={initialContentType}
       />

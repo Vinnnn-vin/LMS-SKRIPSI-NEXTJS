@@ -83,7 +83,6 @@ export function QuizContent({
   const canRetry = attemptsMade < maxAttempts && !isPassed;
   const attemptsRemaining = Math.max(0, maxAttempts - attemptsMade);
 
-  // Handle review button click
   const handleReviewAttempt = async (attempt: any) => {
     try {
       const { getQuizAttemptDetails } = await import(
@@ -103,7 +102,6 @@ export function QuizContent({
         });
         setReviewModalOpened(true);
       } else {
-        // Show error notification
         const { notifications } = await import("@mantine/notifications");
         notifications.show({
           title: "Error",
@@ -116,7 +114,6 @@ export function QuizContent({
     }
   };
 
-  // Active quiz mode
   if (isQuizActive) {
     return (
       <Stack gap="lg">
@@ -139,10 +136,8 @@ export function QuizContent({
     );
   }
 
-  // Quiz overview/summary
   return (
     <Stack gap="lg">
-      {/* Countdown Timer */}
       {accessExpiresAt && (
         <CountdownTimer
           expiresAt={accessExpiresAt}
@@ -152,7 +147,6 @@ export function QuizContent({
         />
       )}
 
-      {/* Title & Status Badge */}
       <Group justify="space-between" align="flex-start">
         <Box>
           <Title order={3} mb="xs">
@@ -177,7 +171,6 @@ export function QuizContent({
         )}
       </Group>
 
-      {/* Latest Result - Enhanced Card */}
       {latestQuizAttempt && (
         <Card
           withBorder
@@ -191,7 +184,6 @@ export function QuizContent({
           }}
         >
           <Stack gap="md">
-            {/* Header dengan Icon */}
             <Group justify="space-between" align="flex-start">
               <Group gap="md">
                 <ThemeIcon
@@ -221,7 +213,6 @@ export function QuizContent({
                 </Box>
               </Group>
 
-              {/* Score Ring Progress */}
               <RingProgress
                 size={100}
                 thickness={10}
@@ -249,7 +240,6 @@ export function QuizContent({
 
             <Divider />
 
-            {/* Details Grid */}
             <Group grow>
               <Paper withBorder p="sm" radius="md" bg="white">
                 <Group gap="xs">
@@ -302,7 +292,6 @@ export function QuizContent({
               </Paper>
             </Group>
 
-            {/* Status Message */}
             <Alert
               color={latestQuizAttempt.status === "passed" ? "green" : "red"}
               variant="light"
@@ -328,7 +317,6 @@ export function QuizContent({
               )}
             </Alert>
 
-            {/* Review Button */}
             <Group justify="center">
               <Button
                 variant="light"
@@ -342,7 +330,6 @@ export function QuizContent({
         </Card>
       )}
 
-      {/* Quiz Rules - Enhanced */}
       <Card withBorder padding="lg" radius="md" shadow="sm">
         <Group justify="space-between" mb="md">
           <Title order={5}>Peraturan Quiz</Title>
@@ -398,7 +385,6 @@ export function QuizContent({
         </List>
       </Card>
 
-      {/* Attempts History - Enhanced Timeline */}
       {currentQuizAttempts.length > 0 && (
         <Card withBorder padding="lg" radius="md">
           <Group justify="space-between" mb="md">
@@ -505,7 +491,6 @@ export function QuizContent({
         </Card>
       )}
 
-      {/* Start/Retry Button - Enhanced */}
       <Group justify="center" mt="xl">
         <Button
           size="xl"
@@ -542,7 +527,6 @@ export function QuizContent({
         </Button>
       </Group>
 
-      {/* Max Attempts Warning - Enhanced */}
       {!canRetry && !isPassed && attemptsMade >= maxAttempts && (
         <Alert
           color="orange"
@@ -563,7 +547,6 @@ export function QuizContent({
         </Alert>
       )}
 
-      {/* Encouragement Message for Non-Passed with Attempts Left */}
       {!isPassed && canRetry && attemptsMade > 0 && (
         <Alert
           color="blue"
@@ -578,7 +561,6 @@ export function QuizContent({
         </Alert>
       )}
 
-      {/* Review Modal */}
       {reviewData && (
         <QuizReviewModal
           opened={reviewModalOpened}
