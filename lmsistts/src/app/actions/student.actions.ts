@@ -10,6 +10,7 @@ import {
   Material,
   MaterialDetail,
   StudentProgress,
+  Review,
   Certificate,
   sequelize,
   Quiz,
@@ -17,12 +18,14 @@ import {
   QuizAnswerOption,
   AssignmentSubmission,
   StudentQuizAnswer,
+  Payment,
 } from "@/lib/models";
 import { Op } from "sequelize";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { revalidatePath } from "next/cache";
 import dayjs from "dayjs";
+import { createReviewSchema } from "@/lib/schemas/review.schema";
 import { deleteFromPublic } from "@/lib/uploadHelper";
 
 async function getStudentSession() {
@@ -268,6 +271,72 @@ export async function getMyEnrolledCoursesWithProgress() {
   }
 }
 
+export async function createOrUpdateReview(payload: {
+  courseId: number;
+  rating: number;
+  reviewText: string;
+}) {
+  try {
+    const { userId } = await getStudentSession();
+    const { courseId, rating, reviewText } = payload;
+
+    // Validasi input menggunakan skema Zod
+    const validatedFields = createReviewSchema.safeParse({
+      user_id: userId,
+      course_id: courseId,
+      rating,
+      review_text: reviewText,
+    });
+
+    if (!validatedFields.success) {
+      return {
+        success: false,
+        error:
+          "Data tidak valid: " + validatedFields.error.flatten().fieldErrors,
+      };
+    }
+
+    // Cek apakah user terdaftar di kursus ini
+    const enrollment = await Enrollment.findOne({
+      where: {
+        user_id: userId,
+        course_id: courseId,
+        status: { [Op.in]: ["active", "completed"] },
+      },
+    });
+
+    if (!enrollment) {
+      return { success: false, error: "Anda tidak terdaftar di kursus ini." };
+    }
+
+    // Cari review yang ada
+    const existingReview = await Review.findOne({
+      where: { user_id: userId, course_id: courseId },
+    });
+
+    if (existingReview) {
+      // Update review
+      await existingReview.update({
+        rating: validatedFields.data.rating,
+        review_text: validatedFields.data.review_text,
+      });
+      revalidatePath(`/courses/${courseId}`);
+      return { success: true, message: "Review Anda berhasil diperbarui." };
+    } else {
+      // Buat review baru
+      await Review.create(validatedFields.data);
+      revalidatePath(`/courses/${courseId}`);
+      return { success: true, message: "Review Anda berhasil dikirim." };
+    }
+  } catch (error: any) {
+    console.error("[CREATE_OR_UPDATE_REVIEW_ERROR]", error);
+    return {
+      success: false,
+      error: error.message || "Gagal menyimpan review.",
+    };
+  }
+}
+
 export async function getCourseLearningData(courseId: number) {
   try {
     const { userId } = await getStudentSession();
@@ -276,7 +345,7 @@ export async function getCourseLearningData(courseId: number) {
       where: {
         course_id: courseId,
         user_id: userId,
-        status: "active",
+        status: { [Op.in]: ["active", "completed"] },
       },
       include: [
         {
@@ -287,17 +356,17 @@ export async function getCourseLearningData(courseId: number) {
       ],
     });
 
-    if (!enrollment) {
-      const completedEnrollment = await Enrollment.findOne({
-        where: { course_id: courseId, user_id: userId, status: "completed" },
-      });
+    // if (!enrollment) {
+    //   const completedEnrollment = await Enrollment.findOne({
+    //     where: { course_id: courseId, user_id: userId, status: "completed" },
+    //   });
 
-      if (completedEnrollment) {
-        enrollment = completedEnrollment;
-      } else {
-        throw new Error("Anda tidak terdaftar di kursus ini.");
-      }
-    }
+    //   if (completedEnrollment) {
+    //     enrollment = completedEnrollment;
+    //   } else {
+    //     throw new Error("Anda tidak terdaftar di kursus ini.");
+    //   }
+    // }
 
     const isAccessExpired =
       enrollment.access_expires_at &&
@@ -454,6 +523,27 @@ export async function getCourseLearningData(courseId: number) {
     const totalProgress =
       totalItems > 0 ? Math.round((completedCount / totalItems) * 100) : 0;
 
+    let certificate: Certificate | null = null;
+    let review: Review | null = null;
+
+    if (totalProgress === 100 || enrollment.status === "completed") {
+      // Ambil sertifikat JIKA sudah selesai
+      certificate = await Certificate.findOne({
+        where: {
+          user_id: userId,
+          course_id: courseId,
+          enrollment_id: enrollment.enrollment_id,
+        },
+        attributes: ["certificate_number"],
+      });
+
+      // Ambil review yang ada
+      review = await Review.findOne({
+        where: { user_id: userId, course_id: courseId },
+        attributes: ["rating", "review_text"],
+      });
+    }
+
     return {
       success: true,
       data: {
@@ -480,6 +570,8 @@ export async function getCourseLearningData(courseId: number) {
               updatedAt: enrollment.checkpoint_updated_at!,
             }
           : null,
+        certificate: certificate ? certificate.toJSON() : null,
+        existingReview: review ? review.toJSON() : null,
       },
     };
   } catch (error: any) {
@@ -1013,6 +1105,7 @@ export async function resetCourseProgressAndExtendAccess(
       await Certificate.destroy({
         where: { user_id: userId, course_id: courseId },
         transaction: t,
+        force: true,
       });
 
       const updateData: any = {
@@ -1252,5 +1345,39 @@ export async function getNextIncompleteContent(
   } catch (error: any) {
     console.error("[GET_NEXT_INCOMPLETE_ERROR]", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function getPendingPayments() {
+  try {
+    const { userId } = await getStudentSession();
+
+    const pendingPayments = await Payment.findAll({
+      where: {
+        user_id: userId,
+        status: "pending",
+      },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_title", "course_id"], // Ambil course_id untuk link
+          required: true,
+        },
+      ],
+      attributes: [
+        "payment_id",
+        "gateway_external_id", // Ini adalah 'invoice_id' yang Anda buat [cite: 4710]
+        "amount",
+        "course_id",
+        "created_at",
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    return { success: true, data: pendingPayments.map((p) => p.toJSON()) };
+  } catch (error: any) {
+    console.error("[GET_PENDING_PAYMENTS_ERROR]", error);
+    return { success: false, error: error.message || "Gagal mengambil data pembayaran tertunda." };
   }
 }

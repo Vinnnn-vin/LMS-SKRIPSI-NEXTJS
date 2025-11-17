@@ -11,6 +11,7 @@ interface NotificationAttributes {
   notification_type: "info" | "success" | "warning" | "error" | null;
   is_read: boolean | null;
   created_at: Date | null;
+  deleted_at: Date | null;
 }
 
 interface NotificationCreationAttributes
@@ -36,6 +37,7 @@ export class Notification
   declare notification_type: "info" | "success" | "warning" | "error" | null;
   declare is_read: boolean | null;
   declare created_at: Date | null;
+  declare deleted_at: Date;
 
   declare readonly user?: User;
 
@@ -85,11 +87,16 @@ export class Notification
           allowNull: true,
           defaultValue: DataTypes.NOW,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "notifications",
         timestamps: false,
+        paranoid: true,
       }
     );
     return Notification;

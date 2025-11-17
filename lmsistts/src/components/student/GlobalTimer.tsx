@@ -19,6 +19,7 @@ import {
   IconAlertTriangle,
   IconInfinity,
   IconReload,
+  IconCheck,
 } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import duration from "dayjs/plugin/duration";
@@ -32,6 +33,7 @@ interface GlobalTimerProps {
   learningStartedAt: string | null;
   enrolledAt: string;
   onTimeExpired: () => Promise<void>;
+  totalProgress: number;
 }
 
 export default function GlobalTimer({
@@ -41,6 +43,7 @@ export default function GlobalTimer({
   learningStartedAt,
   enrolledAt,
   onTimeExpired,
+  totalProgress,
 }: GlobalTimerProps) {
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isExpired, setIsExpired] = useState(false);
@@ -59,6 +62,12 @@ export default function GlobalTimer({
   };
 
   const calculateRemainingTime = useCallback(() => {
+    if (totalProgress === 100) {
+      setIsLoading(false);
+      setIsExpired(true); // Anggap "selesai" sama dengan "expired" untuk UI
+      return 0;
+    }
+
     if (!courseDuration || courseDuration === 0) {
       setIsLoading(false);
       return null;
@@ -82,19 +91,19 @@ export default function GlobalTimer({
     const remaining = deadline.diff(now, "second");
     setIsLoading(false);
     return remaining;
-  }, [courseDuration, learningStartedAt, enrolledAt]);
+  }, [courseDuration, learningStartedAt, enrolledAt, totalProgress]);
 
   useEffect(() => {
     const initial = calculateRemainingTime();
     setRemainingSeconds(initial);
 
-    if (initial === 0) {
+    if (initial === 0 && totalProgress < 100) { // <-- Perbarui kondisi modal
       setShowExpiredModal(true);
     }
-  }, [calculateRemainingTime]);
+  }, [calculateRemainingTime, totalProgress]);
 
   useEffect(() => {
-    if (!courseDuration || courseDuration === 0 || isExpired) {
+    if (!courseDuration || courseDuration === 0 || isExpired || totalProgress === 100) {
       return;
     }
 
@@ -112,7 +121,7 @@ export default function GlobalTimer({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [courseDuration, isExpired]);
+  }, [courseDuration, isExpired, totalProgress]);
 
   const handleReset = async () => {
     setIsResetting(true);
@@ -128,6 +137,21 @@ export default function GlobalTimer({
 
   if (isLoading) {
     return null;
+  }
+
+  if (totalProgress === 100 && courseDuration > 0) {
+     return (
+       <Alert
+        icon={<IconCheck size={16} />}
+        color="green"
+        variant="light"
+        radius="md"
+      >
+        <Text size="sm" fw={500}>
+          Kursus Selesai
+        </Text>
+      </Alert>
+     );
   }
 
   if (!courseDuration || courseDuration === 0 || remainingSeconds === null) {

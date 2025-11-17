@@ -14,6 +14,7 @@ interface StudentProgressAttributes {
   completed_at: Date;
   created_at: Date;
   updated_at: Date;
+  deleted_at: Date | null;
 }
 
 interface StudentProgressCreationAttributes
@@ -38,6 +39,7 @@ export class StudentProgress
   declare completed_at: Date;
   declare created_at: Date;
   declare updated_at: Date;
+  declare deleted_at: Date;
 
   declare readonly student?: User;
   declare readonly course?: Course;
@@ -89,11 +91,16 @@ export class StudentProgress
           allowNull: false,
           defaultValue: DataTypes.NOW,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "student_progress",
         timestamps: false,
+        paranoid: true,
       }
     );
     return StudentProgress;

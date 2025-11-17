@@ -14,6 +14,7 @@ interface CertificateAttributes {
   certificate_number: string | null;
   issued_at: Date | null;
   created_at: Date | null;
+  deleted_at: Date | null;
 }
 
 interface CertificateCreationAttributes
@@ -41,6 +42,7 @@ export class Certificate
   declare certificate_number: string | null;
   declare issued_at: Date | null;
   declare created_at: Date | null;
+  declare deleted_at: Date;
 
   declare readonly student?: User;
   declare readonly course?: Course;
@@ -90,11 +92,16 @@ export class Certificate
           allowNull: true,
           defaultValue: DataTypes.NOW,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "certificates",
         timestamps: false,
+        paranoid: true,
       }
     );
     return Certificate;

@@ -15,6 +15,9 @@ import {
 } from "@/lib/schemas/user.schema";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
+import { Op } from "sequelize";
+import { randomBytes } from "crypto";
+import nodemailer from 'nodemailer';
 
 export async function register(values: z.infer<typeof registerFormSchema>) {
   const validatedFields = registerFormSchema.safeParse(values);
@@ -145,5 +148,115 @@ export async function updateUserProfile(formData: FormData) {
     const msg =
       error instanceof Error ? error.message : "Gagal memperbarui profil.";
     return { error: msg };
+  }
+}
+
+async function sendEmail(to: string, subject: string, html: string) {
+  try {
+    const transporter = nodemailer.createTransport({
+      service: 'gmail', // Gunakan Gmail
+      auth: {
+        user: process.env.EMAIL_SERVER_USER, // Email dari .env
+        pass: process.env.EMAIL_SERVER_PASSWORD, // App Password dari .env
+      },
+    });
+
+    const mailOptions = {
+      from: `"IClick LMS" <${process.env.EMAIL_SERVER_USER}>`,
+      to: to,
+      subject: subject,
+      html: html,
+    };
+
+    // Kirim email
+    await transporter.sendMail(mailOptions);
+    console.log(`Email reset password terkirim ke: ${to}`);
+    return { success: true };
+
+  } catch (error: any) {
+    console.error(`[SEND_EMAIL_ERROR] Gagal mengirim ke ${to}:`, error);
+    // Jika gagal mengirim, jangan beritahu user (keamanan), cukup log di server
+    // Namun untuk development, kita lempar error agar tahu masalahnya:
+    throw new Error(`Gagal mengirim email: ${error.message}`);
+  }
+}
+
+/**
+ * Membuat token reset dan mengirimkannya via Email
+ * (Versi sederhana, hanya email)
+ */
+export async function sendPasswordResetLink(email: string) {
+  try {
+    const user = await User.findOne({ where: { email } });
+
+    if (!user) {
+      // Jangan beritahu jika email ada atau tidak (keamanan)
+      return { success: "Jika email Anda terdaftar, Anda akan menerima link reset." };
+    }
+
+    // 1. Buat token
+    const token = randomBytes(32).toString("hex");
+    const tokenExpires = new Date(Date.now() + 3600000); // 1 jam
+
+    // 2. Simpan token ke database
+    await user.update({
+      reset_token: token,
+      reset_token_expires: tokenExpires,
+    });
+
+    const resetLink = `${process.env.NEXTAUTH_URL}/forgot-password/${token}`;
+
+    // 3. Kirim email
+    const subject = "Reset Password Akun IClick Anda";
+    const html = `<p>Anda meminta reset password. Klik link di bawah untuk melanjutkan:</p>
+                  <a href="${resetLink}">Reset Password Saya</a>
+                  <p>Link ini akan kedaluwarsa dalam 1 jam.</p>`;
+    
+    // TODO: Ganti ini dengan layanan email Anda
+    await sendEmail(user.email!, subject, html);
+
+    return { success: "Link reset telah dikirim. Silakan periksa email Anda." };
+
+  } catch (error: any) {
+    console.error("[SEND_RESET_LINK_ERROR]", error);
+    return { error: error.message || "Gagal mengirim link reset." };
+  }
+}
+
+/**
+ * Memvalidasi token dan me-reset password
+ * (Fungsi ini sudah benar dari sebelumnya, tidak perlu diubah)
+ */
+export async function resetPassword(token: string, newPassword: string) {
+  try {
+    // 1. Cari user berdasarkan token yang valid
+    const user = await User.findOne({
+      where: {
+        reset_token: token,
+        reset_token_expires: {
+          [Op.gt]: new Date(), // Pastikan token belum kedaluwarsa
+        },
+      },
+    });
+
+    if (!user) {
+      return { error: "Token tidak valid atau sudah kedaluwarsa." };
+    }
+
+    // 2. Hash password baru
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // 3. Update password dan hapus token
+    await user.update({
+      password_hash: hashedPassword,
+      reset_token: null,
+      reset_token_expires: null,
+    });
+
+    return { success: "Password Anda telah berhasil di-reset! Silakan login." };
+
+  } catch (error: any) {
+    console.error("[RESET_PASSWORD_ERROR]", error);
+    return { error: error.message || "Gagal me-reset password." };
   }
 }

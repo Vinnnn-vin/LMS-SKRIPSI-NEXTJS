@@ -20,6 +20,7 @@ interface StudentQuizAnswerAttributes {
   status: "passed" | "failed" | "pending" | null;
   answered_at: Date | null;
   completed_at: Date | null;
+  deleted_at: Date | null;
 }
 
 interface StudentQuizAnswerCreationAttributes
@@ -57,6 +58,7 @@ export class StudentQuizAnswer
   declare status: "passed" | "failed" | "pending" | null;
   declare answered_at: Date | null;
   declare completed_at: Date | null;
+  deleted_at: Date;
 
   declare readonly student?: User;
   declare readonly quiz?: Quiz;
@@ -137,11 +139,16 @@ export class StudentQuizAnswer
           type: DataTypes.DATE,
           allowNull: true,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "student_quiz_answers",
         timestamps: false,
+        paranoid: true,
       }
     );
     return StudentQuizAnswer;

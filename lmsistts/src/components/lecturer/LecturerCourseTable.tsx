@@ -110,6 +110,8 @@ export function LecturerCourseTable({
     initialValues: {
       course_title: "",
       course_description: "",
+      what_youll_learn: "",
+      requirements: "",
       course_level: "Beginner" as const,
       category_id: null as string | null,
       thumbnail_file: undefined as File | undefined,
@@ -152,6 +154,8 @@ export function LecturerCourseTable({
     form.setValues({
       course_title: course.course_title ?? "",
       course_description: course.course_description ?? "",
+      what_youll_learn: course.what_youll_learn ?? "",
+      requirements: course.requirements ?? "",
       course_level: course.course_level ?? "Beginner",
       category_id: course.category_id ? String(course.category_id) : null,
       thumbnail_file: undefined,
@@ -398,6 +402,20 @@ export function LecturerCourseTable({
               label="Deskripsi"
               minRows={3}
               {...form.getInputProps("course_description")}
+            />
+            <Textarea
+              label="Apa yang Akan Dipelajari"
+              description="Pisahkan setiap poin dengan baris baru (Enter)."
+              placeholder="Contoh:&#10;- Memahami konsep dasar...&#10;- Mampu membuat..."
+              minRows={4}
+              {...form.getInputProps("what_youll_learn")}
+            />
+            <Textarea
+              label="Persyaratan Kursus"
+              description="Pisahkan setiap poin dengan baris baru (Enter)."
+              placeholder="Contoh:&#10;- Komputer/Laptop&#10;- Koneksi internet"
+              minRows={3}
+              {...form.getInputProps("requirements")}
             />
             <Group grow>
               <Select

@@ -10,6 +10,7 @@ interface MaterialAttributes {
   material_name: string | null;
   material_description: string | null;
   course_id: number;
+  deleted_at: Date | null;
 }
 
 interface MaterialCreationAttributes
@@ -26,6 +27,7 @@ export class Material
   declare material_name: string | null;
   declare material_description: string | null;
   declare course_id: number;
+  declare deleted_at: Date;
 
   declare readonly course?: Course;
   declare readonly details?: MaterialDetail[];
@@ -57,11 +59,16 @@ export class Material
           type: DataTypes.INTEGER,
           allowNull: false,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "material",
         timestamps: false,
+        paranoid: true,
       }
     );
     return Material;

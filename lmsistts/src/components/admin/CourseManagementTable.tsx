@@ -148,6 +148,8 @@ export function CourseManagementTable({
     initialValues: {
       course_title: "",
       course_description: "",
+      what_youll_learn: "",
+      requirements: "",
       course_level: "Beginner",
       category_id: null,
       user_id: null,
@@ -215,6 +217,8 @@ export function CourseManagementTable({
         form.setValues({
           course_title: courseDetails.course_title ?? "",
           course_description: courseDetails.course_description ?? "",
+          what_youll_learn: courseDetails.what_youll_learn ?? "",
+          requirements: courseDetails.requirements ?? "",
           course_level: courseDetails.course_level ?? "Beginner",
           category_id: courseDetails.category_id
             ? Number(courseDetails.category_id)
@@ -471,7 +475,20 @@ export function CourseManagementTable({
               minRows={3}
               {...form.getInputProps("course_description")}
             />
-
+            <Textarea
+              label="Apa yang Akan Dipelajari"
+              description="Pisahkan setiap poin dengan baris baru (Enter)."
+              placeholder="Contoh:&#10;- Memahami konsep dasar...&#10;- Mampu membuat..."
+              minRows={4}
+              {...form.getInputProps("what_youll_learn")}
+            />
+            <Textarea
+              label="Persyaratan Kursus"
+              description="Pisahkan setiap poin dengan baris baru (Enter)."
+              placeholder="Contoh:&#10;- Komputer/Laptop&#10;- Koneksi internet"
+              minRows={3}
+              {...form.getInputProps("requirements")}
+            />
             <Group grow>
               <Select
                 label="Level"

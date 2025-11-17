@@ -2,7 +2,15 @@
 
 "use server";
 
-import { Course, User, Category, MaterialDetail, Material } from "@/lib/models";
+import {
+  Course,
+  User,
+  Category,
+  MaterialDetail,
+  Material,
+  Enrollment,
+  Review,
+} from "@/lib/models";
 import {
   courseCardDataSchema,
   type CourseCardData,
@@ -310,6 +318,8 @@ export async function getCourseDetailsById(courseId: number) {
             {
               model: MaterialDetail,
               as: "details",
+              where: { is_free: true },
+              required: false,
             },
           ],
         },
@@ -329,7 +339,46 @@ export async function getCourseDetailsById(courseId: number) {
       return { success: false, error: "Kursus tidak ditemukan." };
     }
 
-    return { success: true, data: course.toJSON() };
+    // Hitung Jumlah Siswa
+    const studentCount = await Enrollment.count({
+      where: { course_id: courseId },
+    });
+
+    // Hitung Rata-rata Rating
+    const reviews = await Review.findAll({
+      where: { course_id: courseId },
+      attributes: ["rating"],
+    });
+
+    let averageRating = 0;
+    if (reviews.length > 0) {
+      const totalRating = reviews.reduce(
+        (acc, review) => acc + (review.rating || 0),
+        0
+      );
+      averageRating = parseFloat((totalRating / reviews.length).toFixed(1));
+    }
+
+    const courseData = course.toJSON();
+    const learnList = courseData.what_youll_learn
+      ? courseData.what_youll_learn
+          .split("\n")
+          .filter((item) => item.trim() !== "")
+      : [];
+    const requirementsList = courseData.requirements
+      ? courseData.requirements.split("\n").filter((item) => item.trim() !== "")
+      : [];
+
+    return {
+      success: true,
+      data: {
+        ...courseData,
+        studentCount: studentCount,
+        averageRating: averageRating,
+        learnList: learnList,
+        requirementsList: requirementsList,
+      },
+    };
   } catch (error) {
     console.error(`[GET_COURSE_DETAILS_ERROR] ID: ${courseId}`, error);
     return { success: false, error: "Gagal mengambil detail kursus." };

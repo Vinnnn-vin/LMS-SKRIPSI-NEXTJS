@@ -49,6 +49,16 @@ export const createCourseSchema = z.object({
     .string()
     .min(10, "Description must be at least 10 characters")
     .max(5000),
+  what_youll_learn: z
+    .string()
+    .max(2000, "Maksimal 2000 karakter")
+    .optional()
+    .or(z.literal("")),
+  requirements: z
+    .string()
+    .max(1000, "Maksimal 1000 karakter")
+    .optional()
+    .or(z.literal("")),
   course_level: courseLevelEnum,
   course_price: idFromString.pipe(
     z.number().max(100000000, "Harga terlalu besar")
@@ -79,6 +89,16 @@ export const updateCourseSchema = z
       .max(5000, "Deskripsi maksimal 5000 karakter")
       .trim()
       .optional(),
+    what_youll_learn: z
+      .string()
+      .max(2000, "Maksimal 2000 karakter")
+      .optional()
+      .or(z.literal("")),
+    requirements: z
+      .string()
+      .max(1000, "Maksimal 1000 karakter")
+      .optional()
+      .or(z.literal("")),
     course_level: courseLevelEnum.optional(),
     course_price: idFromString
       .pipe(z.number().max(100000000, "Harga terlalu besar"))
@@ -209,6 +229,8 @@ export const lecturerCourseDataSchema = z.object({
   course_id: z.number(),
   course_title: z.string().nullable(),
   course_description: z.string().nullable(),
+  what_youll_learn: z.string().nullable(),
+  requirements: z.string().nullable(),
   course_level: courseLevelEnum.nullable(),
   category_id: z.number().nullable(),
   thumbnail_url: z.string().nullable(),

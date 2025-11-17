@@ -15,6 +15,7 @@ interface MaterialDetailAttributes {
   assignment_template_url: string | null;
   passing_score: number | null;
   is_free: boolean;
+  deleted_at: Date | null;
 }
 
 interface MaterialDetailCreationAttributes
@@ -36,6 +37,7 @@ export class MaterialDetail
   declare assignment_template_url: string | null;
   declare passing_score: number | null;
   declare is_free: boolean;
+  declare deleted_at: Date;
 
   declare readonly material?: Material;
   declare readonly submissions?: AssignmentSubmission[];
@@ -115,11 +117,16 @@ export class MaterialDetail
           allowNull: false,
           defaultValue: false,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "material_detail",
         timestamps: false,
+        paranoid: true,
       }
     );
     return MaterialDetail;

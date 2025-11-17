@@ -42,6 +42,8 @@ import {
   IconPlayerPlay,
   IconChevronRight,
   IconTool,
+  IconLock,
+  IconClipboardText,
 } from "@tabler/icons-react";
 import { notFound } from "next/navigation";
 import { getCourseDetailsById } from "@/app/actions/course.actions";
@@ -49,6 +51,7 @@ import Link from "next/link";
 import classes from "./CourseDetail.module.css";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
+import { YouTubeEmbed } from "@/components/student/YouTubeEmbed";
 
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
@@ -327,8 +330,9 @@ export default async function CourseDetailPage({
                     <IconClock size={20} />
                   </ThemeIcon>
                   <Box>
+                    {/* GUNAKAN DATA DARI DB */}
                     <Text size="xl" fw={700}>
-                      {estimatedHours}h
+                      {course.course_duration || "0"}h
                     </Text>
                     <Text size="xs" c="dimmed">
                       Durasi
@@ -344,8 +348,9 @@ export default async function CourseDetailPage({
                     <IconUsers size={20} />
                   </ThemeIcon>
                   <Box>
+                    {/* GUNAKAN DATA DARI DB */}
                     <Text size="xl" fw={700}>
-                      1.2K
+                      {course.studentCount}
                     </Text>
                     <Text size="xs" c="dimmed">
                       Siswa
@@ -361,8 +366,9 @@ export default async function CourseDetailPage({
                     <IconTrophy size={20} />
                   </ThemeIcon>
                   <Box>
+                    {/* GUNAKAN DATA DARI DB */}
                     <Text size="xl" fw={700}>
-                      4.5
+                      {course.averageRating}
                     </Text>
                     <Text size="xs" c="dimmed">
                       Rating
@@ -440,45 +446,116 @@ export default async function CourseDetailPage({
                         </Group>
                       </AccordionControl>
                       <AccordionPanel>
-                        <Stack gap="xs">
-                          {material.details?.map(
-                            (detail: any, detailIndex: number) => (
-                              <Paper
-                                key={detail.material_detail_id}
-                                p="md"
-                                withBorder
-                                radius="md"
-                                className={classes.materialItem}
+                        <Stack gap="lg">
+                          {" "}
+                          {material.details?.map((detail: any) => (
+                            <Paper
+                              key={detail.material_detail_id}
+                              p="md"
+                              radius="md"
+                              withBorder
+                              bg={
+                                detail.is_free
+                                  ? "var(--mantine-color-gray-0)"
+                                  : "white"
+                              }
+                            >
+                              <Group
+                                justify="space-between"
+                                mb={detail.is_free ? "md" : 0}
                               >
-                                <Group justify="space-between">
-                                  <Group>
-                                    <ThemeIcon
-                                      variant="light"
-                                      size="md"
-                                      color="cyan"
-                                    >
-                                      {getMaterialIcon(
+                                <Group>
+                                  <ThemeIcon
+                                    variant="light"
+                                    size="md"
+                                    color={detail.is_free ? "teal" : "gray"}
+                                  >
+                                    {detail.is_free ? (
+                                      getMaterialIcon(
+                                        detail.material_detail_type
+                                      )
+                                    ) : (
+                                      <IconLock size={16} />
+                                    )}
+                                  </ThemeIcon>
+                                  <Box>
+                                    <Text size="sm" fw={500}>
+                                      {detail.material_detail_name}
+                                    </Text>
+                                    <Text size="xs" c="dimmed">
+                                      {getMaterialTypeLabel(
                                         detail.material_detail_type
                                       )}
-                                    </ThemeIcon>
-                                    <Box>
-                                      <Text size="sm" fw={500}>
-                                        {detail.material_detail_name}
-                                      </Text>
-                                      <Text size="xs" c="dimmed">
-                                        {getMaterialTypeLabel(
-                                          detail.material_detail_type
-                                        )}
-                                      </Text>
-                                    </Box>
-                                  </Group>
-                                  <Badge size="sm" variant="light" color="gray">
-                                    {Math.floor(Math.random() * 15) + 5} menit
-                                  </Badge>
+                                    </Text>
+                                  </Box>
+                                  {detail.is_free && (
+                                    <Badge color="teal" variant="filled">
+                                      PREVIEW GRATIS
+                                    </Badge>
+                                  )}
                                 </Group>
-                              </Paper>
-                            )
-                          )}
+                                {!detail.is_free && (
+                                  <Badge size="sm" variant="light" color="gray">
+                                    Terkunci
+                                  </Badge>
+                                )}
+                              </Group>
+
+                              {detail.is_free && (
+                                <Stack gap="xs" mt="md" pl={38}>
+                                  {detail.material_detail_description && (
+                                    <Text
+                                      size="sm"
+                                      c="dimmed"
+                                      style={{ whiteSpace: "pre-wrap" }}
+                                    >
+                                      {detail.material_detail_description}
+                                    </Text>
+                                  )}
+
+                                  {/* Tipe 1 & 3 (Video YouTube) */}
+                                  {(detail.material_detail_type === 1 ||
+                                    detail.material_detail_type === 3) &&
+                                    detail.materi_detail_url && (
+                                      <YouTubeEmbed
+                                        url={detail.materi_detail_url}
+                                        title={detail.material_detail_name}
+                                      />
+                                    )}
+
+                                  {/* Tipe 2 (PDF) */}
+                                  {detail.material_detail_type === 2 &&
+                                    detail.materi_detail_url && (
+                                      <iframe
+                                        src={detail.materi_detail_url}
+                                        style={{
+                                          width: "100%",
+                                          height: "400px",
+                                          border:
+                                            "1px solid var(--mantine-color-gray-3)",
+                                          borderRadius:
+                                            "var(--mantine-radius-md)",
+                                        }}
+                                        title={detail.material_detail_name}
+                                      />
+                                    )}
+
+                                  {/* Tipe 4 (Tugas) - Hanya tampilkan deskripsi */}
+                                  {detail.material_detail_type === 4 && (
+                                    <Alert
+                                      icon={<IconClipboardText size={16} />}
+                                      color="blue"
+                                      variant="light"
+                                      title="Tugas"
+                                    >
+                                      Siswa akan diminta untuk mengumpulkan
+                                      tugas pada materi ini.
+                                    </Alert>
+                                  )}
+                                </Stack>
+                              )}
+                            </Paper>
+                          ))}
                         </Stack>
                       </AccordionPanel>
                     </AccordionItem>
@@ -503,10 +580,16 @@ export default async function CourseDetailPage({
                     </ThemeIcon>
                   }
                 >
-                  <ListItem>Memahami konsep dasar hingga lanjutan</ListItem>
-                  <ListItem>Praktik langsung dengan project nyata</ListItem>
-                  <ListItem>Best practices dari industri</ListItem>
-                  <ListItem>Tips dan trik dari expert</ListItem>
+                  {/* UBAH MENJADI DINAMIS */}
+                  {course.learnList && course.learnList.length > 0 ? (
+                    course.learnList.map((item: string, index: number) => (
+                      <ListItem key={index}>{item}</ListItem>
+                    ))
+                  ) : (
+                    <ListItem>
+                      Detail pembelajaran akan segera ditambahkan.
+                    </ListItem>
+                  )}
                 </List>
               </Paper>
 
@@ -515,9 +598,17 @@ export default async function CourseDetailPage({
                   Persyaratan
                 </Title>
                 <List spacing="sm" size="sm">
-                  <ListItem>Komputer atau laptop</ListItem>
-                  <ListItem>Koneksi internet stabil</ListItem>
-                  <ListItem>Semangat untuk belajar</ListItem>
+                  {/* UBAH MENJADI DINAMIS */}
+                  {course.requirementsList &&
+                  course.requirementsList.length > 0 ? (
+                    course.requirementsList.map(
+                      (item: string, index: number) => (
+                        <ListItem key={index}>{item}</ListItem>
+                      )
+                    )
+                  ) : (
+                    <ListItem>Tidak ada persyaratan khusus.</ListItem>
+                  )}
                 </List>
               </Paper>
 

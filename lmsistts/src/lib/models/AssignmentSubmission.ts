@@ -31,6 +31,7 @@ interface AssignmentSubmissionAttributes {
   reviewed_at: Date | null;
   created_at: Date;
   updated_at: Date;
+  deleted_at: Date | null;
 }
 
 interface AssignmentSubmissionCreationAttributes
@@ -82,6 +83,7 @@ export class AssignmentSubmission
   declare reviewed_at: Date | null;
   declare created_at: Date;
   declare updated_at: Date;
+  declare deleted_at: Date;
 
   declare readonly student?: User;
   declare readonly assignment?: MaterialDetail;
@@ -216,11 +218,16 @@ export class AssignmentSubmission
           allowNull: false,
           defaultValue: DataTypes.NOW,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "assignment_submissions",
         timestamps: false,
+        paranoid: true,
       }
     );
     return AssignmentSubmission;

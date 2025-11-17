@@ -22,6 +22,8 @@ export interface CourseAttributes {
   user_id: number | null;
   category_id: number | null;
   thumbnail_url: string | null;
+  what_youll_learn: string | null;
+  requirements: string | null;
   created_at: Date | null;
   updated_at: Date | null;
   deleted_at: Date | null;
@@ -66,10 +68,17 @@ export class Course
   declare course_price: number | null;
   declare course_duration: number | null;
   declare publish_status: number | null;
-  declare publish_request_status?: "none" | "pending" | "approved" | "rejected" | null;
+  declare publish_request_status?:
+    | "none"
+    | "pending"
+    | "approved"
+    | "rejected"
+    | null;
   declare user_id: number | null;
   declare category_id: number | null;
   declare thumbnail_url: string | null;
+  declare what_youll_learn: string;
+  declare requirements: string;
   declare created_at: Date | null;
   declare updated_at: Date | null;
   declare deleted_at: Date | null;
@@ -162,6 +171,14 @@ export class Course
         },
         thumbnail_url: {
           type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        what_youll_learn: {
+          type: DataTypes.TEXT,
+          allowNull: true,
+        },
+        requirements: {
+          type: DataTypes.TEXT,
           allowNull: true,
         },
         created_at: {

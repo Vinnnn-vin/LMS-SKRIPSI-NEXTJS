@@ -10,6 +10,7 @@ interface QuizAnswerOptionAttributes {
   question_id: number | null;
   option_text: string | null;
   is_correct: boolean | null;
+  deleted_at: Date | null;
 }
 
 interface QuizAnswerOptionCreationAttributes
@@ -27,6 +28,7 @@ export class QuizAnswerOption
   declare question_id: number | null;
   declare option_text: string | null;
   declare is_correct: boolean | null;
+  declare deleted_at: Date;
 
   declare readonly quiz?: Quiz;
   declare readonly question?: QuizQuestion;
@@ -61,11 +63,16 @@ export class QuizAnswerOption
           allowNull: true,
           defaultValue: false,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "quiz_answer_options",
         timestamps: false,
+        paranoid: true,
       }
     );
     return QuizAnswerOption;

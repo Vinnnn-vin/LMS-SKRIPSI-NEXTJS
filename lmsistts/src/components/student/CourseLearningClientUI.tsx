@@ -34,6 +34,7 @@ import { LearningHeader } from "./LearningHeader";
 import { MaterialContent } from "./MaterialContent";
 import { AssignmentContent } from "./AssignmentContent";
 import { QuizContent } from "./QuizContent";
+import { CourseCompletionBar } from "./CourseCompletionBar";
 import GlobalTimer from "./GlobalTimer";
 import {
   resetCourseProgressAndExtendAccess,
@@ -77,6 +78,8 @@ interface CourseLearningClientUIProps {
   lastCheckpoint?: Checkpoint | null;
   initialContent?: any | null;
   initialContentType?: "detail" | "quiz" | null;
+  certificate: { certificate_number: string } | null;
+  existingReview: { rating: number; review_text: string } | null;
 }
 
 const getMaterialIcon = (type: number) => {
@@ -131,6 +134,8 @@ export function CourseLearningClientUI({
   lastCheckpoint = null,
   initialContent = null,
   initialContentType = null,
+  certificate,
+  existingReview,
 }: CourseLearningClientUIProps) {
   const router = useRouter();
 
@@ -465,6 +470,7 @@ export function CourseLearningClientUI({
                 }
                 enrolledAt={String(enrolledAt)}
                 onTimeExpired={handleTimeExpired}
+                totalProgress={totalProgress}
               />
             </Box>
 
@@ -692,6 +698,12 @@ export function CourseLearningClientUI({
           </Box>
         </Grid.Col>
       </Grid>
+      <CourseCompletionBar
+        totalProgress={totalProgress}
+        courseId={course.course_id}
+        certificateNumber={certificate?.certificate_number || null}
+        existingReview={existingReview}
+      />
     </Box>
   );
 }

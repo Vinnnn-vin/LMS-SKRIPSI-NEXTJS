@@ -25,10 +25,12 @@ import {
   IconPlayerPlay,
   IconAlertCircle,
   IconBookmark,
+  IconCreditCard,
 } from "@tabler/icons-react";
 import {
   getStudentDashboardStats,
   getMyEnrolledCoursesWithProgress,
+  getPendingPayments,
 } from "@/app/actions/student.actions";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -40,12 +42,19 @@ const formatNumber = (num: number) =>
 export default async function StudentDashboardPage() {
   const session = await getServerSession(authOptions);
 
-  const [statsResult, coursesResult] = await Promise.all([
-    getStudentDashboardStats(),
-    getMyEnrolledCoursesWithProgress(),
-  ]);
+  const [statsResult, coursesResult, pendingPaymentsResult] = await Promise.all(
+    [
+      getStudentDashboardStats(),
+      getMyEnrolledCoursesWithProgress(),
+      getPendingPayments(),
+    ]
+  );
 
-  if (!statsResult.success || !coursesResult.success) {
+  if (
+    !statsResult.success ||
+    !coursesResult.success ||
+    !pendingPaymentsResult.success
+  ) {
     return (
       <Container py="xl">
         <Alert
@@ -53,7 +62,10 @@ export default async function StudentDashboardPage() {
           title="Gagal Memuat Data Dashboard"
           icon={<IconAlertCircle />}
         >
-          {statsResult.error || coursesResult.error || "Terjadi kesalahan."}
+          {statsResult.error ||
+            coursesResult.error ||
+            pendingPaymentsResult.error || // <-- Tampilkan error jika ada
+            "Terjadi kesalahan."}
         </Alert>
       </Container>
     );
@@ -76,6 +88,7 @@ export default async function StudentDashboardPage() {
 
   const activeCourses = coursesResult.data?.active || [];
   const completedCourses = coursesResult.data?.completed || [];
+  const pendingPayments = pendingPaymentsResult.data || [];
 
   return (
     <Container fluid>
@@ -85,6 +98,43 @@ export default async function StudentDashboardPage() {
         </Title>
         <Text c="dimmed">Mari lanjutkan perjalanan belajar Anda hari ini!</Text>
       </Stack>
+      {pendingPayments.length > 0 && (
+        <Alert
+          color="orange"
+          icon={<IconCreditCard size={24} />}
+          title="Pembayaran Tertunda"
+          mb="xl"
+          radius="md"
+        >
+          <Stack gap="md">
+            <Text size="sm">
+              Anda memiliki {pendingPayments.length} transaksi yang belum
+              selesai. Selesaikan pembayaran untuk memulai kursus Anda.
+            </Text>
+            {pendingPayments.map((payment: any) => (
+              <Paper withBorder p="sm" radius="md" key={payment.payment_id}>
+                <Group justify="space-between">
+                  <Stack gap={0}>
+                    <Text fw={500}>{payment.course.course_title}</Text>
+                    <Text size="xs" c="dimmed">
+                      Invoice ID: {payment.gateway_external_id}
+                    </Text>
+                  </Stack>
+                  <Button
+                    component={Link}
+                    href={`/courses/${payment.course_id}/checkout`}
+                    size="xs"
+                    variant="filled"
+                    color="orange"
+                  >
+                    Lanjutkan Pembayaran
+                  </Button>
+                </Group>
+              </Paper>
+            ))}
+          </Stack>
+        </Alert>
+      )}
 
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         {stats.map((stat) => (

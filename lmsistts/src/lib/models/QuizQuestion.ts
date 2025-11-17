@@ -11,6 +11,7 @@ interface QuizQuestionAttributes {
   question_text: string | null;
   question_type: "multiple_choice" | "checkbox" | "essay" | null;
   created_at: Date | null;
+  deleted_at: Date | null;
 }
 
 interface QuizQuestionCreationAttributes
@@ -28,6 +29,7 @@ export class QuizQuestion
   declare question_text: string | null;
   declare question_type: "multiple_choice" | "checkbox" | "essay" | null;
   declare created_at: Date | null;
+  declare deleted_at: Date;
 
   declare readonly quiz?: Quiz;
   declare readonly options?: QuizAnswerOption[];
@@ -79,11 +81,16 @@ export class QuizQuestion
           allowNull: true,
           defaultValue: DataTypes.NOW,
         },
+        deleted_at: {
+          type: DataTypes.DATE,
+          allowNull: true,
+        },
       },
       {
         sequelize,
         tableName: "quiz_questions",
         timestamps: false,
+        paranoid: true,
       }
     );
     return QuizQuestion;

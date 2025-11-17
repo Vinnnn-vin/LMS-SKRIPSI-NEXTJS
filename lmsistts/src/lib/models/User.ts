@@ -20,6 +20,8 @@ interface UserAttributes {
   created_at: Date | null;
   deleted_at: Date | null;
   image: string | null;
+  reset_token: string | null;
+  reset_token_expires: Date | null;
 }
 
 interface UserCreationAttributes
@@ -48,6 +50,8 @@ export class User
   declare created_at: Date | null;
   declare deleted_at: Date | null;
   declare image: string | null;
+  declare reset_token: string | null;
+  declare reset_token_expires: Date | null;
 
   declare readonly courses?: Course[];
   declare readonly enrollments?: Enrollment[];
@@ -133,6 +137,14 @@ export class User
           type: DataTypes.STRING(500),
           allowNull: true,
           defaultValue: null,
+        },
+        reset_token: {
+          type: DataTypes.STRING(255),
+          allowNull: true,
+        },
+        reset_token_expires: {
+          type: DataTypes.DATE,
+          allowNull: true,
         },
       },
       {
