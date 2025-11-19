@@ -171,8 +171,12 @@ export default async function LearnCoursePage({
         submissionHistoryMap={submissionHistoryMap || {}}
         lastCheckpoint={lastCheckpoint}
         initialContent={initialContent}
-        initialContentType={initialContentType}
-      />
+        initialContentType={initialContentType} certificate={{
+          certificate_number: ""
+        }} existingReview={{
+          rating: 0,
+          review_text: ""
+        }}      />
     </Suspense>
   );
 }
