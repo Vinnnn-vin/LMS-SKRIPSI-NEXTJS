@@ -1,4 +1,4 @@
-// lmsistts\src\app\(auth)\forgot-password\page.tsx
+// lmsistts\src\app\(auth)\forgot-password\[token]\page.tsx
 'use client';
 
 import { useState, useTransition } from 'react';

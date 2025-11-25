@@ -97,6 +97,121 @@ async function calculateCourseCompletion(
   return { totalItems, completedCount };
 }
 
+async function checkAndGenerateCertificate(
+  userId: number,
+  courseId: number,
+  enrollmentId: number
+) {
+  // 1. Hitung Progress Terbaru
+  const { totalItems, completedCount } = await calculateCourseCompletion(
+    userId,
+    courseId
+  );
+  
+  console.log(`📊 [Certificate Check] Progress: ${completedCount}/${totalItems}`);
+
+  // 2. Cek apakah sudah 100% (Completed >= Total)
+  if (totalItems > 0 && completedCount >= totalItems) {
+    const enrollment = await Enrollment.findByPk(enrollmentId);
+    
+    if (enrollment) {
+      // Cek apakah sertifikat sudah ada
+      const existingCert = await Certificate.findOne({
+        where: { user_id: userId, course_id: courseId },
+      });
+
+      // Jika belum ada, buat baru
+      if (!existingCert) {
+        const uniqueCertNumber = `CERT-${courseId}-${userId}-${Date.now()}`;
+        
+        await Certificate.create({
+          user_id: userId,
+          course_id: courseId,
+          enrollment_id: enrollmentId,
+          certificate_url: `/certificate/${uniqueCertNumber}`,
+          certificate_number: uniqueCertNumber,
+          issued_at: new Date(),
+        });
+
+        console.log("✅ Sertifikat baru berhasil dibuat.");
+      }
+
+      // Pastikan status enrollment jadi 'completed'
+      if (enrollment.status !== "completed") {
+        await enrollment.update({
+          status: "completed",
+          completed_at: new Date(),
+        });
+      }
+
+      return true; // Sertifikat diberikan/sudah ada
+    }
+  }
+  
+  return false; // Belum 100%
+}
+
+export async function getOrGenerateCertificate(courseId: number) {
+  try {
+    const { userId } = await getStudentSession();
+
+    // 1. Cari Enrollment
+    const enrollment = await Enrollment.findOne({
+      where: { user_id: userId, course_id: courseId },
+    });
+
+    if (!enrollment) {
+      return { error: "Data pendaftaran tidak ditemukan." };
+    }
+
+    // 2. Cek apakah sertifikat SUDAH ada
+    const existingCert = await Certificate.findOne({
+      where: { user_id: userId, course_id: courseId },
+    });
+
+    if (existingCert) {
+      return { success: true, url: existingCert.certificate_url };
+    }
+
+    // 3. Jika BELUM ada, cek apakah user BERHAK (Progress 100%)
+    // Kita gunakan fungsi helper checkAndGenerateCertificate yang sudah kita buat sebelumnya
+    // Atau jika belum ada, kita panggil logika cek progress di sini
+    
+    const { totalItems, completedCount } = await calculateCourseCompletion(
+      userId,
+      courseId
+    );
+
+    if (totalItems > 0 && completedCount >= totalItems) {
+      // User berhak! Buat sertifikat sekarang.
+      const uniqueCertNumber = `CERT-${courseId}-${userId}-${Date.now()}`;
+      const newCert = await Certificate.create({
+        user_id: userId,
+        course_id: courseId,
+        enrollment_id: enrollment.enrollment_id,
+        certificate_url: `/certificate/${uniqueCertNumber}`,
+        certificate_number: uniqueCertNumber,
+        issued_at: new Date(),
+      });
+
+      // Update status enrollment jika belum completed
+      if (enrollment.status !== "completed") {
+        await enrollment.update({
+          status: "completed",
+          completed_at: new Date(),
+        });
+      }
+
+      return { success: true, url: newCert.certificate_url };
+    } else {
+      return { error: "Anda belum menyelesaikan seluruh materi kursus ini." };
+    }
+  } catch (error: any) {
+    console.error("[GET_OR_GENERATE_CERTIFICATE_ERROR]", error);
+    return { success: false, error: error.message || "Gagal memproses sertifikat." };
+  }
+}
+
 export async function getStudentDashboardStats() {
   try {
     const { userId } = await getStudentSession();
@@ -257,12 +372,19 @@ export async function getMyEnrolledCoursesWithProgress() {
     });
 
     const processedCourses = await Promise.all(processedCoursesPromises);
+    const activeCourses = processedCourses.filter(
+      (c) => c.status === "active" && c.progress < 100
+    );
+    
+    const completedCourses = processedCourses.filter(
+      (c) => c.status === "completed" || c.progress === 100
+    );
 
     return {
       success: true,
       data: {
-        active: processedCourses.filter((c) => c.status === "active"),
-        completed: processedCourses.filter((c) => c.status === "completed"),
+        active: activeCourses,
+        completed: completedCourses,
       },
     };
   } catch (error: any) {
@@ -624,11 +746,12 @@ export async function markMaterialAsComplete(
       });
     }
 
+    let certificateGranted = await checkAndGenerateCertificate(userId, courseId, enrollmentId);
+
     const { totalItems, completedCount } = await calculateCourseCompletion(
       userId,
       courseId
     );
-    let certificateGranted = false;
 
     if (totalItems > 0 && completedCount >= totalItems) {
       const enrollment = await Enrollment.findByPk(enrollmentId);
@@ -693,15 +816,6 @@ export async function submitQuizAttempt(payload: {
       timeTaken,
       attemptSession,
     } = payload;
-    console.log("🔵 [SERVER ACTION] submitQuizAttempt called");
-    console.log("📊 Payload:", {
-      quizId,
-      courseId,
-      enrollmentId,
-      attemptSession,
-      userId,
-    });
-    console.log("📊 Answers:", answers);
 
     const quiz = await Quiz.findByPk(quizId, {
       attributes: ["quiz_id", "quiz_title", "max_attempts", "passing_score"],
@@ -816,10 +930,8 @@ export async function submitQuizAttempt(payload: {
       courseId
     );
     let certificateGranted = false;
-    console.log(`📊 Course completion check: ${completedCount}/${totalItems}`);
-    if (status === "passed" && totalItems > 0 && completedCount >= totalItems) {
-      console.log("🎉 Course completed! Checking/Granting certificate...");
-      certificateGranted = true;
+    if (status === "passed") {
+        certificateGranted = await checkAndGenerateCertificate(userId, courseId, enrollmentId);
     }
 
     revalidatePath(`/student/courses/${courseId}/learn`);

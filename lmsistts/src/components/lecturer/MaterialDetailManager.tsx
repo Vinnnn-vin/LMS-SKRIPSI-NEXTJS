@@ -48,6 +48,7 @@ import {
   createMaterialDetail,
   updateMaterialDetail,
   deleteMaterialDetail,
+  deleteQuiz,
 } from "@/app/actions/lecturer.actions";
 import {
   createMaterialDetailFormSchema,
@@ -94,6 +95,14 @@ export function MaterialDetailManager({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [selectedQuizToDelete, setSelectedQuizToDelete] = useState<any | null>(
+    null
+  );
+  const [
+    deleteQuizConfirmOpened,
+    { open: openDeleteQuizConfirm, close: closeDeleteQuizConfirm },
+  ] = useDisclosure(false);
+
   const [modalMode, setModalMode] = useState<"create" | "edit" | null>(null);
   const [selectedDetail, setSelectedDetail] = useState<any | null>(null);
 
@@ -103,6 +112,8 @@ export function MaterialDetailManager({
   const [originalTemplateUrl, setOriginalTemplateUrl] = useState<string | null>(
     null
   );
+
+  const [uploadedVideoUrl, setUploadedVideoUrl] = useState<string | null>(null);
 
   const [
     deleteConfirmOpened,
@@ -139,6 +150,9 @@ export function MaterialDetailManager({
     setSelectedDetail(null);
     setOriginalContentUrl(null);
     setOriginalTemplateUrl(null);
+    setUploadedVideoUrl(null); 
+    setUploadProgress(0);     
+    setIsUploading(false);
     form.reset();
     openFormModal();
   };
@@ -149,6 +163,9 @@ export function MaterialDetailManager({
 
     setOriginalContentUrl(detail.materi_detail_url || null);
     setOriginalTemplateUrl(detail.assignment_template_url || null);
+
+    setUploadedVideoUrl(null); 
+    setIsUploading(false);
 
     form.setValues({
       material_detail_name: detail.material_detail_name ?? "",
@@ -249,6 +266,40 @@ export function MaterialDetailManager({
     });
   };
 
+  const handleUploadVideo = async () => {
+    const file = form.values.content_file;
+    if (!file || !(file instanceof File)) return;
+
+    // Ambil judul/deskripsi dari form untuk metadata YouTube (bisa diedit user nanti)
+    const title = form.values.material_detail_name || file.name;
+    const desc = form.values.material_detail_description || "";
+    const isFree = form.values.is_free;
+
+    try {
+      setIsUploading(true);
+      setUploadProgress(0);
+
+      // Fake progress agar user tahu proses berjalan
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => (prev >= 90 ? 90 : prev + 5));
+      }, 500);
+
+      const url = await uploadVideoToYoutube(file, title, desc, isFree);
+      
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (url) {
+        setUploadedVideoUrl(url); // Simpan URL
+        notifications.show({ title: "Upload Selesai", message: "Video siap disimpan", color: "green" });
+      }
+    } catch (e) {
+       // Error handled in uploadVideoToYoutube
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSubmit = async (
     values: CreateMaterialDetailFormInput | UpdateMaterialDetailFormInput
   ) => {
@@ -271,18 +322,33 @@ export function MaterialDetailManager({
           formData.append("passing_score", String(values.passing_score));
         }
 
+        // if (values.material_detail_type === "1") {
+        //   if (values.content_file instanceof File) {
+        //     const youtubeUrl = await uploadVideoToYoutube(
+        //       values.content_file,
+        //       values.material_detail_name,
+        //       values.material_detail_description,
+        //       values.is_free
+        //     );
+        //     if (!youtubeUrl) return;
+        //     formData.append("materi_detail_url", youtubeUrl);
+        //   } else if (isEditing && originalContentUrl) {
+        //     formData.append("materi_detail_url", originalContentUrl);
+        //   }
+        // }
         if (values.material_detail_type === "1") {
-          if (values.content_file instanceof File) {
-            const youtubeUrl = await uploadVideoToYoutube(
-              values.content_file,
-              values.material_detail_name,
-              values.material_detail_description,
-              values.is_free
-            );
-            if (!youtubeUrl) return;
-            formData.append("materi_detail_url", youtubeUrl);
-          } else if (isEditing && originalContentUrl) {
+          if (uploadedVideoUrl) {
+            // Gunakan URL yang sudah di-upload sebelumnya
+            formData.append("materi_detail_url", uploadedVideoUrl);
+          } else if (isEditing && originalContentUrl && !values.content_file) {
+            // Jika edit dan tidak ganti file
             formData.append("materi_detail_url", originalContentUrl);
+          } else {
+            // Jika user lupa klik upload manual, tapi ada file
+            // Kita bisa paksa upload di sini, atau return error.
+            // Demi UX, lebih baik return error minta user klik upload dulu
+            notifications.show({ title: "Video Belum Diupload", message: "Silakan klik tombol Upload Video terlebih dahulu.", color: "orange" });
+            return; 
           }
         }
 
@@ -374,9 +440,68 @@ export function MaterialDetailManager({
   const showYouTubeInput = selectedType === "3";
   const showAssignmentFields = selectedType === "4";
 
+  const handleOpenDeleteQuiz = (quiz: any) => {
+    setSelectedQuizToDelete(quiz);
+    openDeleteQuizConfirm();
+  };
+
+  // HANDLER BARU: EKSEKUSI HAPUS
+  const handleDeleteQuiz = () => {
+    if (!selectedQuizToDelete) return;
+
+    startTransition(async () => {
+      const result = await deleteQuiz(selectedQuizToDelete.quiz_id);
+
+      if (result?.success) {
+        notifications.show({
+          title: "Sukses",
+          message: result.success,
+          color: "teal",
+        });
+        closeDeleteQuizConfirm();
+        setSelectedQuizToDelete(null);
+        router.refresh();
+      } else {
+        notifications.show({
+          title: "Gagal",
+          message: result?.error,
+          color: "red",
+        });
+      }
+    });
+  };
+
   return (
     <Box pos="relative">
       <LoadingOverlay visible={isPending} overlayProps={{ blur: 2 }} />
+
+      <Modal
+        opened={deleteQuizConfirmOpened}
+        onClose={closeDeleteQuizConfirm}
+        title="Konfirmasi Hapus Quiz"
+        centered
+        size="sm"
+      >
+        <Stack>
+          <Text>
+            Apakah Anda yakin ingin menghapus quiz{" "}
+            <strong>{selectedQuizToDelete?.quiz_title}</strong>?
+            <br />
+            <Text span c="dimmed" size="xs">
+              Data pertanyaan dan jawaban siswa terkait quiz ini mungkin akan
+              ikut terhapus atau tidak dapat diakses lagi.
+            </Text>
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeDeleteQuizConfirm}>
+              Batal
+            </Button>
+            <Button color="red" onClick={handleDeleteQuiz} loading={isPending}>
+              Hapus Quiz
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       <Modal
         opened={formModalOpened}
@@ -410,55 +535,62 @@ export function MaterialDetailManager({
             />
 
             {showVideoUpload && (
-              <>
-                {isEditing && originalContentUrl && (
-                  <Paper withBorder p="sm" bg="blue.0" mb="xs">
-                    <Stack gap="xs">
-                      <Text size="sm" fw={500}>
-                        Video saat ini:
-                      </Text>
-                      <Group gap="xs" wrap="nowrap">
-                        <IconVideo size={16} />
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          style={{ wordBreak: "break-all", flex: 1 }}
-                        >
-                          {originalContentUrl}
-                        </Text>
-                      </Group>
-                      {originalContentUrl.includes("youtube.com") && (
-                        <Button
-                          size="xs"
-                          variant="light"
-                          component="a"
-                          href={originalContentUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          Lihat di YouTube
-                        </Button>
-                      )}
-                    </Stack>
-                  </Paper>
-                )}
+               <Paper withBorder p="sm" bg="gray.0">
+                 <Stack gap="xs">
+                   <Text size="sm" fw={500}>Video Materi</Text>
+                   
+                   <FileInput
+                      label="Pilih File Video"
+                      accept="video/mp4,video/webm"
+                      leftSection={<IconVideo size={16} />}
+                      // Reset uploaded URL jika user ganti file
+                      onChange={(payload) => {
+                        form.setFieldValue("content_file", payload);
+                        setUploadedVideoUrl(null); 
+                        setUploadProgress(0);
+                      }}
+                      // Value file input dikelola form mantine
+                      error={form.errors.content_file}
+                   />
 
-                <FileInput
-                  label={
-                    isEditing ? "Upload Video Baru (opsional)" : "Upload Video"
-                  }
-                  accept="video/mp4,video/webm"
-                  leftSection={<IconUpload size={16} />}
-                  {...form.getInputProps("content_file")}
-                  description={
-                    isEditing && originalContentUrl
-                      ? "Upload file baru hanya jika ingin mengganti video"
-                      : "Video akan diupload ke YouTube channel Anda"
-                  }
-                />
-                {isUploading && <Progress value={uploadProgress} animated />}
-              </>
-            )}
+                   {/* TAMPILKAN PROGRESS BAR JIKA SEDANG UPLOAD */}
+                   {isUploading && (
+                     <Box>
+                       <Group justify="space-between" mb={4}>
+                         <Text size="xs">Mengupload ke YouTube...</Text>
+                         <Text size="xs">{uploadProgress}%</Text>
+                       </Group>
+                       <Progress value={uploadProgress} animated />
+                       <Text size="xs" c="dimmed" mt={4}>Anda dapat mengisi kolom lain sambil menunggu.</Text>
+                     </Box>
+                   )}
+
+                   {/* TOMBOL UPLOAD MANUAL */}
+                   {!isUploading && !uploadedVideoUrl && form.values.content_file && (
+                     <Button 
+                       size="xs" 
+                       variant="light" 
+                       onClick={handleUploadVideo}
+                       leftSection={<IconUpload size={14} />}
+                     >
+                       Upload Video Sekarang
+                     </Button>
+                   )}
+
+                   {/* INDIKATOR SUKSES UPLOAD */}
+                   {uploadedVideoUrl && (
+                      <Alert color="green" title="Video Terupload" icon={<IconVideo />}>
+                        Video siap disimpan.
+                      </Alert>
+                   )}
+                   
+                   {/* Tampilkan video lama jika edit */}
+                   {isEditing && originalContentUrl && !uploadedVideoUrl && !form.values.content_file && (
+                      <Text size="xs" c="dimmed">Video saat ini: {originalContentUrl}</Text>
+                   )}
+                 </Stack>
+               </Paper>
+             )}
 
             {showPDFUpload && (
               <>
@@ -703,6 +835,15 @@ export function MaterialDetailManager({
                       }
                     >
                       <IconPencil size={16} />
+                    </ActionIcon>
+                  </Tooltip>
+                  <Tooltip label="Hapus Quiz">
+                    <ActionIcon
+                      variant="light"
+                      color="red"
+                      onClick={() => handleOpenDeleteQuiz(quiz)}
+                    >
+                      <IconTrash size={16} />
                     </ActionIcon>
                   </Tooltip>
                 </Group>

@@ -10,7 +10,6 @@ import {
   Stack,
   Textarea,
   Rating,
-  Alert,
   Title,
   Text,
   LoadingOverlay,
@@ -18,10 +17,14 @@ import {
 import { useForm, zodResolver } from "@mantine/form";
 import { notifications } from "@mantine/notifications";
 import { IconCertificate, IconEdit, IconCheck } from "@tabler/icons-react";
-import Link from "next/link";
 import { z } from "zod";
-import { createOrUpdateReview } from "@/app/actions/student.actions"; // Kita akan buat ini
 import { zod4Resolver } from "mantine-form-zod-resolver";
+// 1. Import action getOrGenerateCertificate
+import { 
+  createOrUpdateReview, 
+  getOrGenerateCertificate 
+} from "@/app/actions/student.actions"; 
+import { useRouter } from "next/navigation";
 
 // Skema validasi untuk form review
 const reviewSchema = z.object({
@@ -40,11 +43,15 @@ interface CourseCompletionBarProps {
 export function CourseCompletionBar({
   totalProgress,
   courseId,
-  certificateNumber,
+  certificateNumber, // Kita tetap terima props ini untuk kebutuhan lain jika ada
   existingReview,
 }: CourseCompletionBarProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [modalOpened, setModalOpened] = useState(false);
+  
+  // 2. Tambahkan state loading khusus untuk tombol sertifikat
+  const [isCertLoading, setIsCertLoading] = useState(false);
 
   const form = useForm<ReviewInput>({
     initialValues: {
@@ -75,6 +82,7 @@ export function CourseCompletionBar({
           icon: <IconCheck size={16} />,
         });
         setModalOpened(false);
+        router.refresh();
       } else {
         notifications.show({
           title: "Gagal",
@@ -83,6 +91,37 @@ export function CourseCompletionBar({
         });
       }
     });
+  };
+
+  // 3. Fungsi handler baru untuk Sertifikat
+  const handleViewCertificate = async () => {
+    setIsCertLoading(true);
+    try {
+      // Panggil server action untuk cek atau buat sertifikat
+      const result = await getOrGenerateCertificate(courseId);
+
+      if (result.success && result.url) {
+        // Buka sertifikat di tab baru
+        window.open(result.url, '_blank');
+        
+        // Opsional: Refresh halaman agar state certificateNumber terupdate
+        router.refresh();
+      } else {
+        notifications.show({
+          title: "Gagal Memuat Sertifikat",
+          message: result.error || "Terjadi kesalahan saat memproses sertifikat.",
+          color: "red",
+        });
+      }
+    } catch (error) {
+      notifications.show({
+        title: "Error",
+        message: "Terjadi kesalahan jaringan.",
+        color: "red",
+      });
+    } finally {
+      setIsCertLoading(false);
+    }
   };
 
   return (
@@ -146,26 +185,17 @@ export function CourseCompletionBar({
             >
               {existingReview ? "Edit Review" : "Beri Review"}
             </Button>
-            {certificateNumber ? (
-              <Button
-                component={Link}
-                href={`/certificate/${certificateNumber}`}
-                target="_blank"
-                leftSection={<IconCertificate size={16} />}
-                variant="gradient"
-                gradient={{ from: "blue", to: "cyan" }}
-              >
-                Lihat Sertifikat
-              </Button>
-            ) : (
-              <Button
-                disabled
-                variant="light"
-                title="Sertifikat sedang diproses"
-              >
-                Sertifikat (Proses)
-              </Button>
-            )}
+
+            {/* 4. Update Tombol Sertifikat */}
+            <Button
+              onClick={handleViewCertificate}
+              loading={isCertLoading}
+              leftSection={<IconCertificate size={16} />}
+              variant="gradient"
+              gradient={{ from: "blue", to: "cyan" }}
+            >
+              Lihat Sertifikat
+            </Button>
           </Group>
         </Group>
       </Paper>

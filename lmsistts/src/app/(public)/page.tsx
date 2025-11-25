@@ -44,6 +44,7 @@ import {
 } from "@/app/actions/landing.actions";
 import { HeroBanner } from "@/components/landing/HeroBanner";
 import classes from "./page.module.css";
+import { log } from "node:console";
 
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
@@ -404,6 +405,34 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
     { from: "green", to: "teal" },
   ];
 
+  if (!featuredCategories || featuredCategories.length === 0) {
+    return (
+      <Box className={classes.categoriesSection}>
+        <FloatingElements />
+        <Container size="xl" py={80}>
+          <Stack align="center" mb={50}>
+            <Badge
+              size="xl"
+              variant="gradient"
+              gradient={{ from: "orange", to: "red" }}
+              className={classes.sectionBadge}
+            >
+              <IconBook size={16} style={{ marginRight: 8 }} />
+              Kategori Populer
+            </Badge>
+            <Title order={1} ta="center" className={classes.sectionTitle}>
+              Jelajahi Berdasarkan{" "}
+              <span className={classes.gradientText}>Kategori</span>
+            </Title>
+            <Text ta="center" c="dimmed" size="xl" maw={700}>
+              Belum ada kategori tersedia saat ini
+            </Text>
+          </Stack>
+        </Container>
+      </Box>
+    );
+  }
+
   return (
     <Box className={classes.categoriesSection}>
       <FloatingElements />
@@ -427,46 +456,68 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
           </Text>
         </Stack>
 
-        <SimpleGrid cols={{ base: 2, sm: 4, lg: 4 }} spacing="lg">
+        <SimpleGrid cols={{ base: 1, xs: 2, md: 3, lg: 4 }} spacing="lg">
           {featuredCategories.map((cat, index) => (
-            <Button
+            <Box
               key={cat.category_id}
               component={Link}
               href={`/categories/${cat.category_id}`}
-              variant="gradient"
-              gradient={categoryColors[index % categoryColors.length]}
-              size="xl"
-              radius="lg"
-              h={120}
               className={classes.categoryButton}
               style={{
                 animationDelay: `${index * 50}ms`,
+                background: `linear-gradient(135deg, 
+                  var(--mantine-color-${categoryColors[index % categoryColors.length].from}-6) 0%, 
+                  var(--mantine-color-${categoryColors[index % categoryColors.length].to}-6) 100%)`,
               }}
             >
-              <Stack gap={4} align="center">
-                <Text size="lg" fw={800} ta="center">
+              <Stack gap={12} align="center" justify="center" h="100%" w="100%">
+                <Text 
+                  size="lg" 
+                  fw={700} 
+                  ta="center"
+                  c="white"
+                  lh={1.3}
+                  style={{
+                    wordWrap: "break-word",
+                    overflowWrap: "break-word",
+                    wordBreak: "break-word",
+                    whiteSpace: "normal",
+                    width: "100%",
+                  }}
+                >
                   {cat.category_name}
                 </Text>
-                <Text size="sm" opacity={0.9} ta="center">
-                  {Math.floor(Math.random() * 50) + 10} kursus
+                <Text 
+                  size="sm" 
+                  ta="center"
+                  c="white"
+                  fw={600}
+                  style={{
+                    opacity: 0.95,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {cat.course_count || 0} kursus
                 </Text>
               </Stack>
-            </Button>
+            </Box>
           ))}
         </SimpleGrid>
 
-        <Center mt={40}>
-          <Button
-            component={Link}
-            href="/categories"
-            variant="light"
-            size="lg"
-            radius="lg"
-            rightSection={<IconArrowRight size={18} />}
-          >
-            Lihat Semua Kategori
-          </Button>
-        </Center>
+        {categories && categories.length > 8 && (
+          <Center mt={50}>
+            <Button
+              component={Link}
+              href="/categories"
+              variant="light"
+              size="lg"
+              radius="lg"
+              rightSection={<IconArrowRight size={18} />}
+            >
+              Lihat Semua Kategori
+            </Button>
+          </Center>
+        )}
       </Container>
     </Box>
   );

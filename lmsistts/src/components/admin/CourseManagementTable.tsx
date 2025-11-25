@@ -266,23 +266,30 @@ export function CourseManagementTable({
     startTransition(async () => {
       const formData = new FormData();
 
-      Object.entries(values).forEach(([key, value]) => {
-        if (key !== "thumbnail_file" && value !== undefined && value !== null) {
-          formData.append(key, String(value));
-        }
-      });
+      // 1. Masukkan data text/number dengan konversi yang aman
+      formData.append("course_title", values.course_title);
+      formData.append("course_description", values.course_description);
+      formData.append("course_level", values.course_level);
+      
+      if (values.category_id) formData.append("category_id", String(values.category_id));
+      if (values.user_id) formData.append("user_id", String(values.user_id));
+      if (values.course_price !== undefined) formData.append("course_price", String(values.course_price));
+      if (values.course_duration !== undefined) formData.append("course_duration", String(values.course_duration));
+      
+      // Handle status (konversi boolean/number ke string 1/0)
+      const status = values.publish_status ? "1" : "0";
+      formData.append("publish_status", status);
 
+      // 2. Handle Thumbnail dengan lebih hati-hati
       const fileInput = values.thumbnail_file;
       if (fileInput instanceof File) {
         formData.append("thumbnail_file", fileInput);
-      } else if (
-        isEditing &&
-        fileInput === null &&
-        thumbnailPreview !== selectedCourse?.thumbnail_url
-      ) {
-        formData.append("thumbnail_file", "");
+      } else if (isEditing && !fileInput && !thumbnailPreview) {
+         formData.append("thumbnail_file", "");
       }
-
+      formData.append("what_youll_learn", values.what_youll_learn);
+      formData.append("requirements", values.requirements);
+      
       const result = isEditing
         ? await updateCourseByAdmin(selectedCourse!.course_id, formData)
         : await createCourseByAdmin(formData);

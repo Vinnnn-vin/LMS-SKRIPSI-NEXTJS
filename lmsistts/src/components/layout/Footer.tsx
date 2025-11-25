@@ -1,3 +1,5 @@
+// lmsistts\src\components\layout\Footer.tsx
+
 "use client";
 
 import {

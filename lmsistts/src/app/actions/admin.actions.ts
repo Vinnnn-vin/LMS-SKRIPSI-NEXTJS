@@ -40,6 +40,7 @@ import {
 import z from "zod";
 import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
+import { deleteFromPublic, uploadCourseThumbnail } from "@/lib/uploadHelper";
 
 // --- FUNGSI UNTUK OVERVIEW DASHBOARD ---
 export async function getAdminDashboardStats() {
@@ -258,20 +259,34 @@ export async function updateCourseByAdmin(
   courseId: number,
   formData: FormData
 ) {
+  // 1. LOG DATA MENTAH DARI FORM
   const rawData = Object.fromEntries(formData.entries());
+  console.log("🔍 [ADMIN UPDATE] Raw Form Data:", rawData);
+
+  // 2. PARSING DENGAN LEBIH AMAN (Handle angka 0)
+  const coursePriceRaw = formData.get("course_price");
+  const courseDurationRaw = formData.get("course_duration");
 
   const validatedFields = updateCourseSchema.safeParse({
     course_title: rawData.course_title || undefined,
     course_description: rawData.course_description || undefined,
+    what_youll_learn: rawData.what_youll_learn
+      ? String(rawData.what_youll_learn)
+      : "",
+    requirements: rawData.requirements ? String(rawData.requirements) : "",
     course_level: rawData.course_level || undefined,
     category_id: rawData.category_id || undefined,
     user_id: rawData.user_id || undefined,
-    course_price: rawData.course_price
-      ? Number(rawData.course_price)
-      : undefined,
-    course_duration: rawData.course_duration
-      ? Number(rawData.course_duration)
-      : undefined,
+
+    course_price:
+      coursePriceRaw !== null && coursePriceRaw !== ""
+        ? Number(coursePriceRaw)
+        : undefined,
+    course_duration:
+      courseDurationRaw !== null && courseDurationRaw !== ""
+        ? Number(courseDurationRaw)
+        : undefined,
+
     publish_status: rawData.publish_status,
     thumbnail_file:
       formData.get("thumbnail_file") instanceof File
@@ -282,8 +297,10 @@ export async function updateCourseByAdmin(
   });
 
   if (!validatedFields.success) {
-    console.error("❌ UPDATE VALIDATION FAILED");
-    console.error("Validation Errors:", validatedFields.error.flatten());
+    console.error(
+      "❌ [ADMIN UPDATE] Validation Error:",
+      validatedFields.error.flatten()
+    );
     return {
       error: "Input data tidak valid!",
       details: validatedFields.error.flatten().fieldErrors,
@@ -291,40 +308,77 @@ export async function updateCourseByAdmin(
   }
 
   const { thumbnail_file, ...courseData } = validatedFields.data;
-  let newThumbnailUrl: string | null | undefined = undefined;
-
-  if (thumbnail_file instanceof File) {
-    console.log("Uploading new thumbnail:", thumbnail_file.name);
-    newThumbnailUrl = `https://placeholder.com/new_${thumbnail_file.name}`;
-  } else if (thumbnail_file === null) {
-    newThumbnailUrl = null;
-  }
-
-  if (courseData.publish_status === 1) {
-    const currentCourse = await Course.findByPk(courseId);
-    const finalPrice = courseData.course_price ?? currentCourse?.course_price;
-
-    if (!finalPrice || finalPrice <= 0) {
-      return { error: "Harga harus diisi (lebih dari 0) sebelum publikasi." };
-    }
-  }
-
   try {
+    // 3. Ambil Data Kursus Lama (PENTING: Untuk hapus gambar lama & ambil judul)
     const course = await Course.findByPk(courseId);
     if (!course) return { error: "Kursus tidak ditemukan." };
 
+    let newThumbnailUrl: string | null | undefined = undefined;
+
+    // 4. Logika Upload Thumbnail
+    if (thumbnail_file instanceof File) {
+      console.log(
+        "📤 [ADMIN UPDATE] Uploading new thumbnail:",
+        thumbnail_file.name
+      );
+
+      // Hapus gambar lama jika ada
+      if (course.thumbnail_url) {
+        await deleteFromPublic(course.thumbnail_url);
+      }
+
+      // Upload gambar baru
+      // Gunakan judul baru jika ada, atau judul lama sebagai nama folder
+      const titleForFolder =
+        courseData.course_title || course.course_title || "Course";
+
+      const uploadResult = await uploadCourseThumbnail(
+        thumbnail_file,
+        titleForFolder,
+        courseId
+      );
+
+      if (!uploadResult.success || !uploadResult.url) {
+        return { error: uploadResult.error || "Gagal mengupload thumbnail." };
+      }
+
+      newThumbnailUrl = uploadResult.url;
+      console.log("✅ [ADMIN UPDATE] Upload sukses. URL:", newThumbnailUrl);
+    } else if (thumbnail_file === null) {
+      // Jika user menghapus gambar (tombol silang/reset di frontend)
+      console.log("🗑️ [ADMIN UPDATE] Menghapus thumbnail lama.");
+      if (course.thumbnail_url) {
+        await deleteFromPublic(course.thumbnail_url);
+      }
+      newThumbnailUrl = null;
+    }
+
+    // 5. Validasi Harga untuk Publish
+    if (courseData.publish_status === 1) {
+      const finalPrice = courseData.course_price ?? course.course_price;
+      if (finalPrice === undefined || finalPrice === null || finalPrice < 0) {
+        return { error: "Harga tidak valid untuk publikasi." };
+      }
+    }
+
+    // 6. Susun Data Update Final
     const updateData: any = { ...courseData };
+
+    // Hanya update thumbnail_url jika ada perubahan (string URL baru atau null)
     if (newThumbnailUrl !== undefined) {
       updateData.thumbnail_url = newThumbnailUrl;
     }
 
+    console.log("💾 [ADMIN UPDATE] Menyimpan ke Database:", updateData);
+
+    // 7. Eksekusi Update
     await course.update(updateData);
 
     revalidatePath("/admin/dashboard/courses");
     return { success: "Kursus berhasil diperbarui!" };
-  } catch (error) {
-    console.error("[UPDATE_COURSE_ERROR]", error);
-    return { error: "Gagal memperbarui kursus." };
+  } catch (error: any) {
+    console.error("❌ [ADMIN UPDATE] Error:", error);
+    return { error: error.message || "Gagal memperbarui kursus." };
   }
 }
 
@@ -592,7 +646,7 @@ export async function getCourseSalesStats() {
           required: true,
         },
       ],
-      group: ["Payment.course_id", "course.course_title"],
+      group: ["course.course_id", "course.course_title"],
       order: [[sequelize.col("salesCount"), "DESC"]],
       limit: 10,
       raw: true,

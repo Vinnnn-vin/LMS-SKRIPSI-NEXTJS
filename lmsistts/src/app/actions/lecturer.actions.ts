@@ -452,6 +452,10 @@ export async function updateCourseByLecturer(
       updateData.thumbnail_url = newThumbnailUrl;
     }
 
+    delete updateData.publish_status;
+    delete updateData.publish_request_status;
+    delete updateData.rejection_reason;
+
     await course.update(updateData);
 
     revalidatePath("/lecturer/dashboard/courses");
@@ -1458,32 +1462,46 @@ export async function deleteQuestionFromQuiz(questionId: number) {
     return { error: error.message || "Gagal menghapus pertanyaan." };
   }
 }
+
 export async function deleteQuiz(quizId: number) {
   try {
     const { userId } = await getLecturerSession();
-    const quiz = await Quiz.findOne({
-      where: { quiz_id: quizId },
+
+    const quiz = await Quiz.findByPk(quizId, {
       include: [
         {
           model: Course,
           as: "course",
           where: { user_id: userId },
+          required: true,
           attributes: ["course_id"],
         },
       ],
     });
-    if (!quiz)
-      throw new Error(
-        "Quiz tidak ditemukan atau Anda tidak berhak menghapusnya."
-      );
+
+    if (!quiz) {
+      return {
+        error: "Quiz tidak ditemukan atau Anda tidak memiliki hak akses.",
+      };
+    }
+
     const courseId = quiz.course?.course_id;
+    const materialId = quiz.material_id; 
 
     await quiz.destroy();
-    if (courseId)
-      revalidatePath(`/lecturer/dashboard/courses/${courseId}/materials`);
+
+    if (courseId && materialId) {
+      revalidatePath(
+        `/lecturer/dashboard/courses/${courseId}/materials/${materialId}`
+      );
+    }
+
     return { success: "Quiz berhasil dihapus!" };
   } catch (error: any) {
-    return { error: error.message || "Gagal menghapus quiz." };
+    console.error("[DELETE_QUIZ_ERROR]", error);
+    return {
+      error: error.message || "Gagal menghapus quiz.",
+    };
   }
 }
 

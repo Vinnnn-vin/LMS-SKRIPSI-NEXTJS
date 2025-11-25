@@ -28,6 +28,7 @@ import {
 } from "@tabler/icons-react";
 import { getMyEnrolledCoursesWithProgress } from "@/app/actions/student.actions";
 import Link from "next/link";
+import { ViewCertificateButton } from "@/components/student/ViewCertificateButton";
 
 function MyCourseCard({ course }: { course: any }) {
   const isCompleted = course.status === "completed" || course.progress === 100;
@@ -64,18 +65,20 @@ function MyCourseCard({ course }: { course: any }) {
       </Stack>
 
       {isCompleted ? (
-        <Button
-          component={Link}
-          href="/student/dashboard/my-certificates"
-          variant="light"
-          color="green"
-          fullWidth
-          mt="md"
-          radius="md"
-          leftSection={<IconCertificate size={16} />}
-        >
-          Lihat Sertifikat
-        </Button>
+        <Stack mt="md" gap="xs">
+          <ViewCertificateButton courseId={course.course_id} fullWidth={true} />
+          <Button
+            component={Link}
+            href={`/student/courses/${course.course_id}/learn`}
+            variant="subtle"
+            color="blue"
+            fullWidth
+            radius="md"
+            leftSection={<IconPlayerPlay size={16} />}
+          >
+            Review Materi
+          </Button>
+        </Stack>
       ) : (
         <Button
           component={Link}
