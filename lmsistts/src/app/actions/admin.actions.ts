@@ -259,7 +259,6 @@ export async function updateCourseByAdmin(
   courseId: number,
   formData: FormData
 ) {
-  // 1. LOG DATA MENTAH DARI FORM
   const rawData = Object.fromEntries(formData.entries());
   console.log("🔍 [ADMIN UPDATE] Raw Form Data:", rawData);
 
