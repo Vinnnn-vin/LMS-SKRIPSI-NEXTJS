@@ -4,6 +4,7 @@ import { writeFile, mkdir, unlink, rm } from "fs/promises";
 import { existsSync } from "fs";
 import path from "path";
 import { sanitizeFilename } from "./fileUtils";
+import { put, del } from "@vercel/blob";
 
 /**
  * Upload file ke folder public
@@ -43,23 +44,42 @@ export async function uploadToPublic(
  * Hapus file dari folder public
  * @param filePath - Path relatif file (e.g., /pdfs/123_file.pdf)
  * @returns Success status
- */
-export async function deleteFromPublic(filePath: string): Promise<boolean> {
+//  */
+// export async function uploadToPublic(file: File, subfolder: string) {
+//   try {
+//     // 1. Buat nama file unik
+//     // subfolder biasanya: 'pdfs' atau 'assignments'
+//     const filename = `${subfolder}/${Date.now()}-${file.name.replace(/\s/g, "-")}`;
+
+//     // 2. Upload ke Vercel Blob
+//     const blob = await put(filename, file, {
+//       access: "public",
+//     });
+
+//     // 3. Return URL lengkap
+//     return {
+//       success: true,
+//       url: blob.url,
+//     };
+//   } catch (error: any) {
+//     console.error(`Upload ${subfolder} Error:`, error);
+//     return { success: false, error: `Gagal mengupload file ${subfolder}.` };
+//   }
+// }
+
+export async function deleteFromPublic(fileUrl: string) {
   try {
-    if (!filePath || !filePath.startsWith("/")) return false;
+    if (!fileUrl) return { success: true };
 
-    const fullPath = path.join(process.cwd(), "public", filePath);
-
-    if (existsSync(fullPath)) {
-      await unlink(fullPath);
-      console.log("🗑️ File deleted:", filePath);
-      return true;
-    }
-
-    return false;
-  } catch (error: any) {
-    console.error("❌ Delete file error:", error);
-    return false;
+    // Vercel Blob butuh URL lengkap untuk menghapus
+    await del(fileUrl);
+    
+    console.log("Deleted blob:", fileUrl);
+    return { success: true };
+  } catch (error) {
+    console.error("Delete Error:", error);
+    // Jangan throw error agar proses tidak berhenti
+    return { success: false };
   }
 }
 
