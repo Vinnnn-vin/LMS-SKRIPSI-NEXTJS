@@ -17,7 +17,10 @@ import { authOptions } from "../api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
 import { Op } from "sequelize";
 import { randomBytes } from "crypto";
-import nodemailer from 'nodemailer';
+import nodemailer from "nodemailer";
+
+// Blob
+import { uploadImage } from "@/lib/uploadHelper";
 
 export async function register(values: z.infer<typeof registerFormSchema>) {
   const validatedFields = registerFormSchema.safeParse(values);
@@ -48,7 +51,10 @@ export async function register(values: z.infer<typeof registerFormSchema>) {
   }
 }
 
-async function uploadImage(file: File, userId: number): Promise<string | null> {
+async function uploadImages(
+  file: File,
+  userId: number
+): Promise<string | null> {
   try {
     const buffer = await file.arrayBuffer();
     const ext = file.type.split("/")[1];
@@ -81,7 +87,7 @@ export async function updateUserProfile(formData: FormData) {
 
     const first_name = formData.get("first_name") as string;
     const last_name = formData.get("last_name") as string;
-    const imageFile = formData.get("image") as File | null;
+    const imageFile = formData.get("image") as File;
 
     const validatedFields = updateProfileSchema.safeParse({
       first_name,
@@ -101,32 +107,47 @@ export async function updateUserProfile(formData: FormData) {
     user.first_name = first_name || null;
     user.last_name = last_name || null;
 
+    let imageUrl = user.image;
+
+    // if (imageFile && imageFile.size > 0) {
+    //   const imageUrl = await uploadImages(imageFile, userId);
+
+    //   if (
+    //     user.image &&
+    //     user.image !== imageUrl &&
+    //     user.image.startsWith("/uploads/")
+    //   ) {
+    //     try {
+    //       const oldFilename = user.image.split("/").pop();
+    //       const oldImagePath = path.join(
+    //         process.cwd(),
+    //         "public",
+    //         "uploads",
+    //         "profiles",
+    //         oldFilename || ""
+    //       );
+    //       await fs.unlink(oldImagePath);
+    //     } catch (err) {
+    //       console.log("Old image not found or already deleted");
+    //     }
+    //   }
+
+    //   user.image = imageUrl;
+    // }
+
+    // BLOB
     if (imageFile && imageFile.size > 0) {
-      const imageUrl = await uploadImage(imageFile, userId);
+      const uploadResult = await uploadImage(imageFile, userId);
 
-      if (
-        user.image &&
-        user.image !== imageUrl &&
-        user.image.startsWith("/uploads/")
-      ) {
-        try {
-          const oldFilename = user.image.split("/").pop();
-          const oldImagePath = path.join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "profiles",
-            oldFilename || ""
-          );
-          await fs.unlink(oldImagePath);
-        } catch (err) {
-          console.log("Old image not found or already deleted");
-        }
+      if (uploadResult.success && uploadResult.url) {
+        imageUrl = uploadResult.url;
+      } else {
+        console.error("Gagal Blob:", uploadResult.error);
+        return { error: "Gagal mengupload gambar: " + uploadResult.error };
       }
-
-      user.image = imageUrl;
     }
 
+    user.image = imageUrl;
     await user.save();
 
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
@@ -154,7 +175,7 @@ export async function updateUserProfile(formData: FormData) {
 async function sendEmail(to: string, subject: string, html: string) {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail', // Gunakan Gmail
+      service: "gmail", // Gunakan Gmail
       auth: {
         user: process.env.EMAIL_SERVER_USER, // Email dari .env
         pass: process.env.EMAIL_SERVER_PASSWORD, // App Password dari .env
@@ -172,7 +193,6 @@ async function sendEmail(to: string, subject: string, html: string) {
     await transporter.sendMail(mailOptions);
     console.log(`Email reset password terkirim ke: ${to}`);
     return { success: true };
-
   } catch (error: any) {
     console.error(`[SEND_EMAIL_ERROR] Gagal mengirim ke ${to}:`, error);
     // Jika gagal mengirim, jangan beritahu user (keamanan), cukup log di server
@@ -191,7 +211,9 @@ export async function sendPasswordResetLink(email: string) {
 
     if (!user) {
       // Jangan beritahu jika email ada atau tidak (keamanan)
-      return { success: "Jika email Anda terdaftar, Anda akan menerima link reset." };
+      return {
+        success: "Jika email Anda terdaftar, Anda akan menerima link reset.",
+      };
     }
 
     // 1. Buat token
@@ -211,12 +233,11 @@ export async function sendPasswordResetLink(email: string) {
     const html = `<p>Anda meminta reset password. Klik link di bawah untuk melanjutkan:</p>
                   <a href="${resetLink}">Reset Password Saya</a>
                   <p>Link ini akan kedaluwarsa dalam 1 jam.</p>`;
-    
+
     // TODO: Ganti ini dengan layanan email Anda
     await sendEmail(user.email!, subject, html);
 
     return { success: "Link reset telah dikirim. Silakan periksa email Anda." };
-
   } catch (error: any) {
     console.error("[SEND_RESET_LINK_ERROR]", error);
     return { error: error.message || "Gagal mengirim link reset." };
@@ -254,7 +275,6 @@ export async function resetPassword(token: string, newPassword: string) {
     });
 
     return { success: "Password Anda telah berhasil di-reset! Silakan login." };
-
   } catch (error: any) {
     console.error("[RESET_PASSWORD_ERROR]", error);
     return { error: error.message || "Gagal me-reset password." };
