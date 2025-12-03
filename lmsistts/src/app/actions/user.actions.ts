@@ -18,6 +18,7 @@ import { getServerSession } from "next-auth";
 import { Op } from "sequelize";
 import { randomBytes } from "crypto";
 import nodemailer from 'nodemailer';
+import { uploadToPublic } from "@/lib/uploadHelper";
 
 export async function register(values: z.infer<typeof registerFormSchema>) {
   const validatedFields = registerFormSchema.safeParse(values);
@@ -101,32 +102,48 @@ export async function updateUserProfile(formData: FormData) {
     user.first_name = first_name || null;
     user.last_name = last_name || null;
 
+    // if (imageFile && imageFile.size > 0) {
+    //   const imageUrl = await uploadImage(imageFile, userId);
+
+    //   if (
+    //     user.image &&
+    //     user.image !== imageUrl &&
+    //     user.image.startsWith("/uploads/")
+    //   ) {
+    //     try {
+    //       const oldFilename = user.image.split("/").pop();
+    //       const oldImagePath = path.join(
+    //         process.cwd(),
+    //         "public",
+    //         "uploads",
+    //         "profiles",
+    //         oldFilename || ""
+    //       );
+    //       await fs.unlink(oldImagePath);
+    //     } catch (err) {
+    //       console.log("Old image not found or already deleted");
+    //     }
+    //   }
+
+    //   user.image = imageUrl;
+    // }
+
     if (imageFile && imageFile.size > 0) {
-      const imageUrl = await uploadImage(imageFile, userId);
+      console.log("Mulai proses upload ke Vercel Blob...");
 
-      if (
-        user.image &&
-        user.image !== imageUrl &&
-        user.image.startsWith("/uploads/")
-      ) {
-        try {
-          const oldFilename = user.image.split("/").pop();
-          const oldImagePath = path.join(
-            process.cwd(),
-            "public",
-            "uploads",
-            "profiles",
-            oldFilename || ""
-          );
-          await fs.unlink(oldImagePath);
-        } catch (err) {
-          console.log("Old image not found or already deleted");
-        }
+      // Panggil fungsi helper yang sudah menggunakan Vercel Blob
+      const uploadResult = await uploadToPublic(imageFile, "profiles");
+
+      if (uploadResult.success && uploadResult.url) {
+        // Simpan URL Blob (https://...) ke database
+        user.image = uploadResult.url;
+        console.log("Upload berhasil. URL:", uploadResult.url);
+      } else {
+        console.error("Gagal upload:", uploadResult.error);
+        return { error: "Gagal mengupload gambar profil." };
       }
-
-      user.image = imageUrl;
     }
-
+    
     await user.save();
 
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
