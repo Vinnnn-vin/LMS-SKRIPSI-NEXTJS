@@ -1,24 +1,19 @@
-// lmsistts\src\app\actions\user.actions.ts
-
 "use server";
 
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import fs from "fs/promises";
-import path from "path";
 import { revalidatePath } from "next/cache";
 import { User } from "@/lib/models";
 import {
   registerFormSchema,
-  UpdateProfileInput,
   updateProfileSchema,
 } from "@/lib/schemas/user.schema";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
 import { Op } from "sequelize";
 import { randomBytes } from "crypto";
-import nodemailer from 'nodemailer';
-import { uploadToPublic } from "@/lib/uploadHelper";
+import nodemailer from "nodemailer";
+import { uploadToPublic, deleteFromPublic } from "@/lib/uploadHelper";
 
 export async function register(values: z.infer<typeof registerFormSchema>) {
   const validatedFields = registerFormSchema.safeParse(values);
@@ -46,30 +41,6 @@ export async function register(values: z.infer<typeof registerFormSchema>) {
   } catch (error) {
     console.error("REGISTER_ERROR:", error);
     return { error: "Terjadi kesalahan pada server." };
-  }
-}
-
-async function uploadImage(file: File, userId: number): Promise<string | null> {
-  try {
-    const buffer = await file.arrayBuffer();
-    const ext = file.type.split("/")[1];
-    const filename = `user-${userId}-${Date.now()}.${ext}`;
-
-    const uploadsDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "profiles"
-    );
-    await fs.mkdir(uploadsDir, { recursive: true });
-
-    const filepath = path.join(uploadsDir, filename);
-    await fs.writeFile(filepath, Buffer.from(buffer));
-
-    return `/uploads/profiles/${filename}`;
-  } catch (error) {
-    console.error("UPLOAD_IMAGE_ERROR:", error);
-    throw new Error("Gagal upload gambar");
   }
 }
 
@@ -102,48 +73,29 @@ export async function updateUserProfile(formData: FormData) {
     user.first_name = first_name || null;
     user.last_name = last_name || null;
 
-    // if (imageFile && imageFile.size > 0) {
-    //   const imageUrl = await uploadImage(imageFile, userId);
-
-    //   if (
-    //     user.image &&
-    //     user.image !== imageUrl &&
-    //     user.image.startsWith("/uploads/")
-    //   ) {
-    //     try {
-    //       const oldFilename = user.image.split("/").pop();
-    //       const oldImagePath = path.join(
-    //         process.cwd(),
-    //         "public",
-    //         "uploads",
-    //         "profiles",
-    //         oldFilename || ""
-    //       );
-    //       await fs.unlink(oldImagePath);
-    //     } catch (err) {
-    //       console.log("Old image not found or already deleted");
-    //     }
-    //   }
-
-    //   user.image = imageUrl;
-    // }
-
+    // Upload gambar baru jika ada
     if (imageFile && imageFile.size > 0) {
-      console.log("Mulai proses upload ke Vercel Blob...");
+      console.log("🔄 Mulai proses upload ke Vercel Blob...");
 
-      // Panggil fungsi helper yang sudah menggunakan Vercel Blob
+      // Upload ke Vercel Blob menggunakan helper
       const uploadResult = await uploadToPublic(imageFile, "profiles");
 
       if (uploadResult.success && uploadResult.url) {
-        // Simpan URL Blob (https://...) ke database
+        // Hapus gambar lama dari Blob (jika ada)
+        if (user.image && user.image.startsWith("https://")) {
+          console.log("🗑️ Menghapus gambar lama:", user.image);
+          await deleteFromPublic(user.image);
+        }
+
+        // Simpan URL baru
         user.image = uploadResult.url;
-        console.log("Upload berhasil. URL:", uploadResult.url);
+        console.log("✅ Upload berhasil. URL:", uploadResult.url);
       } else {
-        console.error("Gagal upload:", uploadResult.error);
+        console.error("❌ Gagal upload:", uploadResult.error);
         return { error: "Gagal mengupload gambar profil." };
       }
     }
-    
+
     await user.save();
 
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
@@ -171,10 +123,10 @@ export async function updateUserProfile(formData: FormData) {
 async function sendEmail(to: string, subject: string, html: string) {
   try {
     const transporter = nodemailer.createTransport({
-      service: 'gmail', // Gunakan Gmail
+      service: "gmail",
       auth: {
-        user: process.env.EMAIL_SERVER_USER, // Email dari .env
-        pass: process.env.EMAIL_SERVER_PASSWORD, // App Password dari .env
+        user: process.env.EMAIL_SERVER_USER,
+        pass: process.env.EMAIL_SERVER_PASSWORD,
       },
     });
 
@@ -185,37 +137,29 @@ async function sendEmail(to: string, subject: string, html: string) {
       html: html,
     };
 
-    // Kirim email
     await transporter.sendMail(mailOptions);
-    console.log(`Email reset password terkirim ke: ${to}`);
+    console.log(`📧 Email reset password terkirim ke: ${to}`);
     return { success: true };
-
   } catch (error: any) {
     console.error(`[SEND_EMAIL_ERROR] Gagal mengirim ke ${to}:`, error);
-    // Jika gagal mengirim, jangan beritahu user (keamanan), cukup log di server
-    // Namun untuk development, kita lempar error agar tahu masalahnya:
     throw new Error(`Gagal mengirim email: ${error.message}`);
   }
 }
 
-/**
- * Membuat token reset dan mengirimkannya via Email
- * (Versi sederhana, hanya email)
- */
 export async function sendPasswordResetLink(email: string) {
   try {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      // Jangan beritahu jika email ada atau tidak (keamanan)
-      return { success: "Jika email Anda terdaftar, Anda akan menerima link reset." };
+      return {
+        success:
+          "Jika email Anda terdaftar, Anda akan menerima link reset.",
+      };
     }
 
-    // 1. Buat token
     const token = randomBytes(32).toString("hex");
     const tokenExpires = new Date(Date.now() + 3600000); // 1 jam
 
-    // 2. Simpan token ke database
     await user.update({
       reset_token: token,
       reset_token_expires: tokenExpires,
@@ -223,35 +167,29 @@ export async function sendPasswordResetLink(email: string) {
 
     const resetLink = `${process.env.NEXTAUTH_URL}/forgot-password/${token}`;
 
-    // 3. Kirim email
     const subject = "Reset Password Akun IClick Anda";
     const html = `<p>Anda meminta reset password. Klik link di bawah untuk melanjutkan:</p>
                   <a href="${resetLink}">Reset Password Saya</a>
                   <p>Link ini akan kedaluwarsa dalam 1 jam.</p>`;
-    
-    // TODO: Ganti ini dengan layanan email Anda
+
     await sendEmail(user.email!, subject, html);
 
-    return { success: "Link reset telah dikirim. Silakan periksa email Anda." };
-
+    return {
+      success: "Link reset telah dikirim. Silakan periksa email Anda.",
+    };
   } catch (error: any) {
     console.error("[SEND_RESET_LINK_ERROR]", error);
     return { error: error.message || "Gagal mengirim link reset." };
   }
 }
 
-/**
- * Memvalidasi token dan me-reset password
- * (Fungsi ini sudah benar dari sebelumnya, tidak perlu diubah)
- */
 export async function resetPassword(token: string, newPassword: string) {
   try {
-    // 1. Cari user berdasarkan token yang valid
     const user = await User.findOne({
       where: {
         reset_token: token,
         reset_token_expires: {
-          [Op.gt]: new Date(), // Pastikan token belum kedaluwarsa
+          [Op.gt]: new Date(),
         },
       },
     });
@@ -260,18 +198,17 @@ export async function resetPassword(token: string, newPassword: string) {
       return { error: "Token tidak valid atau sudah kedaluwarsa." };
     }
 
-    // 2. Hash password baru
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // 3. Update password dan hapus token
     await user.update({
       password_hash: hashedPassword,
       reset_token: null,
       reset_token_expires: null,
     });
 
-    return { success: "Password Anda telah berhasil di-reset! Silakan login." };
-
+    return {
+      success: "Password Anda telah berhasil di-reset! Silakan login.",
+    };
   } catch (error: any) {
     console.error("[RESET_PASSWORD_ERROR]", error);
     return { error: error.message || "Gagal me-reset password." };
