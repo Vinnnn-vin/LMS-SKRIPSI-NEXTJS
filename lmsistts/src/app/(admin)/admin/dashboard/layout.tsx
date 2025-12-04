@@ -33,6 +33,11 @@ const navLinks = [
     label: "Manajemen Penjualan",
     icon: IconCash,
   },
+  {
+    href: "/admin/dashboard/transactions",
+    label: "Lihat Transaksi",
+    icon: IconCash,
+  },
 ];
 
 export default function AdminDashboardLayout({

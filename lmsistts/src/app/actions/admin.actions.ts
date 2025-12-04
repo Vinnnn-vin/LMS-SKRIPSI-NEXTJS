@@ -43,16 +43,20 @@ import { authOptions } from "../api/auth/[...nextauth]/route";
 import { deleteFromPublic, uploadCourseThumbnail } from "@/lib/uploadHelper";
 
 // New imports for Blob storage
-import { deleteFromBlob, uploadCourseThumbnailToBlob } from "@/lib/uploadHelperBlob";
+import {
+  deleteFromBlob,
+  uploadCourseThumbnailToBlob,
+} from "@/lib/uploadHelperBlob";
 
 // --- FUNGSI UNTUK OVERVIEW DASHBOARD ---
 export async function getAdminDashboardStats() {
   try {
     const totalUsers = await User.count();
     const totalCourses = await Course.count();
-    const totalSales = await Payment.sum("amount", {
+    const totalSalesRaw = await Payment.sum("amount", {
       where: { status: "paid" },
     });
+    const totalSales = totalSalesRaw || 0;
     const totalEnrollments = await Enrollment.count();
 
     return {
@@ -65,7 +69,6 @@ export async function getAdminDashboardStats() {
       },
     };
   } catch (error) {
-    console.error("[GET_ADMIN_STATS_ERROR]", error);
     return { success: false, error: "Gagal mengambil statistik." };
   }
 }
@@ -74,19 +77,125 @@ export async function getAdminDashboardStats() {
 export async function getMonthlySalesData() {
   try {
     const salesData = await Payment.findAll({
-      where: { status: "paid" },
+      where: {
+        status: "paid",
+        paid_at: { [Op.ne]: null },
+      },
       attributes: [
         [sequelize.fn("SUM", sequelize.col("amount")), "totalSales"],
         [sequelize.fn("MONTHNAME", sequelize.col("paid_at")), "month"],
+        [sequelize.fn("MONTH", sequelize.col("paid_at")), "monthNum"], // Helper sorting
       ],
-      group: ["month"],
-      order: [[sequelize.fn("MONTH", sequelize.col("paid_at")), "ASC"]],
+      group: ["month", "monthNum"],
+      order: [[sequelize.col("monthNum"), "ASC"]],
       raw: true,
     });
+
     return { success: true, data: salesData };
   } catch (error) {
     console.error("[GET_MONTHLY_SALES_ERROR]", error);
     return { success: false, error: "Gagal mengambil data penjualan bulanan." };
+  }
+}
+
+export async function getPendingPaymentsForAdmin() {
+  try {
+    const payments = await Payment.findAll({
+      where: { status: "pending" },
+      include: [
+        { model: User, as: "user", attributes: ["first_name", "last_name", "email"] },
+        { model: Course, as: "course", attributes: ["course_title", "course_price"] },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+    return { success: true, data: payments.map((p) => p.toJSON()) };
+  } catch (error) {
+    console.error("[GET_PENDING_PAYMENTS_ADMIN]", error);
+    return { success: false, error: "Gagal mengambil data pembayaran pending." };
+  }
+}
+
+export async function confirmPaymentManual(paymentId: number) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
+
+  const t = await sequelize.transaction();
+
+  try {
+    const payment = await Payment.findByPk(paymentId, { transaction: t });
+
+    if (!payment) {
+      await t.rollback();
+      return { error: "Data pembayaran tidak ditemukan." };
+    }
+
+    if (payment.status === "paid") {
+      await t.rollback();
+      return { error: "Pembayaran ini sudah dikonfirmasi sebelumnya." };
+    }
+
+    // 1. Update status Payment
+    await payment.update(
+      { 
+        status: "paid", 
+        paid_at: new Date(),
+        payment_method: "Manual Verification" 
+      }, 
+      { transaction: t }
+    );
+
+    // 2. Cek Enrollment Duplikat
+    const existingEnrollment = await Enrollment.findOne({
+      where: {
+        user_id: payment.user_id,
+        course_id: payment.course_id,
+        status: { [Op.in]: ["active", "completed"] },
+      },
+      transaction: t,
+    });
+
+    if (!existingEnrollment) {
+      // 3. Buat Enrollment Baru
+      const newEnrollment = await Enrollment.create(
+        {
+          user_id: payment.user_id,
+          course_id: payment.course_id,
+          enrolled_at: new Date(),
+          status: "active",
+        },
+        { transaction: t }
+      );
+
+      // Link payment ke enrollment
+      await payment.update({ enrollment_id: newEnrollment.enrollment_id }, { transaction: t });
+    }
+
+    await t.commit();
+    revalidatePath("/admin/dashboard/transactions"); // Pastikan path ini sesuai
+    revalidatePath("/admin/dashboard"); // Refresh stats
+
+    return { success: "Pembayaran dikonfirmasi! Kursus siswa telah diaktifkan." };
+  } catch (error: any) {
+    await t.rollback();
+    console.error("[CONFIRM_PAYMENT_MANUAL_ERROR]", error);
+    return { error: error.message || "Gagal mengkonfirmasi pembayaran." };
+  }
+}
+
+export async function rejectPaymentManual(paymentId: number) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
+  
+  try {
+    const payment = await Payment.findByPk(paymentId);
+    if (!payment) return { error: "Data tidak ditemukan" };
+    
+    await payment.update({ status: 'failed' }); // Atau 'expired'
+    revalidatePath("/admin/dashboard/transactions");
+    
+    return { success: "Pembayaran ditolak/dibatalkan." };
+  } catch (error: any) {
+    return { error: error.message };
   }
 }
 
@@ -362,7 +471,8 @@ export async function updateCourseByAdmin(
       if (course.thumbnail_url) {
         await deleteFromBlob(course.thumbnail_url);
       }
-      const titleForFolder = courseData.course_title || course.course_title || "Course";
+      const titleForFolder =
+        courseData.course_title || course.course_title || "Course";
       const uploadResult = await uploadCourseThumbnailToBlob(
         thumbnail_file,
         titleForFolder,

@@ -92,6 +92,7 @@ export async function createXenditInvoice(payload: {
       },
       currency: "IDR",
       paymentMethods: ["BCA", "BNI", "BRI", "MANDIRI", "OVO", "DANA"],
+      invoiceDuration: 7200,
     };
 
     console.log("Creating Xendit Invoice with data:", invoiceData);

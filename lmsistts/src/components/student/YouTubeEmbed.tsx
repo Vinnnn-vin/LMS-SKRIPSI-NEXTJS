@@ -157,7 +157,7 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
         console.error(
           "❌ [YouTubeEmbed] ============ VERIFICATION FAILED ============"
         );
-        setError("Video tidak ditemukan atau tidak dapat di-embed");
+        // setError("Video tidak ditemukan atau tidak dapat di-embed");
         setIsLoading(false);
         return;
       }
@@ -193,43 +193,43 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     );
   }
 
-  if (error || !videoId) {
-    return (
-      <Alert
-        color="red"
-        icon={<IconAlertCircle />}
-        title="Tidak Dapat Memuat Video"
-      >
-        <Text size="sm" mb="xs">
-          {error || "Video YouTube tidak dapat ditampilkan."}
-        </Text>
-        <Text size="sm" fw={500} mb="xs">
-          Kemungkinan penyebab:
-        </Text>
-        <List size="xs" mb="md">
-          <List.Item>Video bersifat private atau unlisted</List.Item>
-          <List.Item>Pemilik video menonaktifkan fitur embed</List.Item>
-          <List.Item>Video telah dihapus atau tidak tersedia</List.Item>
-          <List.Item>Format URL tidak didukung</List.Item>
-        </List>
-        <Text size="xs" c="dimmed" mb="sm">
-          URL: {url}
-        </Text>
-        <Group gap="xs">
-          <Button
-            component="a"
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
-            size="xs"
-            variant="light"
-          >
-            Buka di YouTube
-          </Button>
-        </Group>
-      </Alert>
-    );
-  }
+  // if (error || !videoId) {
+  //   return (
+  //     <Alert
+  //       color="red"
+  //       icon={<IconAlertCircle />}
+  //       title="Tidak Dapat Memuat Video"
+  //     >
+  //       <Text size="sm" mb="xs">
+  //         {error || "Video YouTube tidak dapat ditampilkan."}
+  //       </Text>
+  //       <Text size="sm" fw={500} mb="xs">
+  //         Kemungkinan penyebab:
+  //       </Text>
+  //       <List size="xs" mb="md">
+  //         <List.Item>Video bersifat private atau unlisted</List.Item>
+  //         <List.Item>Pemilik video menonaktifkan fitur embed</List.Item>
+  //         <List.Item>Video telah dihapus atau tidak tersedia</List.Item>
+  //         <List.Item>Format URL tidak didukung</List.Item>
+  //       </List>
+  //       <Text size="xs" c="dimmed" mb="sm">
+  //         URL: {url}
+  //       </Text>
+  //       <Group gap="xs">
+  //         <Button
+  //           component="a"
+  //           href={url}
+  //           target="_blank"
+  //           rel="noopener noreferrer"
+  //           size="xs"
+  //           variant="light"
+  //         >
+  //           Buka di YouTube
+  //         </Button>
+  //       </Group>
+  //     </Alert>
+  //   );
+  // }
 
   if (!userClicked) {
     return (

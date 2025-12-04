@@ -27,9 +27,15 @@ import { revalidatePath } from "next/cache";
 import dayjs from "dayjs";
 import { createReviewSchema } from "@/lib/schemas/review.schema";
 import { deleteFromPublic } from "@/lib/uploadHelper";
+import { Xendit } from "xendit-node";
 
 // New imports for Blob storage
-import { deleteFromBlob } from "@/lib/uploadHelperBlob";
+import { uploadToBlob, deleteFromBlob } from "@/lib/uploadHelperBlob";
+
+const xenditClient = new Xendit({
+  secretKey: process.env.XENDIT_SECRET_KEY || "",
+});
+const invoiceClient = xenditClient.Invoice;
 
 async function getStudentSession() {
   const session = await getServerSession(authOptions);
@@ -110,13 +116,15 @@ async function checkAndGenerateCertificate(
     userId,
     courseId
   );
-  
-  console.log(`📊 [Certificate Check] Progress: ${completedCount}/${totalItems}`);
+
+  console.log(
+    `📊 [Certificate Check] Progress: ${completedCount}/${totalItems}`
+  );
 
   // 2. Cek apakah sudah 100% (Completed >= Total)
   if (totalItems > 0 && completedCount >= totalItems) {
     const enrollment = await Enrollment.findByPk(enrollmentId);
-    
+
     if (enrollment) {
       // Cek apakah sertifikat sudah ada
       const existingCert = await Certificate.findOne({
@@ -126,7 +134,7 @@ async function checkAndGenerateCertificate(
       // Jika belum ada, buat baru
       if (!existingCert) {
         const uniqueCertNumber = `CERT-${courseId}-${userId}-${Date.now()}`;
-        
+
         await Certificate.create({
           user_id: userId,
           course_id: courseId,
@@ -150,7 +158,7 @@ async function checkAndGenerateCertificate(
       return true; // Sertifikat diberikan/sudah ada
     }
   }
-  
+
   return false; // Belum 100%
 }
 
@@ -179,7 +187,7 @@ export async function getOrGenerateCertificate(courseId: number) {
     // 3. Jika BELUM ada, cek apakah user BERHAK (Progress 100%)
     // Kita gunakan fungsi helper checkAndGenerateCertificate yang sudah kita buat sebelumnya
     // Atau jika belum ada, kita panggil logika cek progress di sini
-    
+
     const { totalItems, completedCount } = await calculateCourseCompletion(
       userId,
       courseId
@@ -211,7 +219,10 @@ export async function getOrGenerateCertificate(courseId: number) {
     }
   } catch (error: any) {
     console.error("[GET_OR_GENERATE_CERTIFICATE_ERROR]", error);
-    return { success: false, error: error.message || "Gagal memproses sertifikat." };
+    return {
+      success: false,
+      error: error.message || "Gagal memproses sertifikat.",
+    };
   }
 }
 
@@ -378,7 +389,7 @@ export async function getMyEnrolledCoursesWithProgress() {
     const activeCourses = processedCourses.filter(
       (c) => c.status === "active" && c.progress < 100
     );
-    
+
     const completedCourses = processedCourses.filter(
       (c) => c.status === "completed" || c.progress === 100
     );
@@ -749,7 +760,11 @@ export async function markMaterialAsComplete(
       });
     }
 
-    let certificateGranted = await checkAndGenerateCertificate(userId, courseId, enrollmentId);
+    let certificateGranted = await checkAndGenerateCertificate(
+      userId,
+      courseId,
+      enrollmentId
+    );
 
     const { totalItems, completedCount } = await calculateCourseCompletion(
       userId,
@@ -934,7 +949,11 @@ export async function submitQuizAttempt(payload: {
     );
     let certificateGranted = false;
     if (status === "passed") {
-        certificateGranted = await checkAndGenerateCertificate(userId, courseId, enrollmentId);
+      certificateGranted = await checkAndGenerateCertificate(
+        userId,
+        courseId,
+        enrollmentId
+      );
     }
 
     revalidatePath(`/student/courses/${courseId}/learn`);
@@ -1034,9 +1053,13 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
     const file_path = formData.get("file_path") as string | null;
     const submission_text = formData.get("submission_text") as string | null;
 
+    const fileRaw = formData.get("file_path");
+
     if (isNaN(materialDetailId) || isNaN(courseId) || isNaN(enrollmentId)) {
       return { success: false, error: "Data ID tidak valid." };
     }
+
+    let fileUrl: string | null = null;
 
     if (!submission_type) {
       return {
@@ -1045,18 +1068,32 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       };
     }
 
-    if (submission_type === "file" && !file_path) {
-      return {
-        success: false,
-        error: "File wajib diupload untuk tipe submission 'file'.",
-      };
+    if (submission_type === "file" || submission_type === "both") {
+      if (fileRaw instanceof File && fileRaw.size > 0) {
+        console.log("📂 Mengupload file tugas ke Blob...");
+        // Upload ke folder 'assignments/student'
+        const uploadRes = await uploadToBlob(fileRaw, "assignments/student");
+
+        if (!uploadRes.success || !uploadRes.url) {
+          return {
+            success: false,
+            error: uploadRes.error || "Gagal upload file ke server.",
+          };
+        }
+        fileUrl = uploadRes.url;
+      } else if (typeof fileRaw === "string" && fileRaw.startsWith("http")) {
+        // Jika user tidak mengganti file (masih menggunakan URL lama yang valid)
+        fileUrl = fileRaw;
+      } else {
+        return { success: false, error: "File wajib diupload." };
+      }
     }
 
-    if (submission_type === "text" && !submission_text?.trim()) {
-      return {
-        success: false,
-        error: "Teks jawaban wajib diisi untuk tipe submission 'text'.",
-      };
+    if (
+      (submission_type === "text" || submission_type === "both") &&
+      !submission_text?.trim()
+    ) {
+      return { success: false, error: "Teks jawaban wajib diisi." };
     }
 
     if (submission_type === "both") {
@@ -1110,30 +1147,41 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
         };
       }
 
-      const oldHasFile =
-        existingSubmission.submission_type === "file" ||
-        existingSubmission.submission_type === "both";
+      // const oldHasFile =
+      //   existingSubmission.submission_type === "file" ||
+      //   existingSubmission.submission_type === "both";
 
-      const newHasFile =
-        submission_type === "file" || submission_type === "both";
+      // const newHasFile =
+      //   submission_type === "file" || submission_type === "both";
 
-      if (oldHasFile && existingSubmission.file_path) {
-        const shouldDeleteFile =
-          (newHasFile && file_path !== existingSubmission.file_path) ||
-          !newHasFile;
+      // if (oldHasFile && existingSubmission.file_path) {
+      //   const shouldDeleteFile =
+      //     (newHasFile && file_path !== existingSubmission.file_path) ||
+      //     !newHasFile;
 
-        if (shouldDeleteFile) {
-          try {
-            // await deleteFromPublic(existingSubmission.file_path);
+      //   if (shouldDeleteFile) {
+      //     try {
+      //       // await deleteFromPublic(existingSubmission.file_path);
 
-            if (existingSubmission.file_path.startsWith("http")) {
-                await deleteFromBlob(existingSubmission.file_path);
-            }
-            
-            console.log("✅ Old file deleted:", existingSubmission.file_path);
-          } catch (deleteError) {
-            console.error("⚠️ Failed to delete old file:", deleteError);
-          }
+      //       if (existingSubmission.file_path.startsWith("http")) {
+      //         await deleteFromBlob(existingSubmission.file_path);
+      //       }
+
+      //       console.log("✅ Old file deleted:", existingSubmission.file_path);
+      //     } catch (deleteError) {
+      //       console.error("⚠️ Failed to delete old file:", deleteError);
+      //     }
+      //   }
+      // }
+
+      // await existingSubmission.update(submissionData);
+
+      if (existingSubmission.file_path && fileUrl && existingSubmission.file_path !== fileUrl) {
+        try {
+          await deleteFromBlob(existingSubmission.file_path);
+          console.log("🗑️ File lama dihapus dari Blob.");
+        } catch (err) {
+          console.error("Gagal hapus file lama:", err);
         }
       }
 
@@ -1498,6 +1546,67 @@ export async function getPendingPayments() {
     return { success: true, data: pendingPayments.map((p) => p.toJSON()) };
   } catch (error: any) {
     console.error("[GET_PENDING_PAYMENTS_ERROR]", error);
-    return { success: false, error: error.message || "Gagal mengambil data pembayaran tertunda." };
+    return {
+      success: false,
+      error: error.message || "Gagal mengambil data pembayaran tertunda.",
+    };
+  }
+}
+
+export async function getStudentInvoices() {
+  try {
+    const { userId } = await getStudentSession();
+
+    // Ambil invoice yang pending atau baru expired
+    const invoices = await Payment.findAll({
+      where: {
+        user_id: userId,
+        status: "pending",
+      },
+      include: [
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_title", "thumbnail_url"],
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    return { success: true, data: invoices.map((i) => i.toJSON()) };
+  } catch (error) {
+    return { success: false, error: "Gagal mengambil data invoice." };
+  }
+}
+
+export async function cancelStudentInvoice(paymentId: number) {
+  try {
+    const { userId } = await getStudentSession();
+
+    const payment = await Payment.findOne({
+      where: { payment_id: paymentId, user_id: userId, status: "pending" },
+    });
+
+    if (!payment) return { error: "Invoice tidak ditemukan." };
+
+    // 1. Expire di Xendit (Opsional, agar user tidak bisa bayar lagi link-nya)
+    if (payment.gateway_invoice_id) {
+      try {
+        await invoiceClient.expireInvoice({
+          invoiceId: payment.gateway_invoice_id,
+        });
+      } catch (err) {
+        console.log("Gagal expire invoice di Xendit, lanjut update DB lokal.");
+      }
+    }
+
+    // 2. Update status lokal jadi cancelled
+    await payment.update({ status: "failed" });
+
+    revalidatePath("/student/dashboard/billing"); // Sesuaikan path
+
+    return { success: "Invoice berhasil dibatalkan." };
+  } catch (error: any) {
+    return { error: error.message || "Gagal membatalkan invoice." };
   }
 }

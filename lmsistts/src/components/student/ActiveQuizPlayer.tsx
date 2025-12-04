@@ -276,7 +276,7 @@ export function ActiveQuizPlayer({
     <Box pos="relative">
       <LoadingOverlay visible={isSubmitting} overlayProps={{ blur: 1 }} />
 
-      <Alert color="blue" mb="md" title="Debug Info">
+      {/* <Alert color="blue" mb="md" title="Debug Info">
         <Stack gap="xs">
           <Text size="xs">isSubmitted: {isSubmitted ? "✅ YES" : "❌ NO"}</Text>
           <Text size="xs">
@@ -291,7 +291,7 @@ export function ActiveQuizPlayer({
             {currentQuestionIndex === questions.length - 1 ? "✅ YES" : "❌ NO"}
           </Text>
         </Stack>
-      </Alert>
+      </Alert> */}
 
       {submitError && (
         <Alert
