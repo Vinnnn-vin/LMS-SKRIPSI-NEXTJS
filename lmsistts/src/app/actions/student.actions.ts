@@ -1037,81 +1037,59 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
   try {
     const { userId } = await getStudentSession();
 
-    const materialDetailId = parseInt(
-      formData.get("materialDetailId") as string,
-      10
-    );
+    const materialDetailId = parseInt(formData.get("materialDetailId") as string, 10);
     const courseId = parseInt(formData.get("courseId") as string, 10);
     const enrollmentId = parseInt(formData.get("enrollmentId") as string, 10);
-
-    const submission_type = formData.get("submission_type") as
-      | "file"
-      | "text"
-      | "both"
-      | "url";
-
-    const file_path = formData.get("file_path") as string | null;
+    
+    const submission_type = formData.get("submission_type") as "file" | "text" | "both" | "url";
     const submission_text = formData.get("submission_text") as string | null;
-
-    const fileRaw = formData.get("file_path");
-
+    
+    // Ambil file mentah dari form
+    const fileRaw = formData.get("file_path"); // Di client, name inputnya biasanya 'file_path' atau 'file'
+    
+    // Validasi ID
     if (isNaN(materialDetailId) || isNaN(courseId) || isNaN(enrollmentId)) {
       return { success: false, error: "Data ID tidak valid." };
     }
 
+    // --- LOGIKA UPLOAD KE VERCEL BLOB ---
     let fileUrl: string | null = null;
 
-    if (!submission_type) {
-      return {
-        success: false,
-        error: "Tipe submission wajib diisi.",
-      };
-    }
-
+    // Jika tipe submission melibatkan file
     if (submission_type === "file" || submission_type === "both") {
+      // Cek apakah input adalah File fisik (berarti user upload file baru)
       if (fileRaw instanceof File && fileRaw.size > 0) {
-        console.log("📂 Mengupload file tugas ke Blob...");
-        // Upload ke folder 'assignments/student'
-        const uploadRes = await uploadToBlob(fileRaw, "assignments/student");
-
+        console.log("📂 Mengupload file tugas ke Vercel Blob...");
+        
+        // Upload ke folder 'assignments' di Blob Storage
+        const uploadRes = await uploadToBlob(fileRaw, "assignments");
+        
         if (!uploadRes.success || !uploadRes.url) {
-          return {
-            success: false,
-            error: uploadRes.error || "Gagal upload file ke server.",
-          };
+          console.error("❌ Upload Gagal:", uploadRes.error);
+          return { success: false, error: "Gagal upload file ke server cloud." };
         }
-        fileUrl = uploadRes.url;
+        
+        fileUrl = uploadRes.url; // URL sekarang https://... (bukan lokal path)
+        console.log("✅ Upload Berhasil:", fileUrl);
+
       } else if (typeof fileRaw === "string" && fileRaw.startsWith("http")) {
-        // Jika user tidak mengganti file (masih menggunakan URL lama yang valid)
+        // Jika user tidak mengganti file (fileRaw adalah URL blob lama yang dikirim balik)
         fileUrl = fileRaw;
       } else {
-        return { success: false, error: "File wajib diupload." };
+        // Jika required tapi kosong
+        if (!fileRaw) {
+           return { success: false, error: "File wajib diupload." };
+        }
       }
     }
+    // ------------------------------------
 
-    if (
-      (submission_type === "text" || submission_type === "both") &&
-      !submission_text?.trim()
-    ) {
+    // Validasi Text
+    if ((submission_type === "text" || submission_type === "both") && !submission_text?.trim()) {
       return { success: false, error: "Teks jawaban wajib diisi." };
     }
 
-    if (submission_type === "both") {
-      if (!file_path || !submission_text?.trim()) {
-        return {
-          success: false,
-          error: "File dan teks wajib diisi untuk tipe submission 'both'.",
-        };
-      }
-    }
-
-    if (!file_path && !submission_text?.trim()) {
-      return {
-        success: false,
-        error: "Minimal file atau teks jawaban harus diisi.",
-      };
-    }
-
+    // Cek Submission Lama
     const existingSubmission = await AssignmentSubmission.findOne({
       where: { user_id: userId, material_detail_id: materialDetailId },
     });
@@ -1122,15 +1100,9 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       course_id: courseId,
       enrollment_id: enrollmentId,
       submission_type: submission_type,
-      file_path:
-        submission_type === "file" || submission_type === "both"
-          ? file_path
-          : null,
+      file_path: fileUrl, // URL Blob
       submission_url: null,
-      submission_text:
-        submission_type === "text" || submission_type === "both"
-          ? submission_text?.trim()
-          : null,
+      submission_text: (submission_type === "text" || submission_type === "both") ? submission_text?.trim() : null,
       submitted_at: new Date(),
       status: "submitted" as const,
       score: null,
@@ -1141,47 +1113,20 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
 
     if (existingSubmission) {
       if (existingSubmission.status === "approved") {
-        return {
-          success: false,
-          error: "Tugas sudah dinilai lulus, tidak dapat dikumpulkan ulang.",
-        };
+        return { success: false, error: "Tugas sudah dinilai lulus, tidak dapat dikumpulkan ulang." };
       }
 
-      // const oldHasFile =
-      //   existingSubmission.submission_type === "file" ||
-      //   existingSubmission.submission_type === "both";
-
-      // const newHasFile =
-      //   submission_type === "file" || submission_type === "both";
-
-      // if (oldHasFile && existingSubmission.file_path) {
-      //   const shouldDeleteFile =
-      //     (newHasFile && file_path !== existingSubmission.file_path) ||
-      //     !newHasFile;
-
-      //   if (shouldDeleteFile) {
-      //     try {
-      //       // await deleteFromPublic(existingSubmission.file_path);
-
-      //       if (existingSubmission.file_path.startsWith("http")) {
-      //         await deleteFromBlob(existingSubmission.file_path);
-      //       }
-
-      //       console.log("✅ Old file deleted:", existingSubmission.file_path);
-      //     } catch (deleteError) {
-      //       console.error("⚠️ Failed to delete old file:", deleteError);
-      //     }
-      //   }
-      // }
-
-      // await existingSubmission.update(submissionData);
-
+      // Hapus file lama di Blob jika user mengupload file BARU
+      // (Cek: ada file lama, ada file baru, dan URL-nya beda)
       if (existingSubmission.file_path && fileUrl && existingSubmission.file_path !== fileUrl) {
-        try {
-          await deleteFromBlob(existingSubmission.file_path);
-          console.log("🗑️ File lama dihapus dari Blob.");
-        } catch (err) {
-          console.error("Gagal hapus file lama:", err);
+        // Pastikan hanya hapus jika itu URL Blob (bukan path lokal legacy)
+        if (existingSubmission.file_path.startsWith("http")) {
+            try {
+              await deleteFromBlob(existingSubmission.file_path);
+              console.log("🗑️ File lama dihapus dari Blob.");
+            } catch (err) {
+              console.error("⚠️ Gagal hapus file lama (abaikan):", err);
+            }
         }
       }
 
@@ -1195,10 +1140,7 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
     }
   } catch (error: any) {
     console.error("[SUBMIT_ASSIGNMENT_ERROR]", error);
-    return {
-      success: false,
-      error: error.message || "Gagal mengumpulkan tugas.",
-    };
+    return { success: false, error: error.message || "Gagal mengumpulkan tugas." };
   }
 }
 
