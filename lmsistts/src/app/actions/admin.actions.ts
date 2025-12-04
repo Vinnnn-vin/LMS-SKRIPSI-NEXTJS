@@ -42,6 +42,9 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "../api/auth/[...nextauth]/route";
 import { deleteFromPublic, uploadCourseThumbnail } from "@/lib/uploadHelper";
 
+// New imports for Blob storage
+import { deleteFromBlob, uploadCourseThumbnailToBlob } from "@/lib/uploadHelperBlob";
+
 // --- FUNGSI UNTUK OVERVIEW DASHBOARD ---
 export async function getAdminDashboardStats() {
   try {
@@ -233,20 +236,42 @@ export async function createCourseByAdmin(formData: FormData) {
   const { thumbnail_file, ...courseData } = validatedFields.data;
   let thumbnailUrl = null;
 
-  if (thumbnail_file) {
-    console.log(
-      "Uploading thumbnail:",
-      thumbnail_file.name,
-      thumbnail_file.size
-    );
-    thumbnailUrl = `https://placeholder.com/${thumbnail_file.name}`;
-  }
+  // if (thumbnail_file) {
+  //   console.log(
+  //     "Uploading thumbnail:",
+  //     thumbnail_file.name,
+  //     thumbnail_file.size
+  //   );
+  //   thumbnailUrl = `https://placeholder.com/${thumbnail_file.name}`;
+  // }
 
   try {
-    await Course.create({
+    // await Course.create({
+    //   ...courseData,
+    //   thumbnail_url: thumbnailUrl,
+    // });
+
+    const newCourse = await Course.create({
       ...courseData,
-      thumbnail_url: thumbnailUrl,
+      thumbnail_url: null,
     });
+
+    if (thumbnail_file) {
+      // --- [NEW BLOB UPLOAD] ---
+      const uploadResult = await uploadCourseThumbnailToBlob(
+        thumbnail_file,
+        courseData.course_title,
+        newCourse.course_id
+      );
+
+      if (uploadResult.success) {
+        thumbnailUrl = uploadResult.url;
+        await newCourse.update({ thumbnail_url: thumbnailUrl });
+      } else {
+        console.error("Failed to upload thumbnail in admin create");
+      }
+    }
+
     revalidatePath("/admin/dashboard/courses");
     return { success: "Kursus berhasil dibuat!" };
   } catch (error) {
@@ -321,17 +346,24 @@ export async function updateCourseByAdmin(
         thumbnail_file.name
       );
 
-      // Hapus gambar lama jika ada
+      // if (course.thumbnail_url) {
+      //   await deleteFromPublic(course.thumbnail_url);
+      // }
+
+      // const titleForFolder =
+      //   courseData.course_title || course.course_title || "Course";
+
+      // const uploadResult = await uploadCourseThumbnail(
+      //   thumbnail_file,
+      //   titleForFolder,
+      //   courseId
+      // );
+
       if (course.thumbnail_url) {
-        await deleteFromPublic(course.thumbnail_url);
+        await deleteFromBlob(course.thumbnail_url);
       }
-
-      // Upload gambar baru
-      // Gunakan judul baru jika ada, atau judul lama sebagai nama folder
-      const titleForFolder =
-        courseData.course_title || course.course_title || "Course";
-
-      const uploadResult = await uploadCourseThumbnail(
+      const titleForFolder = courseData.course_title || course.course_title || "Course";
+      const uploadResult = await uploadCourseThumbnailToBlob(
         thumbnail_file,
         titleForFolder,
         courseId
@@ -341,13 +373,20 @@ export async function updateCourseByAdmin(
         return { error: uploadResult.error || "Gagal mengupload thumbnail." };
       }
 
+      if (!uploadResult.success || !uploadResult.url) {
+        return { error: uploadResult.error || "Gagal mengupload thumbnail." };
+      }
+
       newThumbnailUrl = uploadResult.url;
       console.log("✅ [ADMIN UPDATE] Upload sukses. URL:", newThumbnailUrl);
     } else if (thumbnail_file === null) {
-      // Jika user menghapus gambar (tombol silang/reset di frontend)
       console.log("🗑️ [ADMIN UPDATE] Menghapus thumbnail lama.");
+      // if (course.thumbnail_url) {
+      //   await deleteFromPublic(course.thumbnail_url);
+      // }
+
       if (course.thumbnail_url) {
-        await deleteFromPublic(course.thumbnail_url);
+        await deleteFromBlob(course.thumbnail_url);
       }
       newThumbnailUrl = null;
     }

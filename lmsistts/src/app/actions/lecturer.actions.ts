@@ -57,10 +57,20 @@ import { base64ToBuffer, sanitizeFilename } from "@/lib/fileUtils";
 import path from "path";
 import { existsSync } from "fs";
 import { mkdir, writeFile } from "fs/promises";
+
+// Blob
+import {
+  deleteCourseThumbnailFolderBlob,
+  deleteFromBlob,
+  uploadCourseThumbnailToBlob,
+  uploadBase64ToBlob,
+} from "@/lib/uploadHelperBlob";
+
 import {
   ReviewAssignmentInput,
   reviewAssignmentSchema,
 } from "@/lib/schemas/assignmentSubmission.schema";
+import { uploadBase64ToPublic } from "@/lib/uploadHelper";
 
 async function getLecturerSession() {
   const session = await getServerSession(authOptions);
@@ -352,7 +362,13 @@ export async function createCourseByLecturer(formData: FormData) {
 
     let thumbnailUrl = null;
     if (thumbnail_file) {
-      const uploadResult = await uploadCourseThumbnail(
+      // const uploadResult = await uploadCourseThumbnail(
+      //   thumbnail_file,
+      //   courseData.course_title,
+      //   newCourse.course_id
+      // );
+
+      const uploadResult = await uploadCourseThumbnailToBlob(
         thumbnail_file,
         courseData.course_title,
         newCourse.course_id
@@ -420,12 +436,23 @@ export async function updateCourseByLecturer(
     let newThumbnailUrl: string | null | undefined = undefined;
 
     if (thumbnail_file instanceof File) {
-      if (course.thumbnail_url) {
-        await deleteFromPublic(course.thumbnail_url);
-      }
+      // if (course.thumbnail_url) {
+      //   await deleteFromPublic(course.thumbnail_url);
+      // }
 
+      // const courseTitleForUpload = course_title || course.course_title;
+      // const uploadResult = await uploadCourseThumbnail(
+      //   thumbnail_file,
+      //   courseTitleForUpload,
+      //   courseId
+      // );
+
+      if (course.thumbnail_url) {
+        await deleteFromBlob(course.thumbnail_url);
+      }
+      
       const courseTitleForUpload = course_title || course.course_title;
-      const uploadResult = await uploadCourseThumbnail(
+      const uploadResult = await uploadCourseThumbnailToBlob(
         thumbnail_file,
         courseTitleForUpload,
         courseId
@@ -437,8 +464,12 @@ export async function updateCourseByLecturer(
 
       newThumbnailUrl = uploadResult.url;
     } else if (thumbnail_file === null) {
+      // if (course.thumbnail_url) {
+      //   await deleteFromPublic(course.thumbnail_url);
+      // }
+
       if (course.thumbnail_url) {
-        await deleteFromPublic(course.thumbnail_url);
+        await deleteFromBlob(course.thumbnail_url);
       }
       newThumbnailUrl = null;
     }
@@ -491,11 +522,16 @@ export async function deleteCourseByLecturer(courseId: number) {
       };
     }
 
-    if (course.thumbnail_url) {
-      await deleteFromPublic(course.thumbnail_url);
-    }
+    // if (course.thumbnail_url) {
+    //   await deleteFromPublic(course.thumbnail_url);
+    // }
 
-    await deleteCourseThumbnailFolder(courseId, course.course_title);
+    // await deleteCourseThumbnailFolder(courseId, course.course_title);
+
+    if (course.thumbnail_url) {
+      await deleteFromBlob(course.thumbnail_url);
+    }
+    await deleteCourseThumbnailFolderBlob(courseId, course.course_title);
 
     await course.destroy();
     revalidatePath("/lecturer/dashboard/courses");
@@ -786,34 +822,34 @@ export async function getMaterialDetailsForLecturer(materialId: number) {
   }
 }
 
-async function uploadBase64ToPublic(
-  base64Data: string,
-  originalFilename: string,
-  subFolder: "videos" | "pdfs" | "assignments"
-): Promise<{ success: boolean; url?: string; error?: string }> {
-  try {
-    const buffer = base64ToBuffer(base64Data);
-    const timestamp = Date.now();
-    const sanitized = sanitizeFilename(originalFilename);
-    const fileName = `${timestamp}_${sanitized}`;
+// async function uploadBase64ToPublic(
+//   base64Data: string,
+//   originalFilename: string,
+//   subFolder: "videos" | "pdfs" | "assignments"
+// ): Promise<{ success: boolean; url?: string; error?: string }> {
+//   try {
+//     const buffer = base64ToBuffer(base64Data);
+//     const timestamp = Date.now();
+//     const sanitized = sanitizeFilename(originalFilename);
+//     const fileName = `${timestamp}_${sanitized}`;
 
-    const publicDir = path.join(process.cwd(), "public", subFolder);
+//     const publicDir = path.join(process.cwd(), "public", subFolder);
 
-    if (!existsSync(publicDir)) {
-      await mkdir(publicDir, { recursive: true });
-    }
+//     if (!existsSync(publicDir)) {
+//       await mkdir(publicDir, { recursive: true });
+//     }
 
-    const filePath = path.join(publicDir, fileName);
-    await writeFile(filePath, buffer);
+//     const filePath = path.join(publicDir, fileName);
+//     await writeFile(filePath, buffer);
 
-    const relativePath = `/${subFolder}/${fileName}`;
+//     const relativePath = `/${subFolder}/${fileName}`;
 
-    return { success: true, url: relativePath };
-  } catch (error: any) {
-    console.error("❌ Upload base64 error:", error);
-    return { success: false, error: error.message || "Gagal upload file" };
-  }
-}
+//     return { success: true, url: relativePath };
+//   } catch (error: any) {
+//     console.error("❌ Upload base64 error:", error);
+//     return { success: false, error: error.message || "Gagal upload file" };
+//   }
+// }
 
 export async function createMaterialDetail(
   materialId: number,
@@ -885,11 +921,13 @@ export async function createMaterialDetail(
         return { error: "Tipe konten tidak valid untuk upload file." };
       }
 
-      const uploadResult = await uploadBase64ToPublic(
-        fileBase64,
-        fileName,
-        subFolder
-      );
+      // const uploadResult = await uploadBase64ToPublic(
+      //   fileBase64,
+      //   fileName,
+      //   subFolder
+      // );
+
+      const uploadResult = await uploadBase64ToBlob(fileBase64, fileName, subFolder);
 
       if (!uploadResult.success) {
         return { error: uploadResult.error || "Gagal upload file konten." };
@@ -903,11 +941,13 @@ export async function createMaterialDetail(
     }
 
     if (detailType === 4 && templateBase64 && templateName) {
-      const uploadResult = await uploadBase64ToPublic(
-        templateBase64,
-        templateName,
-        "assignments"
-      );
+      // const uploadResult = await uploadBase64ToPublic(
+      //   templateBase64,
+      //   templateName,
+      //   "assignments"
+      // );
+
+      const uploadResult = await uploadBase64ToBlob(templateBase64, templateName, "assignments");
       if (!uploadResult.success) {
         return { error: uploadResult.error || "Gagal upload template tugas." };
       }
@@ -1019,11 +1059,15 @@ export async function updateMaterialDetail(
     let newTemplateUrl: string | undefined | null = undefined;
 
     if (fileBase64 && fileName) {
-      if (
-        detail.materi_detail_url &&
-        detail.materi_detail_url.startsWith("/")
-      ) {
-        await deleteFromPublic(detail.materi_detail_url);
+      // if (
+      //   detail.materi_detail_url &&
+      //   detail.materi_detail_url.startsWith("/")
+      // ) {
+      //   await deleteFromPublic(detail.materi_detail_url);
+      // }
+
+      if (detail.materi_detail_url && detail.materi_detail_url.startsWith("http")) {
+        await deleteFromBlob(detail.materi_detail_url);
       }
 
       const detailType = detailData.material_detail_type
@@ -1031,11 +1075,13 @@ export async function updateMaterialDetail(
         : detail.material_detail_type;
 
       const subFolder = detailType === 1 ? "videos" : "pdfs";
-      const uploadResult = await uploadBase64ToPublic(
-        fileBase64,
-        fileName,
-        subFolder
-      );
+      // const uploadResult = await uploadBase64ToPublic(
+      //   fileBase64,
+      //   fileName,
+      //   subFolder
+      // );
+
+      const uploadResult = await uploadBase64ToBlob(fileBase64, fileName, subFolder);
 
       if (!uploadResult.success) {
         return {
@@ -1049,18 +1095,24 @@ export async function updateMaterialDetail(
     }
 
     if (templateBase64 && templateName) {
-      if (
-        detail.assignment_template_url &&
-        detail.assignment_template_url.startsWith("/")
-      ) {
-        await deleteFromPublic(detail.assignment_template_url);
-      }
+      // if (
+      //   detail.assignment_template_url &&
+      //   detail.assignment_template_url.startsWith("/")
+      // ) {
+      //   await deleteFromPublic(detail.assignment_template_url);
+      // }
 
-      const uploadResult = await uploadBase64ToPublic(
-        templateBase64,
-        templateName,
-        "assignments"
-      );
+      // const uploadResult = await uploadBase64ToPublic(
+      //   templateBase64,
+      //   templateName,
+      //   "assignments"
+      // );
+
+      if (detail.assignment_template_url && detail.assignment_template_url.startsWith("http")) {
+        await deleteFromBlob(detail.assignment_template_url);
+      }
+      const uploadResult = await uploadBase64ToBlob(templateBase64, templateName, "assignments");
+
       if (!uploadResult.success) {
         return { error: uploadResult.error || "Gagal upload template baru." };
       }
@@ -1120,14 +1172,24 @@ export async function deleteMaterialDetail(materialDetailId: number) {
       throw new Error("Konten tidak ditemukan atau Anda tidak berhak.");
     }
 
-    if (detail.materi_detail_url && detail.materi_detail_url.startsWith("/")) {
-      await deleteFromPublic(detail.materi_detail_url);
+    // if (detail.materi_detail_url && detail.materi_detail_url.startsWith("/")) {
+    //   await deleteFromPublic(detail.materi_detail_url);
+    // }
+    // if (
+    //   detail.assignment_template_url &&
+    //   detail.assignment_template_url.startsWith("/")
+    // ) {
+    //   await deleteFromPublic(detail.assignment_template_url);
+    // }
+
+    if (detail.materi_detail_url && detail.materi_detail_url.startsWith("http")) {
+      await deleteFromBlob(detail.materi_detail_url);
     }
     if (
       detail.assignment_template_url &&
-      detail.assignment_template_url.startsWith("/")
+      detail.assignment_template_url.startsWith("http")
     ) {
-      await deleteFromPublic(detail.assignment_template_url);
+      await deleteFromBlob(detail.assignment_template_url);
     }
 
     const courseId = detail.material?.course?.course_id;

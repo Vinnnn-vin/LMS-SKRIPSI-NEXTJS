@@ -28,6 +28,9 @@ import dayjs from "dayjs";
 import { createReviewSchema } from "@/lib/schemas/review.schema";
 import { deleteFromPublic } from "@/lib/uploadHelper";
 
+// New imports for Blob storage
+import { deleteFromBlob } from "@/lib/uploadHelperBlob";
+
 async function getStudentSession() {
   const session = await getServerSession(authOptions);
   if (!session?.user?.id || session.user.role !== "student") {
@@ -1121,7 +1124,12 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
 
         if (shouldDeleteFile) {
           try {
-            await deleteFromPublic(existingSubmission.file_path);
+            // await deleteFromPublic(existingSubmission.file_path);
+
+            if (existingSubmission.file_path.startsWith("http")) {
+                await deleteFromBlob(existingSubmission.file_path);
+            }
+            
             console.log("✅ Old file deleted:", existingSubmission.file_path);
           } catch (deleteError) {
             console.error("⚠️ Failed to delete old file:", deleteError);

@@ -19,8 +19,9 @@ import { Op } from "sequelize";
 import { randomBytes } from "crypto";
 import nodemailer from "nodemailer";
 
-// Blob
-import { uploadImage } from "@/lib/uploadHelper";
+import { uploadProfileImage, deleteFromPublic } from "@/lib/uploadHelper";
+
+import { uploadProfileImageToBlob, deleteFromBlob } from "@/lib/uploadHelperBlob";
 
 export async function register(values: z.infer<typeof registerFormSchema>) {
   const validatedFields = registerFormSchema.safeParse(values);
@@ -51,32 +52,29 @@ export async function register(values: z.infer<typeof registerFormSchema>) {
   }
 }
 
-async function uploadImages(
-  file: File,
-  userId: number
-): Promise<string | null> {
-  try {
-    const buffer = await file.arrayBuffer();
-    const ext = file.type.split("/")[1];
-    const filename = `user-${userId}-${Date.now()}.${ext}`;
+// async function uploadImage(file: File, userId: number): Promise<string | null> {
+//   try {
+//     const buffer = await file.arrayBuffer();
+//     const ext = file.type.split("/")[1];
+//     const filename = `user-${userId}-${Date.now()}.${ext}`;
 
-    const uploadsDir = path.join(
-      process.cwd(),
-      "public",
-      "uploads",
-      "profiles"
-    );
-    await fs.mkdir(uploadsDir, { recursive: true });
+//     const uploadsDir = path.join(
+//       process.cwd(),
+//       "public",
+//       "uploads",
+//       "profiles"
+//     );
+//     await fs.mkdir(uploadsDir, { recursive: true });
 
-    const filepath = path.join(uploadsDir, filename);
-    await fs.writeFile(filepath, Buffer.from(buffer));
+//     const filepath = path.join(uploadsDir, filename);
+//     await fs.writeFile(filepath, Buffer.from(buffer));
 
-    return `/uploads/profiles/${filename}`;
-  } catch (error) {
-    console.error("UPLOAD_IMAGE_ERROR:", error);
-    throw new Error("Gagal upload gambar");
-  }
-}
+//     return `/uploads/profiles/${filename}`;
+//   } catch (error) {
+//     console.error("UPLOAD_IMAGE_ERROR:", error);
+//     throw new Error("Gagal upload gambar");
+//   }
+// }
 
 export async function updateUserProfile(formData: FormData) {
   try {
@@ -87,7 +85,7 @@ export async function updateUserProfile(formData: FormData) {
 
     const first_name = formData.get("first_name") as string;
     const last_name = formData.get("last_name") as string;
-    const imageFile = formData.get("image") as File;
+    const imageFile = formData.get("image") as File | null;
 
     const validatedFields = updateProfileSchema.safeParse({
       first_name,
@@ -107,47 +105,48 @@ export async function updateUserProfile(formData: FormData) {
     user.first_name = first_name || null;
     user.last_name = last_name || null;
 
-    let imageUrl = user.image;
-
-    // if (imageFile && imageFile.size > 0) {
-    //   const imageUrl = await uploadImages(imageFile, userId);
-
-    //   if (
-    //     user.image &&
-    //     user.image !== imageUrl &&
-    //     user.image.startsWith("/uploads/")
-    //   ) {
-    //     try {
-    //       const oldFilename = user.image.split("/").pop();
-    //       const oldImagePath = path.join(
-    //         process.cwd(),
-    //         "public",
-    //         "uploads",
-    //         "profiles",
-    //         oldFilename || ""
-    //       );
-    //       await fs.unlink(oldImagePath);
-    //     } catch (err) {
-    //       console.log("Old image not found or already deleted");
-    //     }
-    //   }
-
-    //   user.image = imageUrl;
-    // }
-
-    // BLOB
     if (imageFile && imageFile.size > 0) {
-      const uploadResult = await uploadImage(imageFile, userId);
+      // const uploadResult = await uploadProfileImage(imageFile, userId);
+      // if (
+      //   user.image && user.image !== uploadResult.url
+      // ) {
+      //   try {
+      //     const oldFilename = user.image.split("/").pop();
+      //     const oldImagePath = path.join(
+      //       process.cwd(),
+      //       "public",
+      //       "uploads",
+      //       "profiles",
+      //       oldFilename || ""
+      //     );
+      //     await fs.unlink(oldImagePath);
+      //   } catch (err) {
+      //     console.log("Old image not found or already deleted");
+      //   }
+      // }
 
+      // user.image = uploadResult.url;
+
+      // Gunakan Blob upload
+      const uploadResult = await uploadProfileImageToBlob(imageFile, userId);
+      
       if (uploadResult.success && uploadResult.url) {
-        imageUrl = uploadResult.url;
+        // Cek apakah ada foto lama untuk dihapus
+        // Kita juga bisa cek apakah foto lama itu blob atau lokal
+        if (user.image && user.image !== uploadResult.url) {
+           if (user.image.startsWith("http")) {
+             // Asumsi kalau http berarti Blob URL
+             await deleteFromBlob(user.image);
+           } 
+           // Jika foto lama adalah lokal (/uploads/...), 
+           // kita biarkan saja atau bisa dihapus pakai logika fs lama jika mau bersih-bersih
+        }
+        user.image = uploadResult.url;
       } else {
-        console.error("Gagal Blob:", uploadResult.error);
-        return { error: "Gagal mengupload gambar: " + uploadResult.error };
+         return { error: uploadResult.error || "Gagal upload gambar profil." };
       }
     }
 
-    user.image = imageUrl;
     await user.save();
 
     const fullName = `${user.first_name || ""} ${user.last_name || ""}`.trim();
@@ -201,10 +200,6 @@ async function sendEmail(to: string, subject: string, html: string) {
   }
 }
 
-/**
- * Membuat token reset dan mengirimkannya via Email
- * (Versi sederhana, hanya email)
- */
 export async function sendPasswordResetLink(email: string) {
   try {
     const user = await User.findOne({ where: { email } });
