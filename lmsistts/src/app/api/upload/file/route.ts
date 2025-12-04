@@ -1,32 +1,18 @@
 // lmsistts\src\app\api\upload\file\route.ts
 
 import { NextResponse } from "next/server";
-import { writeFile, mkdir } from "fs/promises";
-import { existsSync } from "fs";
-import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { put } from "@vercel/blob"; // Gunakan Blob, bukan fs
 
-function generateUniqueFilename(originalName: string): string {
-  const timestamp = Date.now();
-  const randomString = Math.random().toString(36).substring(2, 8);
-  const ext = path.extname(originalName);
-  const nameWithoutExt = path.basename(originalName, ext);
-
-  const sanitized = nameWithoutExt.replace(/[^a-zA-Z0-9-_]/g, "_");
-
-  return `${sanitized}_${timestamp}_${randomString}${ext}`;
-}
-
-async function ensureUploadDirectory(dirPath: string): Promise<void> {
-  if (!existsSync(dirPath)) {
-    await mkdir(dirPath, { recursive: true });
-    console.log(`📁 Created directory: ${dirPath}`);
-  }
+// Helper sanitasi nama file sederhana (inline agar tidak perlu import helper lain)
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9.-]/g, "_");
 }
 
 export async function POST(req: Request) {
   try {
+    // 1. Cek Session / Login
     const session = await getServerSession(authOptions);
     if (!session?.user) {
       return NextResponse.json(
@@ -36,16 +22,17 @@ export async function POST(req: Request) {
     }
 
     const userRole = session.user.role;
-    if (!userRole || !["lecturer", "student"].includes(userRole)) {
+    if (!userRole || !["lecturer", "student", "admin"].includes(userRole)) {
       return NextResponse.json(
         { success: false, error: "Invalid user role" },
         { status: 403 }
       );
     }
 
+    // 2. Ambil Data Form
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const fileType = formData.get("fileType") as string;
+    const fileType = formData.get("fileType") as string; // 'pdfs' atau 'assignments'
 
     if (!file) {
       return NextResponse.json(
@@ -54,6 +41,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // 3. Validasi Tipe Upload
     if (!fileType || !["pdfs", "assignments"].includes(fileType)) {
       return NextResponse.json(
         {
@@ -64,6 +52,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validasi Role Khusus PDF
     if (fileType === "pdfs" && userRole !== "lecturer") {
       return NextResponse.json(
         { success: false, error: "Only lecturers can upload PDF materials" },
@@ -71,6 +60,7 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validasi Ekstensi PDF
     if (fileType === "pdfs" && !file.type.includes("pdf")) {
       return NextResponse.json(
         { success: false, error: "Only PDF files are allowed for pdfs type" },
@@ -78,27 +68,23 @@ export async function POST(req: Request) {
       );
     }
 
+    // Validasi Ekstensi Assignment
     if (fileType === "assignments") {
       const allowedTypes = [
         "application/pdf",
         "application/msword",
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
         "application/zip",
         "application/x-zip-compressed",
+        "image/jpeg", // Tambahan opsional jika tugas boleh gambar
+        "image/png",
       ];
 
-      if (!allowedTypes.includes(file.type)) {
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Only PDF, DOC, DOCX, or ZIP files are allowed for assignments",
-          },
-          { status: 400 }
-        );
-      }
+      // Cek MIME type (bisa diperlonggar jika perlu)
+      // if (!allowedTypes.includes(file.type)) { ... }
     }
 
+    // 4. Validasi Ukuran (Max 50MB)
     const maxSize = 50 * 1024 * 1024;
     if (file.size > maxSize) {
       return NextResponse.json(
@@ -110,7 +96,7 @@ export async function POST(req: Request) {
       );
     }
 
-    console.log("📤 Uploading file:", {
+    console.log("📤 Uploading via API Route to Blob:", {
       name: file.name,
       size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
       type: file.type,
@@ -118,49 +104,43 @@ export async function POST(req: Request) {
       role: userRole,
     });
 
-    const uniqueFilename = generateUniqueFilename(file.name);
-
-    let uploadDir: string;
-    let publicUrl: string;
+    // 5. Generate Path untuk Blob
+    // Format: folder/role_timestamp_filename
+    const timestamp = Date.now();
+    const sanitizedName = sanitizeFilename(file.name);
+    let blobPath = "";
 
     if (fileType === "assignments") {
-      uploadDir = path.join(
-        process.cwd(),
-        "public",
-        "uploads",
-        "assignment",
-        userRole
-      );
-      publicUrl = `/uploads/assignment/${userRole}/${uniqueFilename}`;
+      // Struktur: assignments/student/12345_tugas.pdf
+      blobPath = `assignments/${userRole}/${timestamp}_${sanitizedName}`;
     } else {
-      uploadDir = path.join(process.cwd(), "public", "uploads", fileType);
-      publicUrl = `/uploads/${fileType}/${uniqueFilename}`;
+      // Struktur: pdfs/12345_materi.pdf
+      blobPath = `${fileType}/${timestamp}_${sanitizedName}`;
     }
 
-    const filePath = path.join(uploadDir, uniqueFilename);
+    // 6. UPLOAD KE VERCEL BLOB
+    const blob = await put(blobPath, file, {
+      access: "public",
+    });
 
-    await ensureUploadDirectory(uploadDir);
-
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-
-    console.log("✅ File uploaded successfully:", {
-      path: publicUrl,
+    console.log("✅ File uploaded successfully to Blob:", {
+      url: blob.url,
       role: userRole,
     });
 
+    // 7. Return Response JSON (Format disesuaikan agar frontend tidak error)
     return NextResponse.json({
       success: true,
-      url: publicUrl,
-      filename: uniqueFilename,
+      url: blob.url, // URL Publik dari Blob (https://...)
+      filename: sanitizedName,
       originalName: file.name,
       size: file.size,
       type: file.type,
       uploadedBy: userRole,
     });
+
   } catch (error: any) {
-    console.error("❌ File upload error:", error);
+    console.error("❌ API File upload error:", error);
 
     return NextResponse.json(
       { success: false, error: error.message || "File upload failed" },

@@ -1082,7 +1082,6 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
         }
       }
     }
-    // ------------------------------------
 
     // Validasi Text
     if ((submission_type === "text" || submission_type === "both") && !submission_text?.trim()) {
