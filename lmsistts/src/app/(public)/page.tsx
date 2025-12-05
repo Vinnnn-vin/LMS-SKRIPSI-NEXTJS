@@ -235,9 +235,22 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                 </Group>
 
                 <Group justify="space-between" align="center">
-                  <Rating value={4.5} fractions={2} readOnly size="sm" />
+                  <Rating
+                    value={course.averageRating || 0}
+                    fractions={2}
+                    readOnly
+                    size="sm"
+                  />
                   <Text size="sm" c="dimmed">
-                    {Math.floor(Math.random() * 100) + 50} siswa
+                    {course.studentCount || 0} siswa
+                  </Text>
+                </Group>
+                <Group gap={4} align="center">
+                  <IconClock size={14} />
+                  <Text size="sm">
+                    {course.course_duration
+                      ? `${course.course_duration} jam`
+                      : "Fleksibel"}
                   </Text>
                 </Group>
 
@@ -471,9 +484,9 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
               }}
             >
               <Stack gap={12} align="center" justify="center" h="100%" w="100%">
-                <Text 
-                  size="lg" 
-                  fw={700} 
+                <Text
+                  size="lg"
+                  fw={700}
                   ta="center"
                   c="white"
                   lh={1.3}
@@ -487,8 +500,8 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
                 >
                   {cat.category_name}
                 </Text>
-                <Text 
-                  size="sm" 
+                <Text
+                  size="sm"
                   ta="center"
                   c="white"
                   fw={600}

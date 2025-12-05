@@ -24,8 +24,6 @@ export async function getPlatformStats() {
 
 export async function getFeaturedCourses() {
   try {
-    console.log("🔍 Mencari Featured Courses...");
-
     const courses = await Course.findAll({
       where: { publish_status: 1 },
       include: [
@@ -33,22 +31,48 @@ export async function getFeaturedCourses() {
           model: User,
           as: "lecturer",
           attributes: ["first_name", "last_name", "image"],
-          required: false,
         },
         {
           model: Category,
           as: "category",
           attributes: ["category_name"],
-          required: false,
         },
       ],
       order: [["created_at", "DESC"]],
       limit: 6,
     });
 
-    console.log("✅ Data ditemukan:", JSON.stringify(courses, null, 2));
+    const results = await Promise.all(
+      courses.map(async (courseInstance) => {
+        const course = courseInstance.toJSON();
 
-    return { success: true, data: courses.map((c) => c.toJSON()) };
+        // Ambil jumlah siswa
+        const studentCount = await Enrollment.count({
+          where: { course_id: course.course_id },
+        });
+
+        // Hitung rata-rata rating
+        const reviews = await Review.findAll({
+          where: { course_id: course.course_id },
+          attributes: ["rating"],
+        });
+
+        let averageRating = 0;
+        if (reviews.length > 0) {
+          const total = reviews.reduce((acc, r) => acc + (r.rating || 0), 0);
+          averageRating = parseFloat((total / reviews.length).toFixed(1));
+        }
+
+        return {
+          ...course,
+          studentCount,
+          averageRating,
+          course_duration: course.course_duration || null,
+        };
+      })
+    );
+
+    return { success: true, data: results };
   } catch (error) {
     console.error("[GET_FEATURED_COURSES_ERROR]", error);
     return { success: false, error: "Gagal mengambil data kursus unggulan." };
@@ -97,7 +121,7 @@ export async function getFeaturedCategories() {
       .sort((a, b) => b.course_count - a.course_count)
       .slice(0, 8);
 
-    console.log("✅ Featured Categories:", sortedCategories);
+    // console.log("✅ Featured Categories:", sortedCategories);
 
     return {
       success: true,

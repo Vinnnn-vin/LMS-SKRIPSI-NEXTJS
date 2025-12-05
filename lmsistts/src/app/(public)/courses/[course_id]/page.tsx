@@ -200,15 +200,25 @@ export default async function CourseDetailPage({
 
                   <Divider orientation="vertical" />
 
-                  <Box>
-                    <Group gap={4}>
-                      <Rating value={4.5} fractions={2} readOnly size="sm" />
-                      <Text fw={600}>4.5</Text>
+                  <Group mb="xl">
+                    <Group gap="xs">
+                      <Text fw={700} size="xl" c="yellow.7">
+                        {course.averageRating || 0}
+                      </Text>
+                      <Rating
+                        value={course.averageRating || 0}
+                        readOnly
+                        fractions={2}
+                      />
                     </Group>
-                    <Text size="xs" c="dimmed">
-                      1,234 siswa
-                    </Text>
-                  </Box>
+
+                    <Text c="dimmed">•</Text>
+
+                    <Group gap={4}>
+                      <IconUsers size={18} />
+                      <Text>{course.studentCount || 0} Siswa Terdaftar</Text>
+                    </Group>
+                  </Group>
                 </Group>
               </Stack>
             </GridCol>

@@ -43,6 +43,7 @@ import {
   IconPlayCard,
   IconX,
 } from "@tabler/icons-react";
+
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 import { getAllCourses, getAllCategories } from "@/app/actions/course.actions";
@@ -60,9 +61,14 @@ const formatPrice = (price: number | null | undefined) => {
 };
 
 function CourseCard({ course }: { course: any }) {
-  const getRandomStudents = () => Math.floor(Math.random() * 500) + 50;
-  const getRandomRating = () => (Math.random() * 1 + 4).toFixed(1);
-  const getRandomDuration = () => `${Math.floor(Math.random() * 10) + 5} jam`;
+  // const getRandomStudents = () => Math.floor(Math.random() * 500) + 50;
+  // const getRandomRating = () => (Math.random() * 1 + 4).toFixed(1);
+  // const getRandomDuration = () => `${Math.floor(Math.random() * 10) + 5} jam`;
+
+  const rating = course.averageRating || 0;
+  const studentCount = course.studentCount || 0;
+
+  const duration = course.course_duration ? `${course.course_duration} jam` : "Fleksibel";
 
   return (
     <Card
@@ -133,22 +139,22 @@ function CourseCard({ course }: { course: any }) {
           <Stack gap={2}>
             <Group gap={4}>
               <Rating
-                value={parseFloat(getRandomRating())}
+                value={rating} // Dinamis
                 fractions={2}
                 readOnly
                 size="sm"
               />
               <Text size="sm" fw={600}>
-                {getRandomRating()}
+                {rating.toFixed(1)} {/* Dinamis */}
               </Text>
             </Group>
             <Text size="xs" c="dimmed">
-              {getRandomStudents()} siswa
+              {studentCount} siswa {/* Dinamis */}
             </Text>
           </Stack>
           <Group gap={4}>
             <IconClock size={14} />
-            <Text size="sm">{getRandomDuration()}</Text>
+            <Text size="sm">{duration}</Text> {/* Dinamis */}
           </Group>
         </Group>
 

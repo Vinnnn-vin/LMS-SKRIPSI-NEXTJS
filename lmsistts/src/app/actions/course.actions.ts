@@ -47,40 +47,66 @@ export async function getAllPublishedCourses(): Promise<{
       order: [["created_at", "DESC"]],
     });
 
-    const plainCourses = courses.map((course) => {
-      const data = course.get({ plain: true });
-      return {
-        course_id: data.course_id,
-        course_title: data.course_title,
-        thumbnail_url: data.thumbnail_url,
-        course_price: data.course_price,
-        lecturer: {
-          name: data.lecturer
-            ? `${data.lecturer.first_name || ""} ${data.lecturer.last_name || ""}`.trim()
-            : "N/A",
-        },
-        category: {
-          category_name: data.category
-            ? data.category.category_name
-            : "Uncategorized",
-        },
-      };
-    });
+    // Tambahkan studentCount + rating
+    const results = await Promise.all(
+      courses.map(async (courseInstance) => {
+        const course = courseInstance.get({ plain: true });
 
-    console.log(plainCourses);
+        // --- Hitung jumlah siswa ---
+        const studentCount = await Enrollment.count({
+          where: { course_id: course.course_id },
+        });
 
-    const validationResult = courseCardDataSchema.safeParse(plainCourses);
-    if (!validationResult.success) {
-      console.error(
-        "VALIDATION_ERROR_IN_COURSE_ACTION:",
-        validationResult.error
+        // --- Hitung rata-rata rating ---
+        const reviews = await Review.findAll({
+          where: { course_id: course.course_id },
+          attributes: ["rating"],
+        });
+
+        let averageRating = 0;
+        if (reviews.length > 0) {
+          const totalRating = reviews.reduce(
+            (acc, r) => acc + (r.rating || 0),
+            0
+          );
+          averageRating = parseFloat((totalRating / reviews.length).toFixed(1));
+        }
+
+        return {
+          course_id: course.course_id,
+          course_title: course.course_title,
+          thumbnail_url: course.thumbnail_url,
+          course_price: course.course_price,
+          course_duration: course.course_duration, // ⬅ penting!
+          studentCount: studentCount,              // ⬅ ditambahkan
+          averageRating: averageRating,            // ⬅ ditambahkan
+
+          lecturer: {
+            name: course.lecturer
+              ? `${course.lecturer.first_name || ""} ${course.lecturer.last_name || ""}`.trim()
+              : "N/A",
+          },
+          category: {
+            category_name: course.category
+              ? course.category.category_name
+              : "Uncategorized",
+          },
+        };
+      })
+    );
+
+    const validated = courseCardDataSchema.safeParse(results);
+    if (!validated.success) {
+      console.log(
+        "VALIDATION ERROR IN PUBLISHED COURSES",
+        validated.error.flatten()
       );
       return { success: false, error: "Data kursus tidak valid." };
     }
 
-    return { success: true, data: validationResult.data };
+    return { success: true, data: validated.data };
   } catch (error) {
-    console.error("[GET_COURSES_ACTION_ERROR]", error);
+    console.error("[GET_PUBLISHED_COURSES_ERROR]", error);
     return {
       success: false,
       error: "Gagal mengambil data kursus.",
@@ -246,9 +272,7 @@ export async function getAllCourses(): Promise<{
 }> {
   try {
     const courses = await Course.findAll({
-      where: {
-        publish_status: 1,
-      },
+      where: { publish_status: 1 },
       include: [
         {
           model: User,
@@ -260,38 +284,53 @@ export async function getAllCourses(): Promise<{
       order: [["created_at", "DESC"]],
     });
 
-    const plainCourses = courses.map((courseInstance) => {
-      const course = courseInstance.toJSON();
-      return {
-        course_id: course.course_id,
-        course_title: course.course_title,
-        thumbnail_url: course.thumbnail_url,
-        course_price: course.course_price,
-        lecturer: {
-          name: course.lecturer
-            ? `${course.lecturer.first_name || ""} ${course.lecturer.last_name || ""}`.trim()
-            : "N/A",
-        },
-        category: {
-          category_name: course.category
-            ? course.category.category_name
-            : "Uncategorized",
-        },
-      };
-    });
+    const results = await Promise.all(
+      courses.map(async (courseInstance) => {
+        const course = courseInstance.toJSON();
 
-    console.log(plainCourses);
+        // --- Hitung Student Count ---
+        const studentCount = await Enrollment.count({
+          where: { course_id: course.course_id },
+        });
 
-    const validationResult = courseCardDataSchema.safeParse(plainCourses);
-    if (!validationResult.success) {
-      console.error(
-        "VALIDATION_ERROR (All Courses):",
-        validationResult.error.flatten()
-      );
-      return { success: false, error: "Data kursus tidak valid." };
-    }
+        // --- Hitung Average Rating ---
+        const reviews = await Review.findAll({
+          where: { course_id: course.course_id },
+          attributes: ["rating"],
+        });
 
-    return { success: true, data: validationResult.data };
+        let averageRating = 0;
+        if (reviews.length > 0) {
+          const total = reviews.reduce(
+            (acc, r) => acc + (r.rating || 0),
+            0
+          );
+          averageRating = parseFloat((total / reviews.length).toFixed(1));
+        }
+
+        return {
+          course_id: course.course_id,
+          course_title: course.course_title,
+          thumbnail_url: course.thumbnail_url,
+          course_price: course.course_price,
+          course_duration: course.course_duration,   // ⬅ tambahkan
+          averageRating: averageRating,             // ⬅ tambahkan
+          studentCount: studentCount,               // ⬅ tambahkan
+          lecturer: {
+            name: course.lecturer
+              ? `${course.lecturer.first_name || ""} ${course.lecturer.last_name || ""}`.trim()
+              : "N/A",
+          },
+          category: {
+            category_name: course.category
+              ? course.category.category_name
+              : "Uncategorized",
+          },
+        };
+      })
+    );
+
+    return { success: true, data: results };
   } catch (error) {
     console.error("[GET_ALL_COURSES_ERROR]", error);
     return {
