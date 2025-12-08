@@ -103,15 +103,26 @@ export async function getPendingPaymentsForAdmin() {
     const payments = await Payment.findAll({
       where: { status: "pending" },
       include: [
-        { model: User, as: "user", attributes: ["first_name", "last_name", "email"] },
-        { model: Course, as: "course", attributes: ["course_title", "course_price"] },
+        {
+          model: User,
+          as: "user",
+          attributes: ["first_name", "last_name", "email"],
+        },
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_title", "course_price"],
+        },
       ],
       order: [["created_at", "DESC"]],
     });
     return { success: true, data: payments.map((p) => p.toJSON()) };
   } catch (error) {
     console.error("[GET_PENDING_PAYMENTS_ADMIN]", error);
-    return { success: false, error: "Gagal mengambil data pembayaran pending." };
+    return {
+      success: false,
+      error: "Gagal mengambil data pembayaran pending.",
+    };
   }
 }
 
@@ -136,11 +147,11 @@ export async function confirmPaymentManual(paymentId: number) {
 
     // 1. Update status Payment
     await payment.update(
-      { 
-        status: "paid", 
+      {
+        status: "paid",
         paid_at: new Date(),
-        payment_method: "Manual Verification" 
-      }, 
+        payment_method: "Manual Verification",
+      },
       { transaction: t }
     );
 
@@ -167,14 +178,19 @@ export async function confirmPaymentManual(paymentId: number) {
       );
 
       // Link payment ke enrollment
-      await payment.update({ enrollment_id: newEnrollment.enrollment_id }, { transaction: t });
+      await payment.update(
+        { enrollment_id: newEnrollment.enrollment_id },
+        { transaction: t }
+      );
     }
 
     await t.commit();
     revalidatePath("/admin/dashboard/transactions"); // Pastikan path ini sesuai
     revalidatePath("/admin/dashboard"); // Refresh stats
 
-    return { success: "Pembayaran dikonfirmasi! Kursus siswa telah diaktifkan." };
+    return {
+      success: "Pembayaran dikonfirmasi! Kursus siswa telah diaktifkan.",
+    };
   } catch (error: any) {
     await t.rollback();
     console.error("[CONFIRM_PAYMENT_MANUAL_ERROR]", error);
@@ -185,14 +201,14 @@ export async function confirmPaymentManual(paymentId: number) {
 export async function rejectPaymentManual(paymentId: number) {
   const session = await getServerSession(authOptions);
   if (session?.user?.role !== "admin") return { error: "Akses ditolak." };
-  
+
   try {
     const payment = await Payment.findByPk(paymentId);
     if (!payment) return { error: "Data tidak ditemukan" };
-    
-    await payment.update({ status: 'failed' }); // Atau 'expired'
+
+    await payment.update({ status: "failed" }); // Atau 'expired'
     revalidatePath("/admin/dashboard/transactions");
-    
+
     return { success: "Pembayaran ditolak/dibatalkan." };
   } catch (error: any) {
     return { error: error.message };
@@ -208,12 +224,32 @@ export async function getAllCoursesForAdmin() {
           model: User,
           as: "lecturer",
           attributes: ["first_name", "last_name"],
+          required: false,
         },
-        { model: Category, as: "category", attributes: ["category_name"] },
+        {
+          model: Category,
+          as: "category",
+          attributes: ["category_name"],
+          required: false,
+        },
       ],
       order: [["created_at", "DESC"]],
     });
-    return { success: true, data: courses.map((c) => c.toJSON()) };
+
+    const safeData = courses.map((courseInstance) => {
+      const c = courseInstance.toJSON();
+      return {
+        ...c,
+        lecturer: c.lecturer || {
+          first_name: "Unknown",
+          last_name: "Lecturer",
+        },
+        category: c.category || { category_name: "Uncategorized" },
+      };
+    });
+
+    // return { success: true, data: courses.map((c) => c.toJSON()) };
+    return { success: true, data: safeData };
   } catch (error) {
     console.error("[GET_ALL_COURSES_ADMIN_ERROR]", error);
     return { success: false, error: "Gagal mengambil data kursus." };
@@ -664,7 +700,7 @@ export async function getAllCategoriesForAdmin() {
         {
           model: Course,
           as: "courses",
-          attributes: ["course_id", "course_title"],
+          attributes: ["course_id"],
           required: false,
         },
       ],
@@ -743,6 +779,7 @@ export async function getAllPaymentsForAdmin(filters?: {
 }) {
   try {
     const whereClause: any = {};
+    whereClause.status = "paid";
 
     if (filters?.startDate || filters?.endDate) {
       whereClause.paid_at = {};
@@ -755,7 +792,6 @@ export async function getAllPaymentsForAdmin(filters?: {
         whereClause.paid_at[Op.lt] = nextDay;
       }
     }
-    whereClause.status = "paid";
 
     const payments = await Payment.findAll({
       where: whereClause,
@@ -764,8 +800,9 @@ export async function getAllPaymentsForAdmin(filters?: {
           model: User,
           as: "user",
           attributes: ["first_name", "last_name", "email"],
+          required: false,
         },
-        { model: Course, as: "course", attributes: ["course_title"] },
+        { model: Course, as: "course", attributes: ["course_title"], required: false },
       ],
       order: [["paid_at", "DESC"]],
     });
