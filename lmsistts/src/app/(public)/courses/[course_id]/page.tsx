@@ -622,35 +622,47 @@ export default async function CourseDetailPage({
                 </List>
               </Paper>
 
-              <Paper p="lg" radius="md" withBorder className={classes.ctaCard}>
-                <Stack gap="md" align="center" ta="center">
-                  <ThemeIcon
-                    size={60}
-                    radius="xl"
-                    variant="gradient"
-                    gradient={{ from: "blue", to: "cyan" }}
-                  >
-                    <IconTrophy size={30} />
-                  </ThemeIcon>
-                  <Box>
-                    <Title order={4} size="h5">
-                      Siap Memulai?
-                    </Title>
-                    <Text size="sm" c="dimmed" mt={4}>
-                      Bergabunglah dengan ribuan siswa lainnya
-                    </Text>
-                  </Box>
-                  <Button
-                    fullWidth
-                    variant="gradient"
-                    gradient={{ from: "blue", to: "cyan" }}
-                    component={Link}
-                    href={`/student/courses/${courseId}/checkout`}
-                  >
-                    Daftar Sekarang
-                  </Button>
-                </Stack>
-              </Paper>
+              {userRole !== "admin" && userRole !== "lecturer" && (
+                <Paper
+                  p="lg"
+                  radius="md"
+                  withBorder
+                  className={classes.ctaCard}
+                >
+                  <Stack gap="md" align="center" ta="center">
+                    <ThemeIcon
+                      size={60}
+                      radius="xl"
+                      variant="gradient"
+                      gradient={{ from: "blue", to: "cyan" }}
+                    >
+                      <IconTrophy size={30} />
+                    </ThemeIcon>
+                    <Box>
+                      <Title order={4} size="h5">
+                        Siap Memulai?
+                      </Title>
+                      <Text size="sm" c="dimmed" mt={4}>
+                        Bergabunglah dengan {course.studentCount || 0}+ siswa
+                        lainnya
+                      </Text>
+                    </Box>
+                    <Button
+                      fullWidth
+                      size="md"
+                      variant="gradient"
+                      gradient={{ from: "blue", to: "cyan" }}
+                      component={Link}
+                      href={buttonHref}
+                      rightSection={<IconChevronRight size={18} />}
+                    >
+                      {course.course_price === 0 || course.course_price === null
+                        ? "Mulai Belajar Gratis"
+                        : "Daftar Sekarang"}
+                    </Button>
+                  </Stack>
+                </Paper>
+              )}
             </Stack>
           </GridCol>
         </Grid>

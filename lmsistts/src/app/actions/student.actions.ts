@@ -1551,3 +1551,139 @@ export async function cancelStudentInvoice(paymentId: number) {
     return { error: error.message || "Gagal membatalkan invoice." };
   }
 }
+
+export async function getNextContent(
+  courseId: number,
+  currentType: "detail" | "quiz",
+  currentId: number
+) {
+  try {
+    const { userId } = await getStudentSession();
+
+    const course = await Course.findByPk(courseId, {
+      include: [
+        {
+          model: Material,
+          as: "materials",
+          include: [
+            { model: MaterialDetail, as: "details", required: false },
+            { model: Quiz, as: "quizzes", required: false },
+          ],
+        },
+      ],
+      order: [
+        [{ model: Material, as: "materials" }, "material_id", "ASC"],
+        [
+          { model: Material, as: "materials" },
+          { model: MaterialDetail, as: "details" },
+          "material_detail_id",
+          "ASC",
+        ],
+        [
+          { model: Material, as: "materials" },
+          { model: Quiz, as: "quizzes" },
+          "quiz_id",
+          "ASC",
+        ],
+      ],
+    });
+
+    if (!course || !course.materials || course.materials.length === 0) {
+      return { success: false, error: "Course tidak memiliki materi." };
+    }
+
+    // Get completed items
+    const completedDetails = await StudentProgress.findAll({
+      where: { user_id: userId, course_id: courseId, is_completed: true },
+      attributes: ["material_detail_id"],
+      raw: true,
+    });
+    const completedDetailSet = new Set(
+      completedDetails.map((p: any) => p.material_detail_id)
+    );
+
+    const passedQuizzes = await StudentQuizAnswer.findAll({
+      where: { user_id: userId, course_id: courseId, status: "passed" },
+      attributes: [
+        [sequelize.fn("DISTINCT", sequelize.col("quiz_id")), "quiz_id"],
+      ],
+      raw: true,
+    });
+    const completedQuizSet = new Set(passedQuizzes.map((q: any) => q.quiz_id));
+
+    const approvedAssignments = await AssignmentSubmission.findAll({
+      where: { user_id: userId, course_id: courseId, status: "approved" },
+      attributes: [
+        [
+          sequelize.fn("DISTINCT", sequelize.col("material_detail_id")),
+          "material_detail_id",
+        ],
+      ],
+      raw: true,
+    });
+    const completedAssignmentSet = new Set(
+      approvedAssignments.map((a: any) => a.material_detail_id)
+    );
+
+    // Find current position and get next content
+    let foundCurrent = false;
+
+    for (const material of course.materials) {
+      // Check details
+      if (material.details && material.details.length > 0) {
+        for (const detail of material.details) {
+          if (foundCurrent) {
+            // Return next content regardless of completion status
+            return {
+              success: true,
+              data: {
+                type: "detail" as const,
+                id: detail.material_detail_id,
+                name: detail.material_detail_name,
+                materialName: material.material_name,
+              },
+            };
+          }
+
+          if (
+            currentType === "detail" &&
+            detail.material_detail_id === currentId
+          ) {
+            foundCurrent = true;
+          }
+        }
+      }
+
+      // Check quizzes
+      if (material.quizzes && material.quizzes.length > 0) {
+        for (const quiz of material.quizzes) {
+          if (foundCurrent) {
+            return {
+              success: true,
+              data: {
+                type: "quiz" as const,
+                id: quiz.quiz_id,
+                name: quiz.quiz_title,
+                materialName: material.material_name,
+              },
+            };
+          }
+
+          if (currentType === "quiz" && quiz.quiz_id === currentId) {
+            foundCurrent = true;
+          }
+        }
+      }
+    }
+
+    // No next content found
+    return {
+      success: true,
+      data: null,
+      message: "Anda telah menyelesaikan semua materi!",
+    };
+  } catch (error: any) {
+    console.error("[GET_NEXT_CONTENT_ERROR]", error);
+    return { success: false, error: error.message };
+  }
+}

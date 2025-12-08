@@ -16,11 +16,8 @@ import {
   SimpleGrid,
   Box,
   Badge,
-  Card,
   Group,
-  rem,
   Center,
-  Avatar,
 } from "@mantine/core";
 import {
   IconCheck,
@@ -35,10 +32,10 @@ import {
   IconDeviceLaptop,
   IconBulb,
   IconHeart,
-  IconStar,
   IconPalette,
 } from "@tabler/icons-react";
 import { useEffect, useState } from "react";
+import classes from "./about.module.css";
 
 export default function AboutUsPage() {
   const [mounted, setMounted] = useState(false);
@@ -131,71 +128,31 @@ export default function AboutUsPage() {
   ];
 
   return (
-    <Box
-      style={{
-        background:
-          "linear-gradient(180deg, rgba(99, 102, 241, 0.03) 0%, rgba(255, 255, 255, 0) 100%)",
-        minHeight: "100vh",
-      }}
-    >
-      <Box
-        style={{
-          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-          position: "relative",
-          overflow: "hidden",
-        }}
-      >
-        <Container size="xl" py={100}>
+    <Box className={classes.pageWrapper}>
+      {/* Hero Section */}
+      <Box className={classes.heroSection}>
+        <Container size="xl" className={classes.heroContainer}>
           <Center>
             <Stack
               gap="xl"
               align="center"
               maw={800}
-              style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? "translateY(0)" : "translateY(30px)",
-                transition: "all 0.8s ease-out",
-              }}
+              className={`${classes.heroContent} ${mounted ? classes.mounted : ""}`}
             >
-              <Badge
-                size="xl"
-                variant="white"
-                style={{
-                  padding: "0.75rem 1.5rem",
-                  fontSize: "1rem",
-                  boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
-                }}
-              >
+              <Badge size="lg" variant="white" className={classes.heroBadge}>
                 <Group gap="xs">
-                  <IconSparkles size={20} />
-                  <Text>Platform Pembelajaran Modern</Text>
+                  <IconSparkles size={16} />
+                  <Text className={classes.badgeText}>
+                    Platform Pembelajaran Modern
+                  </Text>
                 </Group>
               </Badge>
 
-              <Title
-                order={1}
-                ta="center"
-                c="white"
-                style={{
-                  fontSize: "clamp(2.5rem, 5vw, 4rem)",
-                  fontWeight: 900,
-                  textShadow: "0 2px 20px rgba(0, 0, 0, 0.2)",
-                  lineHeight: 1.2,
-                }}
-              >
+              <Title order={1} ta="center" c="white" className={classes.heroTitle}>
                 Tentang iClick LMS
               </Title>
 
-              <Text
-                size="xl"
-                ta="center"
-                c="white"
-                style={{
-                  opacity: 0.95,
-                  lineHeight: 1.6,
-                  maxWidth: "600px",
-                }}
-              >
+              <Text size="lg" ta="center" c="white" className={classes.heroDescription}>
                 Membawa pendidikan ke level berikutnya dengan teknologi dan
                 inovasi terkini
               </Text>
@@ -203,29 +160,15 @@ export default function AboutUsPage() {
           </Center>
         </Container>
 
-        <Box
-          style={{
-            position: "absolute",
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: "100px",
-            background: "linear-gradient(0deg, white 0%, transparent 100%)",
-            zIndex: 1,
-          }}
-        />
+        <Box className={classes.heroGradient} />
       </Box>
 
-      <Container size="xl" py={80}>
+      <Container size="xl" className={classes.mainContainer}>
+        {/* Stats Section */}
         <SimpleGrid
-          cols={{ base: 2, sm: 4 }}
+          cols={{ base: 2, sm: 2, md: 4 }}
           spacing="xl"
-          mb={80}
-          style={{
-            opacity: mounted ? 1 : 0,
-            transform: mounted ? "translateY(0)" : "translateY(30px)",
-            transition: "all 0.8s ease-out 0.2s",
-          }}
+          className={`${classes.statsGrid} ${mounted ? classes.mounted : ""}`}
         >
           {stats.map((stat, index) => (
             <Paper
@@ -233,43 +176,18 @@ export default function AboutUsPage() {
               p="xl"
               radius="lg"
               withBorder
-              style={{
-                transition: "all 0.3s ease",
-                cursor: "pointer",
-                textAlign: "center",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = "translateY(-8px)";
-                e.currentTarget.style.boxShadow =
-                  "0 20px 40px rgba(0, 0, 0, 0.12)";
-                e.currentTarget.style.borderColor = `var(--mantine-color-${stat.color}-3)`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = "translateY(0)";
-                e.currentTarget.style.boxShadow = "";
-                e.currentTarget.style.borderColor = "";
-              }}
+              className={classes.statCard}
             >
               <ThemeIcon
                 size={60}
                 radius="xl"
                 variant="light"
                 color={stat.color}
-                style={{ margin: "0 auto 1rem" }}
+                className={classes.statIcon}
               >
-                <stat.icon size={30} />
+                <stat.icon className={classes.statIconSvg} />
               </ThemeIcon>
-              <Text
-                size="2rem"
-                fw={900}
-                style={{
-                  background: `linear-gradient(135deg, var(--mantine-color-${stat.color}-5) 0%, var(--mantine-color-${stat.color}-7) 100%)`,
-                  WebkitBackgroundClip: "text",
-                  WebkitTextFillColor: "transparent",
-                  backgroundClip: "text",
-                  marginBottom: "0.5rem",
-                }}
-              >
+              <Text className={classes.statValue} data-color={stat.color}>
                 {stat.value}
               </Text>
               <Text size="sm" c="dimmed" fw={500}>
@@ -279,49 +197,37 @@ export default function AboutUsPage() {
           ))}
         </SimpleGrid>
 
-        <Grid gutter="xl" mb={80}>
+        {/* Main Content Grid */}
+        <Grid gutter="xl" className={classes.contentGrid}>
           <GridCol span={{ base: 12, md: 7 }}>
             <Paper
               shadow="md"
               p="xl"
               radius="lg"
               withBorder
-              style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? "translateX(0)" : "translateX(-50px)",
-                transition: "all 0.8s ease-out 0.3s",
-              }}
+              className={`${classes.mainContent} ${mounted ? classes.mounted : ""}`}
             >
               <Stack gap="xl">
-                <Group>
+                <Group wrap="nowrap" align="flex-start" className={classes.contentHeader}>
                   <ThemeIcon
                     size={60}
                     radius="lg"
                     variant="gradient"
                     gradient={{ from: "blue", to: "cyan" }}
                   >
-                    <IconRocket size={32} />
+                    <IconRocket className={classes.headerIcon} />
                   </ThemeIcon>
                   <Box style={{ flex: 1 }}>
                     <Text size="xs" tt="uppercase" fw={700} c="dimmed">
                       Tentang Kami
                     </Text>
-                    <Title
-                      order={2}
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        WebkitBackgroundClip: "text",
-                        WebkitTextFillColor: "transparent",
-                        backgroundClip: "text",
-                      }}
-                    >
+                    <Title order={2} className={classes.sectionTitle}>
                       Platform Belajar Inovatif
                     </Title>
                   </Box>
                 </Group>
 
-                <Text size="lg" style={{ lineHeight: 1.8 }} c="dimmed">
+                <Text size="lg" style={{ lineHeight: 1.8 }} c="dimmed" className={classes.description}>
                   iClick LMS adalah platform Learning Management System modern
                   yang dirancang untuk memberikan pengalaman belajar online yang
                   interaktif, fleksibel, dan efektif. Kami percaya bahwa
@@ -329,7 +235,7 @@ export default function AboutUsPage() {
                   kapan saja, dan di mana saja.
                 </Text>
 
-                <Text size="lg" style={{ lineHeight: 1.8 }} c="dimmed">
+                <Text size="lg" style={{ lineHeight: 1.8 }} c="dimmed" className={classes.description}>
                   Dibangun dengan teknologi terkini (Next.js, Mantine UI,
                   Sequelize), iClick LMS menawarkan antarmuka yang ramah
                   pengguna, fitur yang kaya, dan performa yang handal untuk
@@ -349,40 +255,18 @@ export default function AboutUsPage() {
                   labelPosition="center"
                 />
 
-                <Grid>
+                <Grid gutter="md">
                   <GridCol span={{ base: 12, sm: 6 }}>
-                    <Paper
-                      p="xl"
-                      radius="md"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-                        transition: "all 0.3s ease",
-                        height: "100%",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-4px)";
-                        e.currentTarget.style.boxShadow =
-                          "0 12px 24px rgba(102, 126, 234, 0.3)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)";
-                        e.currentTarget.style.boxShadow = "";
-                      }}
-                    >
+                    <Paper p="xl" radius="md" className={classes.missionCard}>
                       <Stack gap="md">
                         <ThemeIcon size={50} radius="xl" variant="white">
                           <IconTarget size={26} />
                         </ThemeIcon>
                         <Box>
-                          <Title order={4} c="white" mb="xs">
+                          <Title order={4} c="white" mb="xs" className={classes.cardTitle}>
                             Misi Kami
                           </Title>
-                          <Text
-                            size="sm"
-                            c="white"
-                            style={{ opacity: 0.95, lineHeight: 1.7 }}
-                          >
+                          <Text size="sm" c="white" className={classes.cardText}>
                             Memberdayakan individu melalui pendidikan online
                             yang berkualitas dan mudah diakses, serta mendukung
                             para pengajar dalam berbagi ilmu secara efektif.
@@ -393,38 +277,16 @@ export default function AboutUsPage() {
                   </GridCol>
 
                   <GridCol span={{ base: 12, sm: 6 }}>
-                    <Paper
-                      p="xl"
-                      radius="md"
-                      style={{
-                        background:
-                          "linear-gradient(135deg, #764ba2 0%, #f093fb 100%)",
-                        transition: "all 0.3s ease",
-                        height: "100%",
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.transform = "translateY(-4px)";
-                        e.currentTarget.style.boxShadow =
-                          "0 12px 24px rgba(118, 75, 162, 0.3)";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.transform = "translateY(0)";
-                        e.currentTarget.style.boxShadow = "";
-                      }}
-                    >
+                    <Paper p="xl" radius="md" className={classes.visionCard}>
                       <Stack gap="md">
                         <ThemeIcon size={50} radius="xl" variant="white">
                           <IconEye size={26} />
                         </ThemeIcon>
                         <Box>
-                          <Title order={4} c="white" mb="xs">
+                          <Title order={4} c="white" mb="xs" className={classes.cardTitle}>
                             Visi Kami
                           </Title>
-                          <Text
-                            size="sm"
-                            c="white"
-                            style={{ opacity: 0.95, lineHeight: 1.7 }}
-                          >
+                          <Text size="sm" c="white" className={classes.cardText}>
                             Menjadi platform LMS pilihan utama di Indonesia yang
                             menginspirasi pembelajaran seumur hidup dan inovasi
                             pendidikan.
@@ -440,39 +302,21 @@ export default function AboutUsPage() {
 
           <GridCol span={{ base: 12, md: 5 }}>
             <Stack
-              style={{
-                opacity: mounted ? 1 : 0,
-                transform: mounted ? "translateX(0)" : "translateX(50px)",
-                transition: "all 0.8s ease-out 0.3s",
-              }}
+              gap="lg"
+              className={`${classes.sideContent} ${mounted ? classes.mounted : ""}`}
             >
-              <Paper
-                radius="lg"
-                style={{
-                  overflow: "hidden",
-                  transition: "all 0.3s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "scale(1.02)";
-                  e.currentTarget.style.boxShadow =
-                    "0 20px 40px rgba(0, 0, 0, 0.15)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "scale(1)";
-                  e.currentTarget.style.boxShadow = "";
-                }}
-              >
+              <Paper radius="lg" className={classes.imageCard}>
                 <Image
                   radius="lg"
                   src="/images/about-placeholder.jpg"
                   alt="Tentang iClick LMS"
                   fallbackSrc="https://images.unsplash.com/photo-1522202176988-66273c2fd55f?ixlib=rb-4.0.3&w=800"
-                  style={{ display: "block" }}
+                  style={{ display: "block", aspectRatio: "16/9" }}
                 />
               </Paper>
 
               <Paper shadow="md" p="xl" radius="lg" withBorder>
-                <Group mb="xl">
+                <Group mb="xl" wrap="nowrap" align="flex-start">
                   <ThemeIcon
                     size={50}
                     radius="lg"
@@ -485,7 +329,7 @@ export default function AboutUsPage() {
                     <Text size="xs" tt="uppercase" fw={700} c="dimmed">
                       Keunggulan
                     </Text>
-                    <Title order={3}>Kenapa Memilih Kami?</Title>
+                    <Title order={3} className={classes.listTitle}>Kenapa Memilih Kami?</Title>
                   </Box>
                 </Group>
 
@@ -493,35 +337,40 @@ export default function AboutUsPage() {
                   spacing="md"
                   size="md"
                   icon={
-                    <ThemeIcon
-                      size={24}
-                      radius="xl"
-                      variant="light"
-                      color="teal"
-                    >
+                    <ThemeIcon size={24} radius="xl" variant="light" color="teal">
                       <IconCheck size={14} stroke={3} />
                     </ThemeIcon>
                   }
                 >
                   <ListItem>
-                    <Text fw={500}>Kurikulum terstruktur dari para ahli</Text>
+                    <Text fw={500} className={classes.listItemText}>
+                      Kurikulum terstruktur dari para ahli
+                    </Text>
                   </ListItem>
                   <ListItem>
-                    <Text fw={500}>Platform modern dan mudah digunakan</Text>
+                    <Text fw={500} className={classes.listItemText}>
+                      Platform modern dan mudah digunakan
+                    </Text>
                   </ListItem>
                   <ListItem>
-                    <Text fw={500}>
+                    <Text fw={500} className={classes.listItemText}>
                       Fitur interaktif (kuis, tugas, diskusi)
                     </Text>
                   </ListItem>
                   <ListItem>
-                    <Text fw={500}>Sertifikat penyelesaian kursus</Text>
+                    <Text fw={500} className={classes.listItemText}>
+                      Sertifikat penyelesaian kursus
+                    </Text>
                   </ListItem>
                   <ListItem>
-                    <Text fw={500}>Komunitas belajar yang suportif</Text>
+                    <Text fw={500} className={classes.listItemText}>
+                      Komunitas belajar yang suportif
+                    </Text>
                   </ListItem>
                   <ListItem>
-                    <Text fw={500}>Update materi berkelanjutan</Text>
+                    <Text fw={500} className={classes.listItemText}>
+                      Update materi berkelanjutan
+                    </Text>
                   </ListItem>
                 </List>
               </Paper>
@@ -529,20 +378,17 @@ export default function AboutUsPage() {
           </GridCol>
         </Grid>
 
-        <Box mb={80}>
-          <Center mb={50}>
+        {/* Features Section */}
+        <Box className={classes.featuresSection}>
+          <Center className={classes.sectionHeader}>
             <Stack gap="md" align="center" maw={700}>
               <Badge size="lg" variant="light" color="blue">
                 Fitur Unggulan
               </Badge>
-              <Title
-                order={2}
-                ta="center"
-                style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
-              >
+              <Title order={2} ta="center" className={classes.featuresTitle}>
                 Mengapa iClick LMS?
               </Title>
-              <Text size="lg" ta="center" c="dimmed">
+              <Text size="lg" ta="center" c="dimmed" className={classes.featuresDescription}>
                 Fitur-fitur canggih yang dirancang untuk pengalaman belajar
                 terbaik
               </Text>
@@ -556,21 +402,7 @@ export default function AboutUsPage() {
                 p="xl"
                 radius="lg"
                 withBorder
-                style={{
-                  transition: "all 0.3s ease",
-                  cursor: "pointer",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-8px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 20px 40px rgba(0, 0, 0, 0.12)";
-                  e.currentTarget.style.borderColor = `var(--mantine-color-${feature.color}-3)`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "";
-                  e.currentTarget.style.borderColor = "";
-                }}
+                className={classes.featureCard}
               >
                 <Stack gap="md" align="center" ta="center">
                   <ThemeIcon
@@ -579,13 +411,13 @@ export default function AboutUsPage() {
                     variant="light"
                     color={feature.color}
                   >
-                    <feature.icon size={34} />
+                    <feature.icon className={classes.featureIcon} />
                   </ThemeIcon>
                   <Box>
-                    <Title order={4} mb="xs">
+                    <Title order={4} mb="xs" className={classes.featureTitle}>
                       {feature.title}
                     </Title>
-                    <Text size="sm" c="dimmed" style={{ lineHeight: 1.6 }}>
+                    <Text size="sm" c="dimmed" className={classes.featureDescription}>
                       {feature.description}
                     </Text>
                   </Box>
@@ -595,8 +427,9 @@ export default function AboutUsPage() {
           </SimpleGrid>
         </Box>
 
-        <Box>
-          <Center mb={50}>
+        {/* Team Section */}
+        <Box className={classes.teamSection}>
+          <Center className={classes.sectionHeader}>
             <Stack gap="md" align="center" maw={700}>
               <Badge
                 size="lg"
@@ -605,14 +438,10 @@ export default function AboutUsPage() {
               >
                 Tim Profesional
               </Badge>
-              <Title
-                order={2}
-                ta="center"
-                style={{ fontSize: "clamp(1.75rem, 4vw, 2.5rem)" }}
-              >
+              <Title order={2} ta="center" className={classes.teamTitle}>
                 Tim Kami
               </Title>
-              <Text size="lg" ta="center" c="dimmed">
+              <Text size="lg" ta="center" c="dimmed" className={classes.teamDescription}>
                 Bersama para expert yang berdedikasi untuk memberikan yang
                 terbaik
               </Text>
@@ -626,20 +455,7 @@ export default function AboutUsPage() {
                 p="xl"
                 radius="lg"
                 withBorder
-                style={{
-                  transition: "all 0.3s ease",
-                  cursor: "pointer",
-                  textAlign: "center",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-8px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 20px 40px rgba(0, 0, 0, 0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow = "";
-                }}
+                className={classes.teamCard}
               >
                 <Stack gap="md" align="center">
                   <ThemeIcon
@@ -648,9 +464,9 @@ export default function AboutUsPage() {
                     variant="gradient"
                     gradient={member.color}
                   >
-                    <member.icon size={40} />
+                    <member.icon className={classes.teamIcon} />
                   </ThemeIcon>
-                  <Box>
+                  <Box style={{ textAlign: "center" }}>
                     <Text fw={700} size="lg">
                       {member.name}
                     </Text>

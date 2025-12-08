@@ -1,8 +1,6 @@
-// lmsistts\src\app\(auth)\login\page.tsx
-
 "use client";
 
-import { Suspense, useState, useTransition } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { signIn } from "next-auth/react";
@@ -57,7 +55,9 @@ function GoogleIcon(props: React.ComponentPropsWithoutRef<"svg">) {
 }
 
 function LoginForm() {
-  const [isPending, startTransition] = useTransition();
+  const [loadingProvider, setLoadingProvider] = useState<
+    "credentials" | "google" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -70,27 +70,37 @@ function LoginForm() {
     validate: zod4Resolver(loginSchema),
   });
 
-  const handleCredentialsLogin = (values: z.infer<typeof loginSchema>) => {
+  const isLoading = loadingProvider !== null;
+
+  const handleCredentialsLogin = async (
+    values: z.infer<typeof loginSchema>
+  ) => {
     setError(null);
-    startTransition(async () => {
+    setLoadingProvider("credentials");
+
+    try {
       const result = await signIn("credentials", {
         ...values,
         redirect: false,
       });
+
       if (result?.error) {
         setError("Email atau password salah.");
+        setLoadingProvider(null);
       } else if (result?.ok) {
         router.push("/");
         router.refresh();
       }
-    });
+    } catch (err) {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+      setLoadingProvider(null);
+    }
   };
 
-  const handleOAuthLogin = (provider: "google" | "github") => {
-    startTransition(() => {
-      signIn(provider, {
-        callbackUrl: "/",
-      });
+  const handleOAuthLogin = (provider: "google") => {
+    setLoadingProvider(provider);
+    signIn(provider, {
+      callbackUrl: "/",
     });
   };
 
@@ -159,6 +169,7 @@ function LoginForm() {
                   label="Email"
                   placeholder="email@domain.com"
                   leftSection={<IconAt size={16} />}
+                  disabled={isLoading}
                   {...form.getInputProps("email")}
                 />
                 <PasswordInput
@@ -166,6 +177,7 @@ function LoginForm() {
                   label="Password"
                   placeholder="Password Anda"
                   leftSection={<IconLock size={16} />}
+                  disabled={isLoading}
                   {...form.getInputProps("password")}
                 />
                 <Group justify="flex-end" mt={-10} mb={-5}>
@@ -174,11 +186,21 @@ function LoginForm() {
                     href="/forgot-password"
                     size="sm"
                     c="dimmed"
+                    style={{
+                      pointerEvents: isLoading ? "none" : "auto",
+                      opacity: isLoading ? 0.6 : 1,
+                    }}
                   >
                     Lupa Password?
                   </Anchor>
                 </Group>
-                <Button type="submit" fullWidth mt="xl" loading={isPending}>
+                <Button
+                  type="submit"
+                  fullWidth
+                  mt="xl"
+                  loading={loadingProvider === "credentials"}
+                  disabled={isLoading && loadingProvider !== "credentials"}
+                >
                   Login
                 </Button>
               </Stack>
@@ -189,7 +211,8 @@ function LoginForm() {
                 leftSection={<GoogleIcon />}
                 variant="default"
                 onClick={() => handleOAuthLogin("google")}
-                loading={isPending}
+                loading={loadingProvider === "google"}
+                disabled={isLoading && loadingProvider !== "google"}
               >
                 Google
               </Button>

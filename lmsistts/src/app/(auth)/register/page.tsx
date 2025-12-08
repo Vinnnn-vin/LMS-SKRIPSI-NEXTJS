@@ -2,22 +2,25 @@
 
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Alert, Anchor, Box, Container,
+  Paper, Title, Text, TextInput, PasswordInput, Button, Stack, Alert, Anchor, Box, Container, Progress,
 } from '@mantine/core';
 import { useForm } from '@mantine/form';
-import { IconAlertCircle, IconUser, IconAt, IconLock } from '@tabler/icons-react';
+import { IconAlertCircle, IconUser, IconAt, IconLock, IconCheck } from '@tabler/icons-react';
 import { registerFormSchema } from '@/lib/schemas/user.schema';
 import { register } from '@/app/actions/user.actions';
 import { zod4Resolver } from 'mantine-form-zod-resolver';
 import z from 'zod';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   const form = useForm({
     initialValues: {
@@ -30,15 +33,36 @@ export default function RegisterPage() {
     validate: zod4Resolver(registerFormSchema),
   });
 
+  // Countdown timer effect
+  useEffect(() => {
+    if (countdown === null) return;
+
+    if (countdown === 0) {
+      router.push('/login');
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown(countdown - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [countdown, router]);
+
   const handleSubmit = (values: z.infer<typeof registerFormSchema>) => {
     setError(null);
     setSuccess(null);
+    setCountdown(null);
+    
     startTransition(() => {
       register(values).then((data) => {
-        if (data.error) setError(data.error);
+        if (data.error) {
+          setError(data.error);
+        }
         if (data.success) {
-            setSuccess(data.success);
-            form.reset();
+          setSuccess(data.success);
+          form.reset();
+          setCountdown(3); // Start 3 second countdown
         }
       });
     });
@@ -67,14 +91,85 @@ export default function RegisterPage() {
           <Paper withBorder shadow="md" p={30} mt={30} radius="md">
             <form onSubmit={form.onSubmit(handleSubmit)}>
               <Stack gap="md">
-                {error && <Alert title="Registrasi Gagal" color="red" icon={<IconAlertCircle />}>{error}</Alert>}
-                {success && <Alert title="Registrasi Berhasil" color="green" icon={<IconAlertCircle />}>{success}</Alert>}
-                <TextInput label="Nama Depan" placeholder="John" leftSection={<IconUser size={16} />} {...form.getInputProps('first_name')} />
-                <TextInput label="Nama Belakang" placeholder="Doe" leftSection={<IconUser size={16} />} {...form.getInputProps('last_name')} />
-                <TextInput required label="Email" placeholder="john.doe@example.com" leftSection={<IconAt size={16} />} {...form.getInputProps('email')} />
-                <PasswordInput required label="Password" placeholder="Password Anda" description="Minimal 8 karakter, dengan huruf besar, kecil, dan angka." leftSection={<IconLock size={16} />} {...form.getInputProps('password')} />
-                <PasswordInput required label="Konfirmasi Password" placeholder="Ketik ulang password" leftSection={<IconLock size={16} />} {...form.getInputProps('confirm_password')} />
-                <Button type="submit" fullWidth mt="xl" loading={isPending}>Registrasi</Button>
+                {error && (
+                  <Alert title="Registrasi Gagal" color="red" icon={<IconAlertCircle />}>
+                    {error}
+                  </Alert>
+                )}
+                
+                {success && (
+                  <Alert title="Registrasi Berhasil!" color="green" icon={<IconCheck />}>
+                    <Stack gap="xs">
+                      <Text size="sm">{success}</Text>
+                      {countdown !== null && (
+                        <>
+                          <Text size="sm" fw={500}>
+                            Mengalihkan ke halaman login dalam {countdown} detik...
+                          </Text>
+                          <Progress 
+                            value={((3 - countdown) / 3) * 100} 
+                            size="sm" 
+                            animated 
+                          />
+                        </>
+                      )}
+                    </Stack>
+                  </Alert>
+                )}
+                
+                <TextInput 
+                  label="Nama Depan" 
+                  placeholder="John" 
+                  leftSection={<IconUser size={16} />} 
+                  {...form.getInputProps('first_name')} 
+                  disabled={isPending || success !== null}
+                />
+                
+                <TextInput 
+                  label="Nama Belakang" 
+                  placeholder="Doe" 
+                  leftSection={<IconUser size={16} />} 
+                  {...form.getInputProps('last_name')}
+                  disabled={isPending || success !== null}
+                />
+                
+                <TextInput 
+                  required 
+                  label="Email" 
+                  placeholder="john.doe@example.com" 
+                  leftSection={<IconAt size={16} />} 
+                  {...form.getInputProps('email')}
+                  disabled={isPending || success !== null}
+                />
+                
+                <PasswordInput 
+                  required 
+                  label="Password" 
+                  placeholder="Password Anda" 
+                  description="Minimal 8 karakter, dengan huruf besar, kecil, dan angka." 
+                  leftSection={<IconLock size={16} />} 
+                  {...form.getInputProps('password')}
+                  disabled={isPending || success !== null}
+                />
+                
+                <PasswordInput 
+                  required 
+                  label="Konfirmasi Password" 
+                  placeholder="Ketik ulang password" 
+                  leftSection={<IconLock size={16} />} 
+                  {...form.getInputProps('confirm_password')}
+                  disabled={isPending || success !== null}
+                />
+                
+                <Button 
+                  type="submit" 
+                  fullWidth 
+                  mt="xl" 
+                  loading={isPending}
+                  disabled={success !== null}
+                >
+                  Registrasi
+                </Button>
               </Stack>
             </form>
           </Paper>

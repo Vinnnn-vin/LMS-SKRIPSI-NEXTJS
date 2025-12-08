@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo, useRef, useEffect } from "react";
 import {
   Box,
   Grid,
@@ -17,6 +17,12 @@ import {
   Badge,
   Tooltip,
   Container,
+  Progress,
+  ActionIcon,
+  Drawer,
+  Button,
+  Divider,
+  Card,
 } from "@mantine/core";
 import {
   IconVideo,
@@ -28,9 +34,19 @@ import {
   IconPlayerPlay,
   IconInfoCircle,
   IconBookmark,
+  IconMenu2,
+  IconX,
+  IconChevronRight,
+  IconChevronLeft,
+  IconTrophy,
+  IconClock,
+  IconLayoutSidebarLeftCollapse,
+  IconLayoutSidebarLeftExpand,
+  IconLock,
 } from "@tabler/icons-react";
 import { useRouter } from "next/navigation";
 import { notifications } from "@mantine/notifications";
+import { useMediaQuery, useDisclosure } from "@mantine/hooks";
 
 import { LearningHeader } from "./LearningHeader";
 import { MaterialContent } from "./MaterialContent";
@@ -138,6 +154,9 @@ export function CourseLearningClientUI({
   existingReview,
 }: CourseLearningClientUIProps) {
   const router = useRouter();
+  const isMobile = useMediaQuery("(max-width: 768px)");
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [activeContent, setActiveContent] = useState<any>(initialContent);
   const [contentType, setContentType] = useState<"detail" | "quiz" | null>(
@@ -168,6 +187,7 @@ export function CourseLearningClientUI({
 
   const activeNavLinkRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const contentAreaRef = useRef<HTMLDivElement>(null);
 
   const {
     details: completedDetails,
@@ -215,34 +235,63 @@ export function CourseLearningClientUI({
     )[0];
   }, [currentQuizAttempts]);
 
-  const handleTimeExpired = async () => {
-    try {
-      const result = await resetCourseProgressAndExtendAccess(
-        course.course_id,
-        enrollmentId
-      );
-
-      if (result.success) {
-        notifications.show({
-          title: "✅ Progress Direset",
-          message: result.message || "Anda dapat memulai pembelajaran kembali!",
-          color: "blue",
-        });
-        router.refresh();
-      } else {
-        notifications.show({
-          title: "❌ Gagal Reset",
-          message: result.error || "Terjadi kesalahan",
-          color: "red",
-        });
+  // Get all contents in order for navigation
+  const allContents = useMemo(() => {
+    const contents: Array<{ type: "detail" | "quiz"; content: any }> = [];
+    
+    for (const material of course.materials || []) {
+      if (material.details && material.details.length > 0) {
+        for (const detail of material.details) {
+          contents.push({ type: "detail", content: detail });
+        }
       }
-    } catch (error) {
-      console.error("Error resetting progress:", error);
-      notifications.show({
-        title: "❌ Error",
-        message: "Gagal mereset progress",
-        color: "red",
-      });
+      if (material.quizzes && material.quizzes.length > 0) {
+        for (const quiz of material.quizzes) {
+          contents.push({ type: "quiz", content: quiz });
+        }
+      }
+    }
+    
+    return contents;
+  }, [course.materials]);
+
+  // Get current index and navigation info
+  const { currentIndex, previousContent, nextContent } = useMemo(() => {
+    if (!activeContent || !contentType) {
+      return { currentIndex: -1, previousContent: null, nextContent: null };
+    }
+
+    const currentId =
+      contentType === "detail"
+        ? activeContent.material_detail_id
+        : activeContent.quiz_id;
+
+    const index = allContents.findIndex((item) => {
+      const itemId =
+        item.type === "detail"
+          ? item.content.material_detail_id
+          : item.content.quiz_id;
+      return item.type === contentType && itemId === currentId;
+    });
+
+    const prev = index > 0 ? allContents[index - 1] : null;
+    const next = index < allContents.length - 1 ? allContents[index + 1] : null;
+
+    return { currentIndex: index, previousContent: prev, nextContent: next };
+  }, [activeContent, contentType, allContents]);
+
+  const navigateToContent = (direction: "prev" | "next") => {
+    const targetContent = direction === "next" ? nextContent : previousContent;
+    if (targetContent) {
+      handleSelectContent(
+        targetContent.content,
+        targetContent.type as "detail" | "quiz"
+      );
+      
+      // Scroll to top
+      if (contentAreaRef.current) {
+        contentAreaRef.current.scrollTo({ top: 0, behavior: "smooth" });
+      }
     }
   };
 
@@ -267,6 +316,11 @@ export function CourseLearningClientUI({
     setActiveContent(content);
     setContentType(type);
     setIsQuizActive(false);
+
+    // Close drawer on mobile
+    if (isMobile) {
+      closeDrawer();
+    }
 
     const contentId =
       type === "detail" ? content.material_detail_id : content.quiz_id;
@@ -324,31 +378,343 @@ export function CourseLearningClientUI({
       autoClose: 10000,
     });
     router.refresh();
+
+    if (result.status === "passed" && nextContent) {
+      setTimeout(() => {
+        navigateToContent("next");
+      }, 2000);
+    }
+  };
+
+  const handleMaterialComplete = () => {
+    router.refresh();
+    if (nextContent) {
+      setTimeout(() => {
+        navigateToContent("next");
+      }, 1000);
+    }
   };
 
   const isCheckpointContent = (type: "detail" | "quiz", id: number) => {
     return lastCheckpoint?.type === type && lastCheckpoint?.id === id;
   };
 
+  // Sidebar Content Component
+  const SidebarContent = () => (
+    <Box p="lg">
+      {/* Progress Card */}
+      <Card shadow="sm" radius="md" mb="lg" p="md" withBorder>
+        <Group justify="space-between" mb="xs">
+          <Group gap="xs">
+            <IconTrophy size={20} color="var(--mantine-color-yellow-6)" />
+            <Text size="sm" fw={600}>
+              Progress Kursus
+            </Text>
+          </Group>
+          <Badge size="lg" variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
+            {totalProgress}%
+          </Badge>
+        </Group>
+        <Progress value={totalProgress} size="lg" radius="xl" />
+        <Text size="xs" c="dimmed" mt="xs" ta="center">
+          {completedDetails.size + completedQuizzes.size + completedAssignments.size}{" "}
+          dari total materi diselesaikan
+        </Text>
+      </Card>
+
+      <Divider label="Kurikulum Kursus" labelPosition="center" mb="md" />
+
+      {course.materials?.length === 0 && (
+        <Alert color="gray" icon={<IconInfoCircle size={18} />} radius="md">
+          <Text size="sm">Belum ada materi tersedia untuk kursus ini.</Text>
+        </Alert>
+      )}
+
+      <Accordion
+        chevronPosition="left"
+        variant="separated"
+        value={accordionValue}
+        onChange={setAccordionValue}
+        styles={{
+          item: {
+            border: "1px solid #dee2e6",
+            marginBottom: "0.75rem",
+            borderRadius: "12px",
+            overflow: "hidden",
+            transition: "all 0.2s ease",
+            "&:hover": {
+              boxShadow: "0 2px 8px rgba(0,0,0,0.08)",
+            },
+          },
+          control: {
+            padding: "1rem",
+            "&:hover": {
+              backgroundColor: "#f8f9fa",
+            },
+          },
+          content: {
+            padding: "0.5rem",
+          },
+          chevron: {
+            marginRight: "0.5rem",
+          },
+        }}
+      >
+        {course.materials?.map((material: any) => {
+          const detailsCount = material.details?.length || 0;
+          const quizzesCount = material.quizzes?.length || 0;
+          const totalItems = detailsCount + quizzesCount;
+
+          let completedCount = 0;
+          material.details?.forEach((d: any) => {
+            if (d.material_detail_type === 4) {
+              if (completedAssignments.has(d.material_detail_id))
+                completedCount++;
+            } else {
+              if (completedDetails.has(d.material_detail_id)) completedCount++;
+            }
+          });
+          material.quizzes?.forEach((q: any) => {
+            if (completedQuizzes.has(q.quiz_id)) completedCount++;
+          });
+
+          const isChapterComplete =
+            totalItems > 0 && completedCount === totalItems;
+          const chapterProgress =
+            totalItems > 0 ? (completedCount / totalItems) * 100 : 0;
+
+          return (
+            <Accordion.Item
+              key={material.material_id}
+              value={String(material.material_id)}
+            >
+              <Accordion.Control>
+                <Group justify="space-between" wrap="nowrap" gap="xs">
+                  <Box style={{ flex: 1, minWidth: 0 }}>
+                    <Text size="sm" fw={500} lineClamp={2} mb={4}>
+                      {material.material_name}
+                    </Text>
+                    <Progress
+                      value={chapterProgress}
+                      size="xs"
+                      radius="xl"
+                      color={isChapterComplete ? "green" : "blue"}
+                    />
+                    <Text size="xs" c="dimmed" mt={6}>
+                      {completedCount}/{totalItems} selesai
+                    </Text>
+                  </Box>
+                  {isChapterComplete && (
+                    <IconCircleCheckFilled
+                      size={22}
+                      color="#37b24d"
+                      style={{ flexShrink: 0 }}
+                    />
+                  )}
+                </Group>
+              </Accordion.Control>
+
+              <Accordion.Panel>
+                <Stack gap={6}>
+                  {material.details?.map((detail: any) => {
+                    const isCompleted =
+                      detail.material_detail_type === 4
+                        ? completedAssignments.has(detail.material_detail_id)
+                        : completedDetails.has(detail.material_detail_id);
+
+                    const isCheckpoint = isCheckpointContent(
+                      "detail",
+                      detail.material_detail_id
+                    );
+                    const isActive =
+                      contentType === "detail" &&
+                      activeContent?.material_detail_id ===
+                        detail.material_detail_id;
+                    const refKey = `detail-${detail.material_detail_id}`;
+
+                    return (
+                      <div
+                        key={refKey}
+                        ref={(el) => {
+                          if (el) {
+                            activeNavLinkRefs.current.set(refKey, el);
+                          } else {
+                            activeNavLinkRefs.current.delete(refKey);
+                          }
+                        }}
+                      >
+                        <NavLink
+                          label={
+                            <Group gap={8} wrap="nowrap">
+                              <Text
+                                size="sm"
+                                style={{ flex: 1, minWidth: 0 }}
+                                lineClamp={2}
+                              >
+                                {detail.material_detail_name}
+                              </Text>
+                              {isCheckpoint && (
+                                <Tooltip label="Checkpoint terakhir">
+                                  <IconBookmark
+                                    size={14}
+                                    color="var(--mantine-color-blue-6)"
+                                    style={{ flexShrink: 0 }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Group>
+                          }
+                          leftSection={
+                            <ThemeIcon
+                              variant="light"
+                              color={isCompleted ? "green" : "gray"}
+                              size={32}
+                              radius="md"
+                            >
+                              {getMaterialIcon(detail.material_detail_type)}
+                            </ThemeIcon>
+                          }
+                          rightSection={
+                            isCompleted ? (
+                              <IconCircleCheckFilled
+                                size={18}
+                                style={{
+                                  color: "var(--mantine-color-green-5)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : null
+                          }
+                          onClick={() => handleSelectContent(detail, "detail")}
+                          active={isActive}
+                          styles={{
+                            root: {
+                              borderRadius: "8px",
+                              padding: "0.75rem",
+                              transition: "all 0.15s ease",
+                            },
+                            label: {
+                              fontSize: "0.875rem",
+                              fontWeight: 450,
+                            },
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+
+                  {material.quizzes?.map((quiz: any) => {
+                    const isCompleted = completedQuizzes.has(quiz.quiz_id);
+                    const isCheckpoint = isCheckpointContent("quiz", quiz.quiz_id);
+                    const isActive =
+                      contentType === "quiz" &&
+                      activeContent?.quiz_id === quiz.quiz_id;
+                    const refKey = `quiz-${quiz.quiz_id}`;
+
+                    return (
+                      <div
+                        key={refKey}
+                        ref={(el) => {
+                          if (el) {
+                            activeNavLinkRefs.current.set(refKey, el);
+                          } else {
+                            activeNavLinkRefs.current.delete(refKey);
+                          }
+                        }}
+                      >
+                        <NavLink
+                          label={
+                            <Group gap={8} wrap="nowrap">
+                              <Text
+                                size="sm"
+                                style={{ flex: 1, minWidth: 0 }}
+                                lineClamp={2}
+                              >
+                                {quiz.quiz_title}
+                              </Text>
+                              {isCheckpoint && (
+                                <Tooltip label="Checkpoint terakhir">
+                                  <IconBookmark
+                                    size={14}
+                                    color="var(--mantine-color-blue-6)"
+                                    style={{ flexShrink: 0 }}
+                                  />
+                                </Tooltip>
+                              )}
+                            </Group>
+                          }
+                          leftSection={
+                            <ThemeIcon
+                              variant="light"
+                              color={isCompleted ? "green" : "orange"}
+                              size={32}
+                              radius="md"
+                            >
+                              <IconQuestionMark size={16} />
+                            </ThemeIcon>
+                          }
+                          rightSection={
+                            isCompleted ? (
+                              <IconCircleCheckFilled
+                                size={18}
+                                style={{
+                                  color: "var(--mantine-color-green-5)",
+                                  flexShrink: 0,
+                                }}
+                              />
+                            ) : null
+                          }
+                          onClick={() => handleSelectContent(quiz, "quiz")}
+                          active={isActive}
+                          styles={{
+                            root: {
+                              borderRadius: "8px",
+                              padding: "0.75rem",
+                              transition: "all 0.15s ease",
+                            },
+                            label: {
+                              fontSize: "0.875rem",
+                              fontWeight: 450,
+                            },
+                          }}
+                        />
+                      </div>
+                    );
+                  })}
+                </Stack>
+              </Accordion.Panel>
+            </Accordion.Item>
+          );
+        })}
+      </Accordion>
+    </Box>
+  );
+
   const renderContent = () => {
     if (!activeContent) {
       return (
-        <Center h="100%" style={{ minHeight: "400px" }}>
-          <Stack align="center" gap="md">
-            <IconPlayerPlay size={64} stroke={1.5} color="#868e96" />
-            <Title order={3} c="dark">Selamat Datang</Title>
-            <Text c="dimmed" size="sm" ta="center" maw={300}>
-              Pilih materi dari kurikulum kursus untuk memulai pembelajaran
-            </Text>
+        <Center h="100%" style={{ minHeight: "500px" }}>
+          <Stack align="center" gap="lg">
+            <ThemeIcon size={100} radius="xl" variant="light" color="blue">
+              <IconPlayerPlay size={50} stroke={1.5} />
+            </ThemeIcon>
+            <Stack align="center" gap="sm">
+              <Title order={2} c="dark">
+                Selamat Datang! 👋
+              </Title>
+              <Text c="dimmed" size="md" ta="center" maw={400}>
+                Pilih materi dari kurikulum kursus untuk memulai pembelajaran Anda
+              </Text>
+            </Stack>
             {lastCheckpoint && (
               <Badge
                 color="blue"
-                variant="light"
-                size="lg"
-                leftSection={<IconBookmark size={14} />}
-                mt="sm"
+                variant="dot"
+                size="xl"
+                leftSection={<IconBookmark size={16} />}
+                mt="md"
               >
-                Checkpoint tersimpan
+                Checkpoint tersimpan - Klik untuk melanjutkan
               </Badge>
             )}
           </Stack>
@@ -368,7 +734,7 @@ export function CourseLearningClientUI({
           isCompleted={completedDetails.has(activeContent.material_detail_id)}
           accessExpiresAt={accessExpiresAt}
           enrolledAt={enrolledAt}
-          onComplete={() => router.refresh()}
+          onComplete={handleMaterialComplete}
         />
       );
     }
@@ -409,27 +775,34 @@ export function CourseLearningClientUI({
     return null;
   };
 
-  // Checkpoint notification on mount
-  if (initialContent && initialContentType && typeof window !== "undefined") {
-    const notifKey = `checkpoint_notif_${course.course_id}`;
-    if (!sessionStorage.getItem(notifKey)) {
-      setTimeout(() => {
-        notifications.show({
-          title: "📌 Checkpoint Dimuat",
-          message: "Melanjutkan dari terakhir kali Anda belajar",
-          color: "blue",
-          autoClose: 4000,
-        });
-      }, 500);
-      sessionStorage.setItem(notifKey, "shown");
+  // Show checkpoint notification on mount
+  useEffect(() => {
+    if (initialContent && initialContentType && typeof window !== "undefined") {
+      const notifKey = `checkpoint_notif_${course.course_id}`;
+      if (!sessionStorage.getItem(notifKey)) {
+        setTimeout(() => {
+          notifications.show({
+            title: "📌 Checkpoint Dimuat",
+            message: "Melanjutkan dari terakhir kali Anda belajar",
+            color: "blue",
+            autoClose: 4000,
+          });
+        }, 500);
+        sessionStorage.setItem(notifKey, "shown");
 
-      const contentId =
-        initialContentType === "detail"
-          ? initialContent.material_detail_id
-          : initialContent.quiz_id;
-      scrollToElement(`${initialContentType}-${contentId}`, 600);
+        const contentId =
+          initialContentType === "detail"
+            ? initialContent.material_detail_id
+            : initialContent.quiz_id;
+        scrollToElement(`${initialContentType}-${contentId}`, 600);
+      }
     }
-  }
+  }, []);
+
+  // Calculate progress percentage
+  const progressPercentage = allContents.length > 0 && currentIndex >= 0
+    ? ((currentIndex + 1) / allContents.length) * 100
+    : 0;
 
   return (
     <Box>
@@ -438,309 +811,261 @@ export function CourseLearningClientUI({
         totalProgress={totalProgress}
       />
 
+      {/* Mobile: Floating Menu Button */}
+      {isMobile && (
+        <ActionIcon
+          size="xl"
+          radius="xl"
+          variant="filled"
+          color="blue"
+          style={{
+            position: "fixed",
+            bottom: "6.5rem",
+            right: "1rem",
+            zIndex: 100,
+            boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+          }}
+          onClick={openDrawer}
+        >
+          <IconMenu2 size={24} />
+        </ActionIcon>
+      )}
+
+      {/* Mobile: Drawer Sidebar */}
+      {isMobile && (
+        <Drawer
+          opened={drawerOpened}
+          onClose={closeDrawer}
+          title={
+            <Group gap="xs">
+              <IconBookmark size={20} />
+              <Text fw={600}>Kurikulum</Text>
+            </Group>
+          }
+          padding="md"
+          size="85%"
+          position="left"
+        >
+          <SidebarContent />
+        </Drawer>
+      )}
+
       <Grid gutter={0}>
-        {/* Sidebar - Kurikulum Kursus */}
-        <Grid.Col span={{ base: 12, md: 4 }}>
-          <Paper
-            withBorder
-            radius={0}
-            style={{ 
-              height: "calc(100vh - 70px)", 
-              overflowY: "auto",
-            }}
-          >
-            <Box p="lg">
-              <Title order={4} mb="lg" fw={600}>
-                Kurikulum Kursus
-              </Title>
-
-              {course.materials?.length === 0 && (
-                <Alert 
-                  color="gray" 
-                  icon={<IconInfoCircle size={18} />}
-                  radius="md"
-                >
-                  <Text size="sm">
-                    Belum ada materi tersedia untuk kursus ini.
-                  </Text>
-                </Alert>
-              )}
-
-              <Accordion
-                chevronPosition="left"
-                variant="separated"
-                value={accordionValue}
-                onChange={setAccordionValue}
-                styles={{
-                  item: {
-                    border: '1px solid #e9ecef',
-                    marginBottom: '0.75rem',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                  },
-                  control: {
-                    padding: '1rem',
-                    '&:hover': {
-                      backgroundColor: '#f8f9fa',
-                    },
-                  },
-                  content: {
-                    padding: '0.5rem',
-                  },
-                  chevron: {
-                    marginRight: '0.5rem',
-                  },
-                }}
-              >
-                {course.materials?.map((material: any) => {
-                  const detailsCount = material.details?.length || 0;
-                  const quizzesCount = material.quizzes?.length || 0;
-                  const totalItems = detailsCount + quizzesCount;
-
-                  let completedCount = 0;
-                  material.details?.forEach((d: any) => {
-                    if (d.material_detail_type === 4) {
-                      if (completedAssignments.has(d.material_detail_id))
-                        completedCount++;
-                    } else {
-                      if (completedDetails.has(d.material_detail_id))
-                        completedCount++;
-                    }
-                  });
-                  material.quizzes?.forEach((q: any) => {
-                    if (completedQuizzes.has(q.quiz_id)) completedCount++;
-                  });
-
-                  const isChapterComplete =
-                    totalItems > 0 && completedCount === totalItems;
-
-                  return (
-                    <Accordion.Item
-                      key={material.material_id}
-                      value={String(material.material_id)}
-                    >
-                      <Accordion.Control>
-                        <Group justify="space-between" wrap="nowrap" gap="xs">
-                          <Box style={{ flex: 1, minWidth: 0 }}>
-                            <Text size="sm" fw={500} lineClamp={2}>
-                              {material.material_name}
-                            </Text>
-                            <Text size="xs" c="dimmed" mt={6}>
-                              {completedCount}/{totalItems} selesai
-                            </Text>
-                          </Box>
-                          {isChapterComplete && (
-                            <IconCircleCheckFilled 
-                              size={20} 
-                              color="#37b24d"
-                              style={{ flexShrink: 0 }}
-                            />
-                          )}
-                        </Group>
-                      </Accordion.Control>
-
-                      <Accordion.Panel>
-                        <Stack gap={6}>
-                          {/* Material Details */}
-                          {material.details?.map((detail: any) => {
-                            const isCompleted =
-                              detail.material_detail_type === 4
-                                ? completedAssignments.has(
-                                    detail.material_detail_id
-                                  )
-                                : completedDetails.has(detail.material_detail_id);
-
-                            const isCheckpoint = isCheckpointContent(
-                              "detail",
-                              detail.material_detail_id
-                            );
-                            const isActive =
-                              contentType === "detail" &&
-                              activeContent?.material_detail_id ===
-                                detail.material_detail_id;
-                            const refKey = `detail-${detail.material_detail_id}`;
-
-                            return (
-                              <div
-                                key={refKey}
-                                ref={(el) => {
-                                  if (el) {
-                                    activeNavLinkRefs.current.set(refKey, el);
-                                  } else {
-                                    activeNavLinkRefs.current.delete(refKey);
-                                  }
-                                }}
-                              >
-                                <NavLink
-                                  label={
-                                    <Group gap={8} wrap="nowrap">
-                                      <Text 
-                                        size="sm" 
-                                        style={{ flex: 1, minWidth: 0 }}
-                                        lineClamp={2}
-                                      >
-                                        {detail.material_detail_name}
-                                      </Text>
-                                      {isCheckpoint && (
-                                        <Tooltip label="Checkpoint terakhir">
-                                          <IconBookmark
-                                            size={14}
-                                            color="var(--mantine-color-blue-6)"
-                                            style={{ flexShrink: 0 }}
-                                          />
-                                        </Tooltip>
-                                      )}
-                                    </Group>
-                                  }
-                                  leftSection={
-                                    <ThemeIcon
-                                      variant="light"
-                                      color={isCompleted ? "green" : "gray"}
-                                      size={28}
-                                      radius="md"
-                                    >
-                                      {getMaterialIcon(
-                                        detail.material_detail_type
-                                      )}
-                                    </ThemeIcon>
-                                  }
-                                  rightSection={
-                                    isCompleted ? (
-                                      <IconCircleCheckFilled
-                                        size={18}
-                                        style={{
-                                          color: "var(--mantine-color-green-5)",
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    ) : null
-                                  }
-                                  onClick={() =>
-                                    handleSelectContent(detail, "detail")
-                                  }
-                                  active={isActive}
-                                  styles={{
-                                    root: {
-                                      borderRadius: '6px',
-                                      padding: '0.625rem 0.75rem',
-                                    },
-                                    label: { 
-                                      fontSize: '0.875rem',
-                                      fontWeight: 450,
-                                    },
-                                  }}
-                                />
-                              </div>
-                            );
-                          })}
-
-                          {/* Quizzes */}
-                          {material.quizzes?.map((quiz: any) => {
-                            const isCompleted = completedQuizzes.has(
-                              quiz.quiz_id
-                            );
-                            const isCheckpoint = isCheckpointContent(
-                              "quiz",
-                              quiz.quiz_id
-                            );
-                            const isActive =
-                              contentType === "quiz" &&
-                              activeContent?.quiz_id === quiz.quiz_id;
-                            const refKey = `quiz-${quiz.quiz_id}`;
-
-                            return (
-                              <div
-                                key={refKey}
-                                ref={(el) => {
-                                  if (el) {
-                                    activeNavLinkRefs.current.set(refKey, el);
-                                  } else {
-                                    activeNavLinkRefs.current.delete(refKey);
-                                  }
-                                }}
-                              >
-                                <NavLink
-                                  label={
-                                    <Group gap={8} wrap="nowrap">
-                                      <Text 
-                                        size="sm" 
-                                        style={{ flex: 1, minWidth: 0 }}
-                                        lineClamp={2}
-                                      >
-                                        {quiz.quiz_title}
-                                      </Text>
-                                      {isCheckpoint && (
-                                        <Tooltip label="Checkpoint terakhir">
-                                          <IconBookmark
-                                            size={14}
-                                            color="var(--mantine-color-blue-6)"
-                                            style={{ flexShrink: 0 }}
-                                          />
-                                        </Tooltip>
-                                      )}
-                                    </Group>
-                                  }
-                                  leftSection={
-                                    <ThemeIcon
-                                      variant="light"
-                                      color={isCompleted ? "green" : "orange"}
-                                      size={28}
-                                      radius="md"
-                                    >
-                                      <IconQuestionMark size={16} />
-                                    </ThemeIcon>
-                                  }
-                                  rightSection={
-                                    isCompleted ? (
-                                      <IconCircleCheckFilled
-                                        size={18}
-                                        style={{
-                                          color: "var(--mantine-color-green-5)",
-                                          flexShrink: 0,
-                                        }}
-                                      />
-                                    ) : null
-                                  }
-                                  onClick={() =>
-                                    handleSelectContent(quiz, "quiz")
-                                  }
-                                  active={isActive}
-                                  styles={{
-                                    root: {
-                                      borderRadius: '6px',
-                                      padding: '0.625rem 0.75rem',
-                                    },
-                                    label: { 
-                                      fontSize: '0.875rem',
-                                      fontWeight: 450,
-                                    },
-                                  }}
-                                />
-                              </div>
-                            );
-                          })}
-                        </Stack>
-                      </Accordion.Panel>
-                    </Accordion.Item>
-                  );
-                })}
-              </Accordion>
-            </Box>
-          </Paper>
-        </Grid.Col>
+        {/* Desktop: Collapsible Sidebar */}
+        {!isMobile && (
+          <Grid.Col span={sidebarCollapsed ? 0 : 4}>
+            <Paper
+              withBorder
+              radius={0}
+              style={{
+                height: "calc(100vh - 70px)",
+                overflowY: "auto",
+                transition: "all 0.3s ease",
+                display: sidebarCollapsed ? "none" : "block",
+              }}
+            >
+              <SidebarContent />
+            </Paper>
+          </Grid.Col>
+        )}
 
         {/* Content Area */}
-        <Grid.Col span={{ base: 12, md: 8 }}>
+        <Grid.Col span={!isMobile && sidebarCollapsed ? 12 : isMobile ? 12 : 8}>
           <Box
+            ref={contentAreaRef}
             style={{
               height: "calc(100vh - 70px)",
               overflowY: "auto",
               backgroundColor: "#f8f9fa",
+              position: "relative",
+              paddingBottom: activeContent ? "6rem" : "0",
             }}
           >
-            <Container size="xl" p="xl">
+            {/* Desktop: Sidebar Toggle Button */}
+            {!isMobile && (
+              <ActionIcon
+                size="lg"
+                radius="md"
+                variant="light"
+                color="blue"
+                style={{
+                  position: "absolute",
+                  top: "1rem",
+                  left: "1rem",
+                  zIndex: 10,
+                }}
+                onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              >
+                {sidebarCollapsed ? (
+                  <IconLayoutSidebarLeftExpand size={20} />
+                ) : (
+                  <IconLayoutSidebarLeftCollapse size={20} />
+                )}
+              </ActionIcon>
+            )}
+
+            <Container size="xl" p="xl" pt={isMobile ? "xl" : "5rem"}>
               {renderContent()}
             </Container>
+
+            {/* ✅ FLOATING NAVIGATION BAR - Style 3 */}
+            {activeContent && (
+              <Paper
+                shadow="lg"
+                p="md"
+                style={{
+                  position: "fixed",
+                  bottom: 0,
+                  left: isMobile ? 0 : sidebarCollapsed ? 0 : "33.333%",
+                  right: 0,
+                  borderTop: "2px solid #dee2e6",
+                  borderTopLeftRadius: "16px",
+                  borderTopRightRadius: "16px",
+                  borderBottomLeftRadius: 0,
+                  borderBottomRightRadius: 0,
+                  zIndex: 50,
+                  transition: "left 0.3s ease",
+                }}
+              >
+                <Box style={{ maxWidth: "1200px", margin: "0 auto" }}>
+                  <Group justify="space-between" gap="md" wrap="nowrap">
+                    {/* Previous Button */}
+                    <Button
+                      variant="light"
+                      color="gray"
+                      leftSection={
+                        <IconChevronLeft 
+                          size={16} 
+                          style={{ 
+                            transition: "transform 0.2s",
+                          }} 
+                        />
+                      }
+                      disabled={!previousContent}
+                      onClick={() => navigateToContent("prev")}
+                      size={isMobile ? "sm" : "md"}
+                      style={{
+                        transition: "all 0.2s ease",
+                      }}
+                      styles={{
+                        root: {
+                          "&:hover:not(:disabled) .mantine-Button-leftIcon": {
+                            transform: "translateX(-4px)",
+                          },
+                        },
+                      }}
+                    >
+                      {!isMobile && previousContent && (
+                        <Box style={{ textAlign: "left", minWidth: 0 }}>
+                          <Text size="xs" c="dimmed" fw={400}>
+                            Sebelumnya
+                          </Text>
+                          <Text size="sm" fw={500} truncate style={{ maxWidth: "150px" }}>
+                            {previousContent.type === "detail"
+                              ? previousContent.content.material_detail_name
+                              : previousContent.content.quiz_title}
+                          </Text>
+                        </Box>
+                      )}
+                      {(isMobile || !previousContent) && "Sebelumnya"}
+                    </Button>
+
+                    {/* Center Progress Info */}
+                    <Box style={{ flex: 1, textAlign: "center", minWidth: 0, px: "sm" }}>
+                      <Group justify="center" gap="xs" mb={6}>
+                        {contentType === "detail" && completedDetails.has(activeContent.material_detail_id) ? (
+                          <IconCircleCheckFilled size={16} color="var(--mantine-color-green-6)" />
+                        ) : contentType === "quiz" && completedQuizzes.has(activeContent.quiz_id) ? (
+                          <IconCircleCheckFilled size={16} color="var(--mantine-color-green-6)" />
+                        ) : (
+                          <IconPlayerPlay size={16} color="var(--mantine-color-blue-6)" />
+                        )}
+                        <Text size="sm" fw={600}>
+                          {currentIndex + 1} / {allContents.length}
+                        </Text>
+                      </Group>
+                      <Box style={{ width: "100%", position: "relative" }}>
+                        <Progress
+                          value={progressPercentage}
+                          size="sm"
+                          radius="xl"
+                          color="blue"
+                          style={{
+                            background: "#e9ecef",
+                          }}
+                        />
+                        <Box
+                          style={{
+                            position: "absolute",
+                            top: 0,
+                            left: 0,
+                            height: "100%",
+                            width: `${progressPercentage}%`,
+                            background: "linear-gradient(90deg, #4c6ef5 0%, #5f3dc4 100%)",
+                            borderRadius: "var(--mantine-radius-xl)",
+                            transition: "width 0.5s ease",
+                            pointerEvents: "none",
+                          }}
+                        />
+                      </Box>
+                      {!isMobile && (
+                        <Text size="xs" c="dimmed" mt={4}>
+                          {Math.round(progressPercentage)}% Selesai
+                        </Text>
+                      )}
+                    </Box>
+
+                    {/* Next Button */}
+                    <Button
+                      variant="gradient"
+                      gradient={{ from: "blue", to: "indigo" }}
+                      rightSection={
+                        nextContent ? (
+                          <IconChevronRight 
+                            size={16}
+                            style={{ 
+                              transition: "transform 0.2s",
+                            }} 
+                          />
+                        ) : null
+                      }
+                      disabled={!nextContent}
+                      onClick={() => navigateToContent("next")}
+                      size={isMobile ? "sm" : "md"}
+                      style={{
+                        transition: "all 0.2s ease",
+                        boxShadow: nextContent ? "0 4px 12px rgba(79, 70, 229, 0.3)" : "none",
+                      }}
+                      styles={{
+                        root: {
+                          "&:hover:not(:disabled)": {
+                            transform: "scale(1.05)",
+                            boxShadow: "0 6px 16px rgba(79, 70, 229, 0.4)",
+                          },
+                          "&:hover:not(:disabled) .mantine-Button-rightIcon": {
+                            transform: "translateX(4px)",
+                          },
+                        },
+                      }}
+                    >
+                      {!isMobile && nextContent && (
+                        <Box style={{ textAlign: "right", minWidth: 0 }}>
+                          <Text size="xs" style={{ opacity: 0.9 }} fw={400}>
+                            Selanjutnya
+                          </Text>
+                          <Text size="sm" fw={500} truncate style={{ maxWidth: "150px" }}>
+                            {nextContent.type === "detail"
+                              ? nextContent.content.material_detail_name
+                              : nextContent.content.quiz_title}
+                          </Text>
+                        </Box>
+                      )}
+                      {(isMobile || !nextContent) && "Selanjutnya"}
+                    </Button>
+                  </Group>
+                </Box>
+              </Paper>
+            )}
           </Box>
         </Grid.Col>
       </Grid>

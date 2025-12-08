@@ -1,4 +1,3 @@
-// lmsistts\src\app\actions\payment.actions.ts
 "use server";
 
 import { Course, User, Payment, Enrollment, sequelize } from "@/lib/models";
@@ -51,8 +50,6 @@ export async function createXenditInvoice(payload: {
   }
 
   const { courseId, userId, amount, email, name } = payload;
-  const timestamp = Date.now();
-  const externalId = `inv_${courseId}_${userId}_${timestamp}`;
 
   const course = await Course.findByPk(courseId, {
     attributes: ["course_title"],
@@ -64,6 +61,31 @@ export async function createXenditInvoice(payload: {
   const t = await sequelize.transaction();
 
   try {
+    // ✅ PENGECEKAN PEMBAYARAN PENDING
+    // Cek apakah ada pembayaran yang masih pending untuk course ini
+    const existingPendingPayment = await Payment.findOne({
+      where: {
+        user_id: userId,
+        course_id: courseId,
+        status: "pending",
+      },
+      order: [["created_at", "DESC"]],
+      transaction: t,
+    });
+
+    if (existingPendingPayment) {
+      await t.rollback();
+      return {
+        success: false,
+        error: "Anda masih memiliki pembayaran yang sedang menunggu konfirmasi. Silakan selesaikan pembayaran sebelumnya atau tunggu konfirmasi admin.",
+        hasPendingPayment: true,
+      };
+    }
+
+    // Lanjutkan proses pembuatan invoice baru
+    const timestamp = Date.now();
+    const externalId = `inv_${courseId}_${userId}_${timestamp}`;
+
     const payment = await Payment.create(
       {
         user_id: userId,

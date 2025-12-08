@@ -10,8 +10,6 @@ import {
   Stack,
   Title,
   Paper,
-  Box,
-  Group,
 } from "@mantine/core";
 import { getCourseLearningData } from "@/app/actions/student.actions";
 import { notFound } from "next/navigation";
@@ -35,53 +33,23 @@ export default async function LearnCoursePage({
   if (!result.success) {
     if (result.error?.includes("Anda tidak terdaftar")) {
       return (
-        <Container size="md" py={{ base: "md", sm: "xl" }} px={{ base: "sm", sm: "md" }}>
-          <Stack gap="md">
+        <Container py="xl">
+          <Alert color="red" title="Akses Ditolak" icon={<IconAlertCircle />}>
+            <Text>
+              {result.error}{" "}
+              <Anchor component={Link} href={`/courses/${courseId}`}>
+                Lihat detail kursus.
+              </Anchor>
+            </Text>
             <Button
               component={Link}
               href="/student/dashboard"
-              variant="subtle"
-              leftSection={<IconArrowLeft size={16} />}
-              size="sm"
+              mt="md"
+              variant="outline"
             >
-              Kembali
+              Kembali ke Dashboard
             </Button>
-            
-            <Alert 
-              color="red" 
-              title="Akses Ditolak" 
-              icon={<IconAlertCircle />}
-              styles={{
-                root: {
-                  borderRadius: 12,
-                },
-              }}
-            >
-              <Stack gap="sm">
-                <Text size="sm">
-                  {result.error}{" "}
-                  <Anchor 
-                    component={Link} 
-                    href={`/courses/${courseId}`}
-                    fw={500}
-                  >
-                    Lihat detail kursus.
-                  </Anchor>
-                </Text>
-                <Group gap="xs" mt="xs">
-                  <Button
-                    component={Link}
-                    href="/student/dashboard"
-                    variant="light"
-                    size="sm"
-                    fullWidth
-                  >
-                    Kembali ke Dashboard
-                  </Button>
-                </Group>
-              </Stack>
-            </Alert>
-          </Stack>
+          </Alert>
         </Container>
       );
     }
@@ -96,33 +64,15 @@ export default async function LearnCoursePage({
       result.data
     );
     return (
-      <Container size="md" py={{ base: "md", sm: "xl" }} px={{ base: "sm", sm: "md" }}>
-        <Stack gap="md">
-          <Button
-            component={Link}
-            href="/student/dashboard"
-            variant="subtle"
-            leftSection={<IconArrowLeft size={16} />}
-            size="sm"
-          >
-            Kembali
-          </Button>
-          
-          <Alert
-            color="red"
-            title="Error Data Tidak Lengkap"
-            icon={<IconAlertCircle />}
-            styles={{
-              root: {
-                borderRadius: 12,
-              },
-            }}
-          >
-            <Text size="sm">
-              Gagal memuat data pembelajaran. Silakan coba lagi nanti atau hubungi support.
-            </Text>
-          </Alert>
-        </Stack>
+      <Container py="xl">
+        <Alert
+          color="red"
+          title="Error Data Tidak Lengkap"
+          icon={<IconAlertCircle />}
+        >
+          Gagal memuat data pembelajaran. Silakan coba lagi nanti atau hubungi
+          support.
+        </Alert>
       </Container>
     );
   }
@@ -201,47 +151,32 @@ export default async function LearnCoursePage({
     <Suspense
       fallback={
         <Center h="100vh">
-          <Stack align="center" gap="md">
-            <Loader size="lg" />
-            <Text size="sm" c="dimmed">
-              Memuat pembelajaran...
-            </Text>
-          </Stack>
+          <Loader />
         </Center>
       }
     >
-      <Box
-        style={{
-          minHeight: '100vh',
-          background: 'var(--mantine-color-gray-0)',
-        }}
-      >
-        <CourseLearningClientUI
-          key={courseId}
-          course={course as any}
-          completedItems={validCompletedItems}
-          enrollmentId={enrollment_id as number}
-          totalProgress={totalProgress}
-          initialSubmissionData={initialSubmissionData}
-          initialQuizAttempts={validQuizAttempts}
-          accessExpiresAt={accessExpiresAt}
-          enrolledAt={enrolledAt}
-          learningStartedAt={learningStartedAt}
-          courseDuration={courseDuration}
-          isAccessExpired={isAccessExpired}
-          submissionHistoryMap={submissionHistoryMap || {}}
-          lastCheckpoint={lastCheckpoint}
-          initialContent={initialContent}
-          initialContentType={initialContentType}
-          certificate={{
-            certificate_number: ""
-          }}
-          existingReview={{
-            rating: 0,
-            review_text: ""
-          }}
-        />
-      </Box>
+      <CourseLearningClientUI
+        key={courseId}
+        course={course as any}
+        completedItems={validCompletedItems}
+        enrollmentId={enrollment_id as number}
+        totalProgress={totalProgress}
+        initialSubmissionData={initialSubmissionData}
+        initialQuizAttempts={validQuizAttempts}
+        accessExpiresAt={accessExpiresAt}
+        enrolledAt={enrolledAt}
+        learningStartedAt={learningStartedAt}
+        courseDuration={courseDuration}
+        isAccessExpired={isAccessExpired}
+        submissionHistoryMap={submissionHistoryMap || {}}
+        lastCheckpoint={lastCheckpoint}
+        initialContent={initialContent}
+        initialContentType={initialContentType} certificate={{
+          certificate_number: ""
+        }} existingReview={{
+          rating: 0,
+          review_text: ""
+        }}      />
     </Suspense>
   );
 }
