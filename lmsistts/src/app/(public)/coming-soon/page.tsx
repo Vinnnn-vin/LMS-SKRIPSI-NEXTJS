@@ -1,12 +1,13 @@
 // src/app/(public)/coming-soon/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Container, Title, Text, Center, Stack, ThemeIcon, Paper, Loader, rem } from "@mantine/core";
 import { IconClockHour3, IconHome } from "@tabler/icons-react";
 
-export default function ComingSoonPage() {
+// ✅ Pisahkan komponen yang menggunakan useSearchParams
+function ComingSoonContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -35,7 +36,7 @@ export default function ComingSoonPage() {
   }, [router]);
 
   return (
-    <Container size="sm" py={120} >
+    <Container size="sm" py={120}>
       <Paper withBorder p="xl" radius="md" ta="center">
         <Center>
           <ThemeIcon size={60} radius="xl" color="orange" mb="lg">
@@ -69,5 +70,22 @@ export default function ComingSoonPage() {
         </Stack>
       </Paper>
     </Container>
+  );
+}
+
+// ✅ Wrap dengan Suspense di export default
+export default function ComingSoonPage() {
+  return (
+    <Suspense fallback={
+      <Container size="sm" py={120}>
+        <Paper withBorder p="xl" radius="md" ta="center">
+          <Center>
+            <Loader color="blue" size="lg" />
+          </Center>
+        </Paper>
+      </Container>
+    }>
+      <ComingSoonContent />
+    </Suspense>
   );
 }
