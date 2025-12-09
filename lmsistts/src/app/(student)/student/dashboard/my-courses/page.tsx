@@ -30,8 +30,6 @@ import { getMyEnrolledCoursesWithProgress } from "@/app/actions/student.actions"
 import Link from "next/link";
 import { ViewCertificateButton } from "@/components/student/ViewCertificateButton";
 
-export const dynamic = "force-dynamic";
-
 function MyCourseCard({ course }: { course: any }) {
   const isCompleted = course.status === "completed" || course.progress === 100;
 

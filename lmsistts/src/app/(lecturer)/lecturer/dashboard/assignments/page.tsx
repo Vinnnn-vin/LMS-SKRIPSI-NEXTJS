@@ -4,7 +4,6 @@ import { Container, Title, Text, Alert } from "@mantine/core";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { getAssignmentsToReviewByLecturer } from "@/app/actions/lecturer.actions";
 import { AssignmentReviewTable } from "@/components/lecturer/AssignmentReviewTable";
-export const dynamic = "force-dynamic";
 
 export default async function ReviewAssignmentsPage() {
   const result = await getAssignmentsToReviewByLecturer({ page: 1, limit: 15 });
