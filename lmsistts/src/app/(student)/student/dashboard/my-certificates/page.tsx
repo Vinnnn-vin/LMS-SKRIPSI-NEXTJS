@@ -20,6 +20,7 @@ import {
 import { getMyCertificates } from "@/app/actions/student.actions";
 import Link from "next/link";
 import dayjs from "dayjs";
+export const dynamic = "force-dynamic";
 
 export default async function MyCertificatesPage() {
   const result = await getMyCertificates();
