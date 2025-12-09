@@ -5,6 +5,9 @@ import { IconAlertCircle } from "@tabler/icons-react";
 import { getAllCategoriesForAdmin } from "@/app/actions/admin.actions";
 import { CategoryManagementTable } from "@/components/admin/CategoryManagementTable";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function ManageCategoriesPage() {
   const result = await getAllCategoriesForAdmin();
 
