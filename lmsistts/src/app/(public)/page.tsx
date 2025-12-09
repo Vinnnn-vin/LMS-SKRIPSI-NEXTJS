@@ -405,18 +405,7 @@ function FeaturesSection() {
 }
 
 function CategoryPromotion({ categories }: { categories: any[] }) {
-  const featuredCategories = categories?.slice(0, 8) || [];
-
-  const categoryColors = [
-    { from: "blue", to: "cyan" },
-    { from: "grape", to: "pink" },
-    { from: "orange", to: "red" },
-    { from: "teal", to: "lime" },
-    { from: "violet", to: "pink" },
-    { from: "yellow", to: "orange" },
-    { from: "indigo", to: "cyan" },
-    { from: "green", to: "teal" },
-  ];
+  const featuredCategories = categories?.slice(0, 6) || [];
 
   if (!featuredCategories || featuredCategories.length === 0) {
     return (
@@ -469,63 +458,90 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
           </Text>
         </Stack>
 
-        <SimpleGrid cols={{ base: 1, xs: 2, md: 3, lg: 4 }} spacing="lg">
+        {/* ✅ Ubah ke format Card seperti Course */}
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
           {featuredCategories.map((cat, index) => (
-            <Box
+            <Card
+              shadow="md"
+              padding="lg"
+              radius="lg"
               key={cat.category_id}
+              className={classes.courseCard}
               component={Link}
               href={`/categories/${cat.category_id}`}
-              className={classes.categoryButton}
               style={{
-                animationDelay: `${index * 50}ms`,
-                background: `linear-gradient(135deg, 
-                  var(--mantine-color-${categoryColors[index % categoryColors.length].from}-6) 0%, 
-                  var(--mantine-color-${categoryColors[index % categoryColors.length].to}-6) 100%)`,
+                animationDelay: `${index * 150}ms`,
+                textDecoration: "none",
+                color: "inherit",
               }}
             >
-              <Stack gap={12} align="center" justify="center" h="100%" w="100%">
-                <Text
-                  size="lg"
-                  fw={700}
-                  ta="center"
-                  c="white"
-                  lh={1.3}
-                  style={{
-                    wordWrap: "break-word",
-                    overflowWrap: "break-word",
-                    wordBreak: "break-word",
-                    whiteSpace: "normal",
-                    width: "100%",
-                  }}
-                >
+              <CardSection className={classes.courseImageWrapper}>
+                <div className={classes.imageContainer}>
+                  <Image
+                    src={
+                      cat.image_url ||
+                      `https://images.unsplash.com/photo-1513258496099-48168024aec0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1170&q=80`
+                    }
+                    height={200}
+                    className={classes.courseImage}
+                    alt={cat.category_name}
+                  />
+                  <div className={classes.courseOverlay} />
+                  <div className={classes.courseHoverContent}>
+                    <Button
+                      variant="white"
+                      size="sm"
+                      radius="lg"
+                      leftSection={<IconBook size={16} />}
+                    >
+                      Lihat {cat.course_count || 0} Kursus
+                    </Button>
+                  </div>
+                </div>
+              </CardSection>
+
+              <Stack gap="md" mt="md">
+                <Title order={3} lineClamp={2} className={classes.courseTitle}>
                   {cat.category_name}
+                </Title>
+
+                <Text size="sm" c="dimmed" lineClamp={2} lh={1.6}>
+                  {cat.category_description || "Jelajahi berbagai kursus menarik dalam kategori ini"}
                 </Text>
-                <Text
-                  size="sm"
-                  ta="center"
-                  c="white"
-                  fw={600}
-                  style={{
-                    opacity: 0.95,
-                    whiteSpace: "nowrap",
-                  }}
-                >
-                  {cat.course_count || 0} kursus
-                </Text>
+
+                <Group justify="space-between" align="center" mt="xs">
+                  <Badge
+                    size="lg"
+                    variant="gradient"
+                    gradient={{ from: "orange", to: "red" }}
+                  >
+                    {cat.course_count || 0} Kursus
+                  </Badge>
+                  <Button
+                    variant="subtle"
+                    size="sm"
+                    radius="lg"
+                    rightSection={<IconArrowRight size={16} />}
+                  >
+                    Jelajahi
+                  </Button>
+                </Group>
               </Stack>
-            </Box>
+            </Card>
           ))}
         </SimpleGrid>
 
-        {categories && categories.length > 8 && (
+        {categories && categories.length > 6 && (
           <Center mt={50}>
             <Button
               component={Link}
               href="/categories"
-              variant="light"
-              size="lg"
+              size="xl"
+              variant="gradient"
+              gradient={{ from: "orange", to: "red" }}
               radius="lg"
-              rightSection={<IconArrowRight size={18} />}
+              className={classes.ctaButton}
+              rightSection={<IconArrowRight size={20} />}
             >
               Lihat Semua Kategori
             </Button>
