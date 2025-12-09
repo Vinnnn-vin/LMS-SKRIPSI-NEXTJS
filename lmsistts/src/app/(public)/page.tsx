@@ -477,15 +477,6 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
             >
               <CardSection className={classes.courseImageWrapper}>
                 <div className={classes.imageContainer}>
-                  <Image
-                    src={
-                      cat.image_url ||
-                      `https://images.unsplash.com/photo-1513258496099-48168024aec0?ixlib=rb-4.0.3&auto=format&fit=crop&w=1170&q=80`
-                    }
-                    height={200}
-                    className={classes.courseImage}
-                    alt={cat.category_name}
-                  />
                   <div className={classes.courseOverlay} />
                   <div className={classes.courseHoverContent}>
                     <Button
@@ -506,7 +497,8 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
                 </Title>
 
                 <Text size="sm" c="dimmed" lineClamp={2} lh={1.6}>
-                  {cat.category_description || "Jelajahi berbagai kursus menarik dalam kategori ini"}
+                  {cat.description ||
+                    "Jelajahi berbagai kursus menarik dalam kategori ini."}
                 </Text>
 
                 <Group justify="space-between" align="center" mt="xs">
