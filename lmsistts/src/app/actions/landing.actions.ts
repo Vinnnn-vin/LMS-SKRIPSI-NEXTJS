@@ -81,23 +81,11 @@ export async function getFeaturedCourses() {
 
 export async function getFeaturedCategories() {
   try {
-    // Ambil kategori dengan include courses untuk menghitung
     const categories = await Category.findAll({
       attributes: ["category_id", "category_name", "category_description"],
-      include: [
-        {
-          model: Course,
-          as: "courses", // Pastikan alias ini sesuai dengan model associations
-          attributes: [],
-          where: { publish_status: 1 },
-          required: false,
-        },
-      ],
-      group: ["Category.category_id"],
       order: [["category_name", "ASC"]],
     });
 
-    // Hitung jumlah kursus secara manual setelah query
     const categoriesWithCount = await Promise.all(
       categories.map(async (category) => {
         const courseCount = await Course.count({
@@ -116,22 +104,18 @@ export async function getFeaturedCategories() {
       })
     );
 
-    // Sort berdasarkan jumlah kursus dan ambil 8 teratas
-    const sortedCategories = categoriesWithCount
-      .sort((a, b) => b.course_count - a.course_count)
-      .slice(0, 8);
-
-    // console.log("✅ Featured Categories:", sortedCategories);
-
     return {
       success: true,
-      data: sortedCategories,
+      data: categoriesWithCount
+        .sort((a, b) => b.course_count - a.course_count)
+        .slice(0, 8),
     };
   } catch (error) {
     console.error("[GET_FEATURED_CATEGORIES_ERROR]", error);
     return { success: false, error: "Gagal mengambil data kategori." };
   }
 }
+
 
 export async function getRecentReviews() {
   try {
