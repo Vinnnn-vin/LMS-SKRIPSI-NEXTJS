@@ -8,7 +8,6 @@ import {
   Paper,
   Alert,
   Group,
-  rem,
   Stack,
   ThemeIcon,
   Badge,
@@ -20,12 +19,23 @@ import { IconAlertCircle, IconBook } from "@tabler/icons-react";
 import Link from "next/link";
 import { getAllCategoriesWithCourseCount } from "@/app/actions/category.actions";
 
+// [FIX] Pastikan halaman ini selalu dinamis
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store"; // Tambahan untuk memastikan tidak ada cache data
+
 export default async function CategoriesPage() {
   const {
     success,
     data: categories,
     error,
   } = await getAllCategoriesWithCourseCount();
+
+  // Helper untuk warna badge berdasarkan jumlah kursus
+  const getBadgeColor = (count: number) => {
+    if (count === 0) return "gray";
+    if (count < 5) return "blue";
+    return "green";
+  };
 
   return (
     <Container py="xl" size="lg">
@@ -34,8 +44,7 @@ export default async function CategoriesPage() {
           Jelajahi Berdasarkan Kategori
         </Title>
         <Text c="dimmed" ta="center" size="lg" maw={600}>
-          Temukan kursus berdasarkan bidang yang paling Anda minati dan mulai
-          belajar sekarang.
+          Temukan kursus berdasarkan bidang yang paling Anda minati.
         </Text>
       </Stack>
 
@@ -50,10 +59,11 @@ export default async function CategoriesPage() {
           {categories.map((category: any) => (
             <HoverCard
               key={category.category_id}
-              withinPortal
-              openDelay={80}
+              width={280}
               shadow="md"
-              radius="md"
+              withArrow
+              openDelay={200}
+              closeDelay={400}
             >
               <HoverCardTarget>
                 <Paper
@@ -62,51 +72,58 @@ export default async function CategoriesPage() {
                   p="xl"
                   radius="lg"
                   withBorder
-                  shadow="xs"
                   style={{
                     textDecoration: "none",
-                    transition: "all 150ms ease",
+                    color: "inherit",
+                    transition: "transform 0.2s ease, box-shadow 0.2s ease",
                   }}
-                  className="hover-card"
+                  // Efek hover sederhana via style prop (opsional jika pakai CSS modules)
                 >
                   <Stack align="center" gap="sm">
                     <ThemeIcon
                       variant="light"
-                      color="blue"
-                      size={50}
+                      color={category.course_count > 0 ? "blue" : "gray"}
+                      size={60}
                       radius="xl"
                     >
-                      <IconBook size={28} />
+                      <IconBook size={32} />
                     </ThemeIcon>
 
-                    <Title order={4} ta="center">
+                    <Title order={4} ta="center" lineClamp={1}>
                       {category.category_name}
                     </Title>
 
-                    <Group gap="xs" c="dimmed">
-                      <Text size="sm">{category.course_count} Kursus</Text>
-                    </Group>
-
-                    <Badge mt="sm" variant="light" color="blue" size="sm">
-                      Lihat Kursus
+                    <Badge
+                      variant="light"
+                      color={getBadgeColor(category.course_count)}
+                    >
+                      {category.course_count} Kursus
                     </Badge>
                   </Stack>
                 </Paper>
               </HoverCardTarget>
 
               <HoverCardDropdown>
-                <Text size="sm" c="dimmed">
-                  Klik untuk melihat semua kursus dalam kategori{" "}
-                  <strong>{category.category_name}</strong>.
+                <Text size="sm" fw={500}>
+                  {category.category_name}
+                </Text>
+                <Text size="xs" c="dimmed" mt={4}>
+                  {category.category_description || "Tidak ada deskripsi."}
+                </Text>
+                <Text size="xs" c="blue" mt="xs" fw={600}>
+                  Klik untuk lihat detail →
                 </Text>
               </HoverCardDropdown>
             </HoverCard>
           ))}
         </SimpleGrid>
       ) : (
-        <Text ta="center" c="dimmed" mt="xl">
-          Tidak ada kategori yang tersedia saat ini.
-        </Text>
+        <Stack align="center" mt={50}>
+          <IconBook size={48} color="gray" style={{ opacity: 0.5 }} />
+          <Text ta="center" c="dimmed">
+            Belum ada kategori yang tersedia saat ini.
+          </Text>
+        </Stack>
       )}
     </Container>
   );

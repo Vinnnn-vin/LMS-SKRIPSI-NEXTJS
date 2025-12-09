@@ -205,17 +205,17 @@ export async function sendPasswordResetLink(email: string) {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
-      // Jangan beritahu jika email ada atau tidak (keamanan)
-      return {
-        success: "Jika email Anda terdaftar, Anda akan menerima link reset.",
-      };
+      // Return sukses palsu demi keamanan (agar hacker tidak bisa cek email terdaftar atau tidak)
+      return { success: "Jika email terdaftar, link reset telah dikirim." };
     }
 
-    // 1. Buat token
+    // 1. Buat token random
     const token = randomBytes(32).toString("hex");
-    const tokenExpires = new Date(Date.now() + 3600000); // 1 jam
+    
+    // 2. [FIX] Set kedaluwarsa jadi 5 MENIT (5 * 60 * 1000 milidetik)
+    const tokenExpires = new Date(Date.now() + 5 * 60 * 1000); 
 
-    // 2. Simpan token ke database
+    // 3. Simpan token ke database
     await user.update({
       reset_token: token,
       reset_token_expires: tokenExpires,
@@ -223,55 +223,59 @@ export async function sendPasswordResetLink(email: string) {
 
     const resetLink = `${process.env.NEXTAUTH_URL}/forgot-password/${token}`;
 
-    // 3. Kirim email
-    const subject = "Reset Password Akun IClick Anda";
-    const html = `<p>Anda meminta reset password. Klik link di bawah untuk melanjutkan:</p>
+    const subject = "Reset Password - Berlaku 5 Menit";
+    const html = `<p>Anda meminta reset password. Klik link di bawah:</p>
                   <a href="${resetLink}">Reset Password Saya</a>
-                  <p>Link ini akan kedaluwarsa dalam 1 jam.</p>`;
-
-    // TODO: Ganti ini dengan layanan email Anda
+                  <p><strong>PENTING:</strong> Link ini hanya berlaku selama 5 menit dan hanya bisa digunakan satu kali.</p>`;
+    
     await sendEmail(user.email!, subject, html);
 
-    return { success: "Link reset telah dikirim. Silakan periksa email Anda." };
+    return { success: "Link reset telah dikirim. Cek email Anda segera (berlaku 5 menit)." };
+
   } catch (error: any) {
     console.error("[SEND_RESET_LINK_ERROR]", error);
     return { error: error.message || "Gagal mengirim link reset." };
   }
 }
-
 /**
  * Memvalidasi token dan me-reset password
  * (Fungsi ini sudah benar dari sebelumnya, tidak perlu diubah)
  */
 export async function resetPassword(token: string, newPassword: string) {
   try {
-    // 1. Cari user berdasarkan token yang valid
+    // 1. Cari user yang punya token ini DAN tokennya belum expired
+    // Query ini otomatis memfilter token yang salah atau token yang sudah lewat waktu
     const user = await User.findOne({
       where: {
-        reset_token: token,
+        reset_token: token, // Harus cocok persis
         reset_token_expires: {
-          [Op.gt]: new Date(), // Pastikan token belum kedaluwarsa
+          [Op.gt]: new Date(), // Waktu expired harus lebih besar dari sekarang (belum basi)
         },
       },
     });
 
+    // Jika user tidak ditemukan, berarti:
+    // a. Token salah/ngawur
+    // b. Token sudah expired (lebih dari 5 menit)
+    // c. Token sudah pernah dipakai (karena nilainya sudah NULL di database)
     if (!user) {
-      return { error: "Token tidak valid atau sudah kedaluwarsa." };
+      return { error: "Link tidak valid, sudah digunakan, atau telah kedaluwarsa." };
     }
 
     // 2. Hash password baru
     const hashedPassword = await bcrypt.hash(newPassword, 12);
 
-    // 3. Update password dan hapus token
+    // 3. [FIX] Update Password DAN Hapus Token (Invalidasi)
     await user.update({
       password_hash: hashedPassword,
-      reset_token: null,
-      reset_token_expires: null,
+      reset_token: null,          // HAPUS TOKEN
+      reset_token_expires: null,  // HAPUS WAKTU
     });
 
-    return { success: "Password Anda telah berhasil di-reset! Silakan login." };
+    return { success: "Password berhasil diubah! Link ini tidak dapat digunakan lagi." };
+
   } catch (error: any) {
     console.error("[RESET_PASSWORD_ERROR]", error);
-    return { error: error.message || "Gagal me-reset password." };
+    return { error: error.message || "Gagal mereset password." };
   }
 }

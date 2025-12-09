@@ -15,20 +15,19 @@ export async function getAllCategoriesWithCourseCount() {
         "image_url",
         "created_at",
         [
-          sequelize.fn("COUNT", sequelize.col("courses.course_id")),
+          // Hitung hanya kursus yang PUBLISHED (status = 1)
+          sequelize.literal(`(
+            SELECT COUNT(*)
+            FROM courses AS course
+            WHERE
+              course.category_id = Category.category_id
+              AND course.publish_status = 1
+          )`),
           "course_count",
         ],
       ],
-      include: [
-        {
-          model: Course,
-          as: "courses",
-          attributes: [],
-          where: { publish_status: 1 },
-          required: false,
-        },
-      ],
-      group: ["category_id"],
+      // Hapus include agar group by lebih bersih dan performa lebih cepat
+      // include: [], 
       order: [["category_name", "ASC"]],
     });
 

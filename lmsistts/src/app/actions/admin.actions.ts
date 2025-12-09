@@ -720,7 +720,13 @@ export async function createCategory(values: CreateCategoryInput) {
   }
   try {
     await Category.create(validatedFields.data);
-    revalidatePath("/admin/dashboard/categories");
+
+    // [FIX] Refresh data di semua halaman yang menampilkan kategori
+    revalidatePath("/categories", "page"); // ✅ Tambahkan parameter "page"
+    revalidatePath("/admin/dashboard/categories", "page");
+    revalidatePath("/", "page");
+    revalidatePath("/courses", "page");
+
     return { success: "Kategori berhasil dibuat!" };
   } catch (error) {
     console.error("[CREATE_CATEGORY_ERROR]", error);
@@ -728,6 +734,7 @@ export async function createCategory(values: CreateCategoryInput) {
   }
 }
 
+// 2. Update Update Category
 export async function updateCategory(
   categoryId: number,
   values: UpdateCategoryInput
@@ -741,7 +748,13 @@ export async function updateCategory(
     if (!category) return { error: "Kategori tidak ditemukan." };
 
     await category.update(validatedFields.data);
-    revalidatePath("/admin/dashboard/categories");
+
+    // [FIX] Refresh data di semua halaman
+    revalidatePath("/categories", "page"); // ✅ Tambahkan parameter "page"
+    revalidatePath("/admin/dashboard/categories", "page");
+    revalidatePath("/", "page");
+    revalidatePath("/courses", "page");
+
     return { success: "Kategori berhasil diperbarui!" };
   } catch (error) {
     console.error("[UPDATE_CATEGORY_ERROR]", error);
@@ -749,6 +762,7 @@ export async function updateCategory(
   }
 }
 
+// 3. Update Delete Category
 export async function deleteCategory(categoryId: number) {
   try {
     const category = await Category.findByPk(categoryId);
@@ -764,7 +778,13 @@ export async function deleteCategory(categoryId: number) {
     }
 
     await category.destroy();
-    revalidatePath("/admin/dashboard/categories");
+
+    // [FIX] Refresh data di semua halaman
+    revalidatePath("/categories", "page"); // ✅ Tambahkan parameter "page"
+    revalidatePath("/admin/dashboard/categories", "page");
+    revalidatePath("/", "page");
+    revalidatePath("/courses", "page");
+
     return { success: "Kategori berhasil dihapus!" };
   } catch (error) {
     console.error("[DELETE_CATEGORY_ERROR]", error);
@@ -802,7 +822,12 @@ export async function getAllPaymentsForAdmin(filters?: {
           attributes: ["first_name", "last_name", "email"],
           required: false,
         },
-        { model: Course, as: "course", attributes: ["course_title"], required: false },
+        {
+          model: Course,
+          as: "course",
+          attributes: ["course_title"],
+          required: false,
+        },
       ],
       order: [["paid_at", "DESC"]],
     });
