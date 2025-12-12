@@ -49,8 +49,8 @@ Ikuti langkah berikut untuk menjalankan project ini di komputer Anda:
 
 ### 1. Clone Repository
 ```bash
-git clone [https://github.com/username-anda/nama-repo-lms.git](https://github.com/username-anda/nama-repo-lms.git)
-cd nama-repo-lms
+git clone [https://github.com/Vinnnn-vin/LMS-SKRIPSI-NEXTJS.git](https://github.com/Vinnnn-vin/LMS-SKRIPSI-NEXTJS.git)
+cd LMS-SKRIPSI-NEXTJS
 ````
 
 ### 2\. Install Dependencies
