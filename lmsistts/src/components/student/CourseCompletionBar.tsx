@@ -93,18 +93,14 @@ export function CourseCompletionBar({
     });
   };
 
-  // 3. Fungsi handler baru untuk Sertifikat
   const handleViewCertificate = async () => {
     setIsCertLoading(true);
     try {
-      // Panggil server action untuk cek atau buat sertifikat
       const result = await getOrGenerateCertificate(courseId);
 
       if (result.success && result.url) {
-        // Buka sertifikat di tab baru
         window.open(result.url, '_blank');
         
-        // Opsional: Refresh halaman agar state certificateNumber terupdate
         router.refresh();
       } else {
         notifications.show({

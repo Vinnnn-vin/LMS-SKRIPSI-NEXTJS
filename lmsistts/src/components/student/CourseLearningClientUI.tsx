@@ -155,7 +155,8 @@ export function CourseLearningClientUI({
 }: CourseLearningClientUIProps) {
   const router = useRouter();
   const isMobile = useMediaQuery("(max-width: 768px)");
-  const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
+  const [drawerOpened, { open: openDrawer, close: closeDrawer }] =
+    useDisclosure(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const [activeContent, setActiveContent] = useState<any>(initialContent);
@@ -238,7 +239,7 @@ export function CourseLearningClientUI({
   // Get all contents in order for navigation
   const allContents = useMemo(() => {
     const contents: Array<{ type: "detail" | "quiz"; content: any }> = [];
-    
+
     for (const material of course.materials || []) {
       if (material.details && material.details.length > 0) {
         for (const detail of material.details) {
@@ -251,7 +252,7 @@ export function CourseLearningClientUI({
         }
       }
     }
-    
+
     return contents;
   }, [course.materials]);
 
@@ -287,7 +288,7 @@ export function CourseLearningClientUI({
         targetContent.content,
         targetContent.type as "detail" | "quiz"
       );
-      
+
       // Scroll to top
       if (contentAreaRef.current) {
         contentAreaRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -411,13 +412,19 @@ export function CourseLearningClientUI({
               Progress Kursus
             </Text>
           </Group>
-          <Badge size="lg" variant="gradient" gradient={{ from: "blue", to: "cyan" }}>
+          <Badge
+            size="lg"
+            variant="gradient"
+            gradient={{ from: "blue", to: "cyan" }}
+          >
             {totalProgress}%
           </Badge>
         </Group>
         <Progress value={totalProgress} size="lg" radius="xl" />
         <Text size="xs" c="dimmed" mt="xs" ta="center">
-          {completedDetails.size + completedQuizzes.size + completedAssignments.size}{" "}
+          {completedDetails.size +
+            completedQuizzes.size +
+            completedAssignments.size}{" "}
           dari total materi diselesaikan
         </Text>
       </Card>
@@ -605,7 +612,10 @@ export function CourseLearningClientUI({
 
                   {material.quizzes?.map((quiz: any) => {
                     const isCompleted = completedQuizzes.has(quiz.quiz_id);
-                    const isCheckpoint = isCheckpointContent("quiz", quiz.quiz_id);
+                    const isCheckpoint = isCheckpointContent(
+                      "quiz",
+                      quiz.quiz_id
+                    );
                     const isActive =
                       contentType === "quiz" &&
                       activeContent?.quiz_id === quiz.quiz_id;
@@ -703,7 +713,8 @@ export function CourseLearningClientUI({
                 Selamat Datang! 👋
               </Title>
               <Text c="dimmed" size="md" ta="center" maw={400}>
-                Pilih materi dari kurikulum kursus untuk memulai pembelajaran Anda
+                Pilih materi dari kurikulum kursus untuk memulai pembelajaran
+                Anda
               </Text>
             </Stack>
             {lastCheckpoint && (
@@ -800,9 +811,10 @@ export function CourseLearningClientUI({
   }, []);
 
   // Calculate progress percentage
-  const progressPercentage = allContents.length > 0 && currentIndex >= 0
-    ? ((currentIndex + 1) / allContents.length) * 100
-    : 0;
+  const progressPercentage =
+    allContents.length > 0 && currentIndex >= 0
+      ? ((currentIndex + 1) / allContents.length) * 100
+      : 0;
 
   return (
     <Box>
@@ -933,26 +945,29 @@ export function CourseLearningClientUI({
                     <Button
                       variant="light"
                       color="gray"
-                      leftSection={
-                        <IconChevronLeft 
-                          size={16} 
-                          style={{ 
-                            transition: "transform 0.2s",
-                          }} 
-                        />
-                      }
+                      leftSection={<IconChevronLeft size={16} />}
                       disabled={!previousContent}
                       onClick={() => navigateToContent("prev")}
                       size={isMobile ? "sm" : "md"}
-                      style={{
-                        transition: "all 0.2s ease",
-                      }}
                       styles={{
                         root: {
-                          "&:hover:not(:disabled) .mantine-Button-leftIcon": {
-                            transform: "translateX(-4px)",
-                          },
+                          transition: "all 0.2s ease",
                         },
+                        section: {
+                          transition: "transform 0.2s ease",
+                        },
+                      }}
+                      onMouseEnter={(e) => {
+                        const icon = e.currentTarget.querySelector("svg");
+                        if (icon && !e.currentTarget.disabled) {
+                          icon.style.transform = "translateX(-4px)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const icon = e.currentTarget.querySelector("svg");
+                        if (icon) {
+                          icon.style.transform = "translateX(0)";
+                        }
                       }}
                     >
                       {!isMobile && previousContent && (
@@ -960,7 +975,12 @@ export function CourseLearningClientUI({
                           <Text size="xs" c="dimmed" fw={400}>
                             Sebelumnya
                           </Text>
-                          <Text size="sm" fw={500} truncate style={{ maxWidth: "150px" }}>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            truncate
+                            style={{ maxWidth: "150px" }}
+                          >
                             {previousContent.type === "detail"
                               ? previousContent.content.material_detail_name
                               : previousContent.content.quiz_title}
@@ -969,16 +989,35 @@ export function CourseLearningClientUI({
                       )}
                       {(isMobile || !previousContent) && "Sebelumnya"}
                     </Button>
-
                     {/* Center Progress Info */}
-                    <Box style={{ flex: 1, textAlign: "center", minWidth: 0, px: "sm" }}>
+                    <Box
+                      style={{
+                        flex: 1,
+                        textAlign: "center",
+                        minWidth: 0,
+                        px: "sm",
+                      }}
+                    >
                       <Group justify="center" gap="xs" mb={6}>
-                        {contentType === "detail" && completedDetails.has(activeContent.material_detail_id) ? (
-                          <IconCircleCheckFilled size={16} color="var(--mantine-color-green-6)" />
-                        ) : contentType === "quiz" && completedQuizzes.has(activeContent.quiz_id) ? (
-                          <IconCircleCheckFilled size={16} color="var(--mantine-color-green-6)" />
+                        {contentType === "detail" &&
+                        completedDetails.has(
+                          activeContent.material_detail_id
+                        ) ? (
+                          <IconCircleCheckFilled
+                            size={16}
+                            color="var(--mantine-color-green-6)"
+                          />
+                        ) : contentType === "quiz" &&
+                          completedQuizzes.has(activeContent.quiz_id) ? (
+                          <IconCircleCheckFilled
+                            size={16}
+                            color="var(--mantine-color-green-6)"
+                          />
                         ) : (
-                          <IconPlayerPlay size={16} color="var(--mantine-color-blue-6)" />
+                          <IconPlayerPlay
+                            size={16}
+                            color="var(--mantine-color-blue-6)"
+                          />
                         )}
                         <Text size="sm" fw={600}>
                           {currentIndex + 1} / {allContents.length}
@@ -1001,51 +1040,56 @@ export function CourseLearningClientUI({
                             left: 0,
                             height: "100%",
                             width: `${progressPercentage}%`,
-                            background: "linear-gradient(90deg, #4c6ef5 0%, #5f3dc4 100%)",
+                            background:
+                              "linear-gradient(90deg, #4c6ef5 0%, #5f3dc4 100%)",
                             borderRadius: "var(--mantine-radius-xl)",
                             transition: "width 0.5s ease",
                             pointerEvents: "none",
                           }}
                         />
                       </Box>
-                      {!isMobile && (
+                      {/* {!isMobile && (
                         <Text size="xs" c="dimmed" mt={4}>
                           {Math.round(progressPercentage)}% Selesai
                         </Text>
-                      )}
+                      )} */}
                     </Box>
-
                     {/* Next Button */}
                     <Button
                       variant="gradient"
                       gradient={{ from: "blue", to: "indigo" }}
                       rightSection={
-                        nextContent ? (
-                          <IconChevronRight 
-                            size={16}
-                            style={{ 
-                              transition: "transform 0.2s",
-                            }} 
-                          />
-                        ) : null
+                        nextContent ? <IconChevronRight size={16} /> : null
                       }
                       disabled={!nextContent}
                       onClick={() => navigateToContent("next")}
                       size={isMobile ? "sm" : "md"}
-                      style={{
-                        transition: "all 0.2s ease",
-                        boxShadow: nextContent ? "0 4px 12px rgba(79, 70, 229, 0.3)" : "none",
-                      }}
                       styles={{
                         root: {
+                          transition: "all 0.2s ease",
+                          boxShadow: nextContent
+                            ? "0 4px 12px rgba(79, 70, 229, 0.3)"
+                            : "none",
                           "&:hover:not(:disabled)": {
                             transform: "scale(1.05)",
                             boxShadow: "0 6px 16px rgba(79, 70, 229, 0.4)",
                           },
-                          "&:hover:not(:disabled) .mantine-Button-rightIcon": {
-                            transform: "translateX(4px)",
-                          },
                         },
+                        section: {
+                          transition: "transform 0.2s ease",
+                        },
+                      }}
+                      onMouseEnter={(e) => {
+                        const icon = e.currentTarget.querySelector("svg");
+                        if (icon && !e.currentTarget.disabled) {
+                          icon.style.transform = "translateX(4px)";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        const icon = e.currentTarget.querySelector("svg");
+                        if (icon) {
+                          icon.style.transform = "translateX(0)";
+                        }
                       }}
                     >
                       {!isMobile && nextContent && (
@@ -1053,7 +1097,12 @@ export function CourseLearningClientUI({
                           <Text size="xs" style={{ opacity: 0.9 }} fw={400}>
                             Selanjutnya
                           </Text>
-                          <Text size="sm" fw={500} truncate style={{ maxWidth: "150px" }}>
+                          <Text
+                            size="sm"
+                            fw={500}
+                            truncate
+                            style={{ maxWidth: "150px" }}
+                          >
                             {nextContent.type === "detail"
                               ? nextContent.content.material_detail_name
                               : nextContent.content.quiz_title}

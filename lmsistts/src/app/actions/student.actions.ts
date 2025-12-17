@@ -473,6 +473,8 @@ export async function createOrUpdateReview(payload: {
   }
 }
 
+// lmsistts\src\app\actions\student.actions.ts
+
 export async function getCourseLearningData(courseId: number) {
   try {
     const { userId } = await getStudentSession();
@@ -487,26 +489,80 @@ export async function getCourseLearningData(courseId: number) {
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"],
+          attributes: ["course_duration"], // Pastikan durasi diambil
         },
       ],
     });
 
-    // if (!enrollment) {
-    //   const completedEnrollment = await Enrollment.findOne({
-    //     where: { course_id: courseId, user_id: userId, status: "completed" },
-    //   });
+    if (!enrollment) {
+      // (Opsional) Logika fallback jika enrollment completed tapi tidak ketemu di query active
+      const completedEnrollment = await Enrollment.findOne({
+        where: { course_id: courseId, user_id: userId, status: "completed" },
+        include: [{ model: Course, as: "course", attributes: ["course_duration"] }],
+      });
 
-    //   if (completedEnrollment) {
-    //     enrollment = completedEnrollment;
-    //   } else {
-    //     throw new Error("Anda tidak terdaftar di kursus ini.");
-    //   }
-    // }
+      if (completedEnrollment) {
+        enrollment = completedEnrollment;
+      } else {
+        throw new Error("Anda tidak terdaftar di kursus ini.");
+      }
+    }
 
-    const isAccessExpired =
+    // 1. Cek Apakah Expired?
+    let isAccessExpired =
       enrollment.access_expires_at &&
       dayjs().isAfter(dayjs(enrollment.access_expires_at));
+
+    // =================================================================================
+    // [FIX] LOGIKA AUTO-RESET JIKA EXPIRED
+    // =================================================================================
+    if (isAccessExpired) {
+      console.log(`⏳ Access expired for user ${userId}, course ${courseId}. Auto-resetting...`);
+      
+      const courseDuration = (enrollment.course as any)?.course_duration || 0;
+
+      // Gunakan Transaction agar bersih (hapus semua sekaligus atau tidak sama sekali)
+      await sequelize.transaction(async (t) => {
+        // A. Hapus Progress & Jawaban
+        await StudentProgress.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
+        await StudentQuizAnswer.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
+        await AssignmentSubmission.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
+        
+        // Hapus sertifikat jika ada (agar user tidak punya sertifikat ganda/invalid)
+        await Certificate.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
+
+        // B. Generate Waktu Baru & Reset Enrollment
+        const updateData: any = {
+          status: "active",
+          completed_at: null,
+          learning_started_at: new Date(), // Reset waktu mulai belajar
+          checkpoint_type: null,
+          checkpoint_id: null,
+          checkpoint_updated_at: null,
+        };
+
+        // Set Timer Baru (JIKA ada durasi)
+        if (courseDuration > 0) {
+          updateData.access_expires_at = dayjs().add(courseDuration, "hour").toDate();
+        } else {
+          // Jika durasi 0 (selamanya), set null
+          updateData.access_expires_at = null; 
+        }
+
+        await enrollment.update(updateData, { transaction: t });
+      });
+
+      // C. Update variabel lokal agar UI langsung merender data 'fresh' tanpa refresh halaman
+      isAccessExpired = false; 
+      
+      // Update object enrollment di memori agar return data di bawah menggunakan tanggal baru
+      if (courseDuration > 0) {
+         enrollment.access_expires_at = dayjs().add(courseDuration, "hour").toDate();
+      } else {
+         enrollment.access_expires_at = null;
+      }
+    }
+    // =================================================================================
 
     const course = await Course.findByPk(courseId, {
       include: [
@@ -549,6 +605,9 @@ export async function getCourseLearningData(courseId: number) {
     });
 
     if (!course) throw new Error("Kursus tidak ditemukan.");
+
+    // Karena data progress baru saja di-destroy (jika expired), query di bawah ini akan mengembalikan array kosong.
+    // Ini benar, karena user memulai dari awal.
 
     const progressDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
@@ -663,7 +722,6 @@ export async function getCourseLearningData(courseId: number) {
     let review: Review | null = null;
 
     if (totalProgress === 100 || enrollment.status === "completed") {
-      // Ambil sertifikat JIKA sudah selesai
       certificate = await Certificate.findOne({
         where: {
           user_id: userId,
@@ -673,7 +731,6 @@ export async function getCourseLearningData(courseId: number) {
         attributes: ["certificate_number"],
       });
 
-      // Ambil review yang ada
       review = await Review.findOne({
         where: { user_id: userId, course_id: courseId },
         attributes: ["rating", "review_text"],
@@ -698,7 +755,7 @@ export async function getCourseLearningData(courseId: number) {
         enrolledAt: enrollment.enrolled_at,
         learningStartedAt: enrollment.learning_started_at,
         courseDuration: (course as any).course_duration || 0,
-        isAccessExpired: isAccessExpired,
+        isAccessExpired: isAccessExpired, // Ini sekarang FALSE karena sudah di-reset di atas
         lastCheckpoint: enrollment.checkpoint_id
           ? {
               type: enrollment.checkpoint_type!,

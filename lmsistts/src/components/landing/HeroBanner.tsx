@@ -5,6 +5,7 @@
 import { Container, Title, Text, Button, Group, Box } from "@mantine/core";
 import Link from "next/link";
 import classes from "./HeroBanner.module.css";
+import { TransitionLinkButton } from "../ui/TransitionLinkButton";
 
 export function HeroBanner() {
   return (
@@ -47,8 +48,8 @@ export function HeroBanner() {
           </Text>
 
           <Group className={classes.controls}>
-            <Button
-              component={Link}
+            <TransitionLinkButton
+              // component={Link}
               href="/courses"
               size="xl"
               variant="gradient"
@@ -56,16 +57,15 @@ export function HeroBanner() {
               className={classes.ctaButton}
             >
               Mulai Belajar Sekarang
-            </Button>
-            <Button
-              component={Link}
+            </TransitionLinkButton>
+            <TransitionLinkButton
               href="/courses"
               size="xl"
               variant="white"
               className={classes.outlineButton}
             >
               Jelajahi Kursus
-            </Button>
+            </TransitionLinkButton>
           </Group>
         </div>
       </Container>

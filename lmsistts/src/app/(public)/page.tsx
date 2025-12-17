@@ -34,6 +34,7 @@ import {
   IconPlayCard,
   IconClock,
   IconArrowNarrowRight,
+  IconTrendingUp,
 } from "@tabler/icons-react";
 import Link from "next/link";
 import {
@@ -44,7 +45,7 @@ import {
 } from "@/app/actions/landing.actions";
 import { HeroBanner } from "@/components/landing/HeroBanner";
 import classes from "./page.module.css";
-import { log } from "node:console";
+import { TransitionLinkButton } from "@/components/ui/TransitionLinkButton";
 
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
@@ -204,7 +205,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                     {course.category?.category_name || "General"}
                   </Badge>
                   <div className={classes.courseHoverContent}>
-                    <Button
+                    {/* <Button
                       component={Link}
                       href={`/courses/${course.course_id}`}
                       variant="white"
@@ -213,7 +214,17 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                       leftSection={<IconPlayCard size={16} />}
                     >
                       Lihat Kursus
-                    </Button>
+                    </Button> */}
+
+                    <TransitionLinkButton
+                      href={`/courses/${course.course_id}`}
+                      variant="white"
+                      size="sm"
+                      radius="lg"
+                      leftSection={<IconPlayCard size={16} />}
+                    >
+                      Lihat Kursus
+                    </TransitionLinkButton>
                   </div>
                 </div>
               </CardSection>
@@ -260,8 +271,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                       {formatPrice(course.course_price)}
                     </Text>
                   </div>
-                  <Button
-                    component={Link}
+                  <TransitionLinkButton
                     href={`/courses/${course.course_id}`}
                     variant="gradient"
                     gradient={{ from: "blue", to: "cyan" }}
@@ -271,7 +281,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
                     rightSection={<IconArrowNarrowRight size={18} />}
                   >
                     Bergabung Sekarang
-                  </Button>
+                  </TransitionLinkButton>
                 </Group>
               </Stack>
             </Card>
@@ -279,8 +289,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
         </SimpleGrid>
 
         <Center mt={50}>
-          <Button
-            component={Link}
+          <TransitionLinkButton
             href="/courses"
             size="xl"
             variant="gradient"
@@ -290,7 +299,7 @@ function FeaturedCourses({ courses }: { courses: any[] }) {
             rightSection={<IconArrowRight size={20} />}
           >
             Jelajahi Semua Kursus
-          </Button>
+          </TransitionLinkButton>
         </Center>
       </Container>
     </Box>
@@ -404,6 +413,33 @@ function FeaturesSection() {
   );
 }
 
+const categoryStyles = [
+  {
+    gradient: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+    iconColor: "#667eea",
+  },
+  {
+    gradient: "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
+    iconColor: "#f093fb",
+  },
+  {
+    gradient: "linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)",
+    iconColor: "#4facfe",
+  },
+  {
+    gradient: "linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)",
+    iconColor: "#43e97b",
+  },
+  {
+    gradient: "linear-gradient(135deg, #fa709a 0%, #fee140 100%)",
+    iconColor: "#fa709a",
+  },
+  {
+    gradient: "linear-gradient(135deg, #30cfd0 0%, #330867 100%)",
+    iconColor: "#30cfd0",
+  },
+];
+
 function CategoryPromotion({ categories }: { categories: any[] }) {
   const featuredCategories = categories?.slice(0, 6) || [];
 
@@ -458,75 +494,161 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
           </Text>
         </Stack>
 
-        {/* ✅ Ubah ke format Card seperti Course */}
         <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="xl">
-          {featuredCategories.map((cat, index) => (
-            <Card
-              shadow="md"
-              padding="lg"
-              radius="lg"
-              key={cat.category_id}
-              className={classes.courseCard}
-              component={Link}
-              href={`/categories/${cat.category_id}`}
-              style={{
-                animationDelay: `${index * 150}ms`,
-                textDecoration: "none",
-                color: "inherit",
-              }}
-            >
-              <CardSection className={classes.courseImageWrapper}>
-                <div className={classes.imageContainer}>
-                  <div className={classes.courseOverlay} />
-                  <div className={classes.courseHoverContent}>
-                    <Button
+          {featuredCategories.map((cat, index) => {
+            const style = categoryStyles[index % categoryStyles.length];
+            
+            return (
+              <Card
+                shadow="md"
+                padding={0}
+                radius="xl"
+                key={cat.category_id}
+                className={classes.courseCard}
+                style={{
+                  animationDelay: `${index * 150}ms`,
+                  overflow: "hidden",
+                  border: "1px solid rgba(0,0,0,0.06)",
+                }}
+              >
+                <CardSection
+                  style={{
+                    background: style.gradient,
+                    padding: "2.5rem 1.5rem",
+                    position: "relative",
+                    minHeight: "180px",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                  }}
+                >
+                  {/* Decorative elements */}
+                  <Box
+                    style={{
+                      position: "absolute",
+                      top: -30,
+                      right: -30,
+                      width: 120,
+                      height: 120,
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.15)",
+                    }}
+                  />
+                  <Box
+                    style={{
+                      position: "absolute",
+                      bottom: -40,
+                      left: -40,
+                      width: 140,
+                      height: 140,
+                      borderRadius: "50%",
+                      background: "rgba(255,255,255,0.1)",
+                    }}
+                  />
+
+                  {/* Top section with icon */}
+                  <Group justify="space-between" align="flex-start" style={{ zIndex: 1 }}>
+                    <ThemeIcon
+                      size={70}
+                      radius="xl"
                       variant="white"
+                      style={{
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.12)",
+                      }}
+                    >
+                      <IconBook
+                        style={{ width: rem(36), height: rem(36), color: style.iconColor }}
+                        stroke={2}
+                      />
+                    </ThemeIcon>
+
+                    <Badge
+                      size="lg"
+                      variant="white"
+                      style={{
+                        fontWeight: 700,
+                        boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                      }}
+                    >
+                      {cat.course_count || 0} Kursus
+                    </Badge>
+                  </Group>
+
+                  {/* Category name on gradient */}
+                  <Title
+                    order={3}
+                    c="white"
+                    lineClamp={2}
+                    style={{
+                      zIndex: 1,
+                      textShadow: "0 2px 8px rgba(0,0,0,0.2)",
+                      fontSize: "1.5rem",
+                      fontWeight: 800,
+                    }}
+                  >
+                    {cat.category_name}
+                  </Title>
+                </CardSection>
+
+                <Stack gap="md" p="xl">
+                  <Text size="sm" c="dimmed" lineClamp={3} lh={1.7}>
+                    {cat.description ||
+                      "Jelajahi berbagai kursus menarik dalam kategori ini dan tingkatkan kemampuan Anda."}
+                  </Text>
+
+                  <Group gap="md" mt="xs">
+                    <Group gap="xs">
+                      <ThemeIcon
+                        size="sm"
+                        variant="light"
+                        radius="xl"
+                        style={{ background: `${style.iconColor}15` }}
+                      >
+                        <IconTrendingUp size={14} style={{ color: style.iconColor }} />
+                      </ThemeIcon>
+                      <Text size="sm" c="dimmed" fw={500}>
+                        Trending
+                      </Text>
+                    </Group>
+                    <Text size="sm" c="dimmed">
+                      • {cat.course_count || 0} Materi
+                    </Text>
+                  </Group>
+
+                  <Group justify="space-between" align="center" mt="md">
+                    <Badge
+                      size="lg"
+                      variant="gradient"
+                      gradient={{ from: "orange", to: "red" }}
+                      style={{
+                        textTransform: "none",
+                      }}
+                    >
+                      Mulai Belajar
+                    </Badge>
+                    
+                    <TransitionLinkButton
+                      href={`/categories/${cat.category_id}`}
+                      variant="subtle"
                       size="sm"
                       radius="lg"
-                      leftSection={<IconBook size={16} />}
+                      rightSection={<IconArrowRight size={16} />}
+                      style={{
+                        fontWeight: 600,
+                      }}
                     >
-                      Lihat {cat.course_count || 0} Kursus
-                    </Button>
-                  </div>
-                </div>
-              </CardSection>
-
-              <Stack gap="md" mt="md">
-                <Title order={3} lineClamp={2} className={classes.courseTitle}>
-                  {cat.category_name}
-                </Title>
-
-                <Text size="sm" c="dimmed" lineClamp={2} lh={1.6}>
-                  {cat.description ||
-                    "Jelajahi berbagai kursus menarik dalam kategori ini."}
-                </Text>
-
-                <Group justify="space-between" align="center" mt="xs">
-                  <Badge
-                    size="lg"
-                    variant="gradient"
-                    gradient={{ from: "orange", to: "red" }}
-                  >
-                    {cat.course_count || 0} Kursus
-                  </Badge>
-                  <Button
-                    variant="subtle"
-                    size="sm"
-                    radius="lg"
-                    rightSection={<IconArrowRight size={16} />}
-                  >
-                    Jelajahi
-                  </Button>
-                </Group>
-              </Stack>
-            </Card>
-          ))}
+                      Jelajahi
+                    </TransitionLinkButton>
+                  </Group>
+                </Stack>
+              </Card>
+            );
+          })}
         </SimpleGrid>
 
         {categories && categories.length > 6 && (
           <Center mt={50}>
-            <Button
-              component={Link}
+            <TransitionLinkButton
               href="/categories"
               size="xl"
               variant="gradient"
@@ -536,7 +658,7 @@ function CategoryPromotion({ categories }: { categories: any[] }) {
               rightSection={<IconArrowRight size={20} />}
             >
               Lihat Semua Kategori
-            </Button>
+            </TransitionLinkButton>
           </Center>
         )}
       </Container>
@@ -691,8 +813,8 @@ function CTASection() {
             impian Anda
           </Text>
           <Group mt={20}>
-            <Button
-              component={Link}
+            <TransitionLinkButton
+              // component={Link}
               href="/register"
               size="xl"
               variant="white"
@@ -701,9 +823,9 @@ function CTASection() {
               rightSection={<IconArrowRight size={20} />}
             >
               Daftar Sekarang
-            </Button>
-            <Button
-              component={Link}
+            </TransitionLinkButton>
+            <TransitionLinkButton
+              // component={Link}
               href="/courses"
               size="xl"
               variant="outline"
@@ -711,7 +833,7 @@ function CTASection() {
               radius="lg"
             >
               Lihat Kursus
-            </Button>
+            </TransitionLinkButton>
           </Group>
         </Stack>
       </Container>

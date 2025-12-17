@@ -140,7 +140,7 @@ export default async function LearnCoursePage({
         if (quiz) {
           initialContent = quiz;
           initialContentType = "quiz";
-          console.log(`✅ [SERVER] Found checkpoint quiz: ${quiz.quiz_title}`);
+          // console.log(`✅ [SERVER] Found checkpoint quiz: ${quiz.quiz_title}`);
           break;
         }
       }
