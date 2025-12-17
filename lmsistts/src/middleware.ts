@@ -18,9 +18,15 @@ function getDashboardPath(role: string | undefined | null): string {
 }
 
 export async function middleware(req: NextRequest) {
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const { pathname } = req.nextUrl;
 
+  // ✅ TAMBAHKAN INI: Skip middleware untuk API routes
+  // Biarkan API route handle auth sendiri
+  if (pathname.startsWith('/api/')) {
+    return NextResponse.next();
+  }
+
+  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
   const isLoggedIn = !!token;
   const userRole = token?.role as string | undefined;
 
@@ -46,11 +52,7 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/student/:path*",
-    "/lecturer/:path*",
-    "/admin/:path*",
-    "/profile/:path*",
-    "/login",
-    "/register",
+    // ✅ UPDATE MATCHER: Exclude API routes, static files, dan _next
+    "/((?!api|_next/static|_next/image|favicon.ico).*)",
   ],
 };

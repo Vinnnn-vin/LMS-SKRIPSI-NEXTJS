@@ -5,11 +5,36 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Readable } from "stream";
 
+// ✅ CRITICAL: Configure route for large file uploads
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+export const maxDuration = 300; // 5 minutes for video upload
+
+// ✅ CRITICAL: Increase body size limit for video uploads
+export const config = {
+  api: {
+    bodyParser: false, // Disable default body parser for large files
+    responseLimit: false,
+  },
+};
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
-  process.env.YOUTUBE_REDIRECT_URI // http://127.0.0.1:3000/api/upload/youtube
+  process.env.YOUTUBE_REDIRECT_URI
 );
+
+// DEBUG: Log environment variables (REMOVE AFTER DEBUGGING)
+console.log("🔍 Environment Check:", {
+  hasClientId: !!process.env.YOUTUBE_CLIENT_ID,
+  hasClientSecret: !!process.env.YOUTUBE_CLIENT_SECRET,
+  hasRefreshToken: !!process.env.YOUTUBE_REFRESH_TOKEN,
+  redirectUri: process.env.YOUTUBE_REDIRECT_URI,
+  refreshTokenPreview: process.env.YOUTUBE_REFRESH_TOKEN?.substring(0, 10) + "...",
+  refreshTokenLength: process.env.YOUTUBE_REFRESH_TOKEN?.length,
+  // FULL TOKEN (TEMPORARY DEBUG ONLY - DELETE AFTER)
+  fullRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
+});
 
 // Set refresh token
 oauth2Client.setCredentials({
@@ -17,20 +42,41 @@ oauth2Client.setCredentials({
 });
 
 export async function POST(request: NextRequest) {
+  console.log("=" .repeat(80));
+  console.log("🎯 POST /api/upload/youtube CALLED");
+  console.log("=" .repeat(80));
+  
   try {
+    console.log("🔐 Checking session...");
     const session = await getServerSession(authOptions);
+    console.log("👤 Session:", {
+      exists: !!session,
+      user: session?.user?.email,
+      role: session?.user?.role,
+    });
     if (!session?.user || session.user.role !== "lecturer") {
+      console.log("❌ Unauthorized access attempt");
       return NextResponse.json(
         { success: false, error: "Unauthorized access" },
         { status: 401 }
       );
     }
 
+    console.log("📦 Parsing FormData...");
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const isFree = formData.get("isFree") === "true";
+
+    console.log("📋 Request data:", {
+      hasFile: !!file,
+      fileName: file?.name,
+      fileSize: file?.size,
+      fileType: file?.type,
+      title,
+      isFree,
+    });
 
     if (!file) {
       return NextResponse.json(
@@ -129,27 +175,71 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
+  const error = url.searchParams.get("error");
 
+  // Handle OAuth error
+  if (error) {
+    return NextResponse.json({
+      success: false,
+      error: `OAuth error: ${error}`,
+      message: "Authorization was denied or failed",
+    }, { status: 400 });
+  }
+
+  // Exchange code for token
   if (code) {
     try {
+      console.log("🔄 Exchanging code for tokens...");
+      
       const { tokens } = await oauth2Client.getToken(code);
+      
+      console.log("✅ Tokens received:", {
+        hasRefreshToken: !!tokens.refresh_token,
+        hasAccessToken: !!tokens.access_token,
+      });
+
+      if (!tokens.refresh_token) {
+        return NextResponse.json({
+          success: false,
+          error: "No refresh token received",
+          message: "This can happen if you've already authorized before. Try revoking access first at: https://myaccount.google.com/permissions",
+          accessToken: tokens.access_token,
+        }, { status: 400 });
+      }
 
       return NextResponse.json({
         success: true,
         refreshToken: tokens.refresh_token,
         accessToken: tokens.access_token,
+        expiryDate: tokens.expiry_date,
         message:
-          "✅ Save this refresh_token to your environment variables as YOUTUBE_REFRESH_TOKEN",
+          "✅ SUCCESS! Copy the refreshToken below and add it to your Vercel Environment Variables:\n" +
+          "1. Go to Vercel Dashboard > Your Project > Settings > Environment Variables\n" +
+          "2. Add/Update: YOUTUBE_REFRESH_TOKEN = [paste the refreshToken]\n" +
+          "3. Scope: Production, Preview, Development\n" +
+          "4. Redeploy your app",
       });
     } catch (error: any) {
-      console.error("Token exchange error:", error);
+      console.error("❌ Token exchange error:", error);
+      
       return NextResponse.json(
-        { success: false, error: error.message },
+        { 
+          success: false, 
+          error: error.message || "Token exchange failed",
+          code: error.code,
+          details: "Possible causes:\n" +
+            "1. Authorization code expired (codes expire in ~10 minutes)\n" +
+            "2. Authorization code already used\n" +
+            "3. Redirect URI mismatch\n" +
+            "4. Client ID/Secret incorrect\n" +
+            "\nSolution: Click the authUrl again to get a new code",
+        },
         { status: 500 }
       );
     }
   }
 
+  // Generate auth URL
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: "offline",
     scope: [
@@ -157,18 +247,21 @@ export async function GET(request: NextRequest) {
       "https://www.googleapis.com/auth/youtube.readonly",
       "https://www.googleapis.com/auth/youtube.force-ssl",
     ],
-    prompt: "consent",
+    prompt: "consent", // Force to show consent screen to get refresh token
   });
 
   return NextResponse.json({
     success: true,
     authUrl,
+    redirectUri: process.env.YOUTUBE_REDIRECT_URI,
     message:
-      "Steps to get refresh token:\n" +
-      "1. Click the authUrl below\n" +
-      "2. Login with your YouTube channel account\n" +
-      "3. Authorize the application\n" +
-      "4. You will be redirected back with a code\n" +
-      "5. The refresh token will appear automatically",
+      "📋 Steps to get your YouTube Refresh Token:\n\n" +
+      "1. Click the 'authUrl' link below\n" +
+      "2. Login with your YouTube channel Google account\n" +
+      "3. Click 'Allow' to authorize the app\n" +
+      "4. You will be redirected back here automatically\n" +
+      "5. Copy the 'refreshToken' from the response\n" +
+      "6. Add it to Vercel Environment Variables as YOUTUBE_REFRESH_TOKEN\n\n" +
+      "⚠️ IMPORTANT: The authorization code expires in 10 minutes, so complete the process quickly!",
   });
 }
