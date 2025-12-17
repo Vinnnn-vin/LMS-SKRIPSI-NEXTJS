@@ -150,8 +150,8 @@ export function MaterialDetailManager({
     setSelectedDetail(null);
     setOriginalContentUrl(null);
     setOriginalTemplateUrl(null);
-    setUploadedVideoUrl(null); 
-    setUploadProgress(0);     
+    setUploadedVideoUrl(null);
+    setUploadProgress(0);
     setIsUploading(false);
     form.reset();
     openFormModal();
@@ -164,7 +164,7 @@ export function MaterialDetailManager({
     setOriginalContentUrl(detail.materi_detail_url || null);
     setOriginalTemplateUrl(detail.assignment_template_url || null);
 
-    setUploadedVideoUrl(null); 
+    setUploadedVideoUrl(null);
     setIsUploading(false);
 
     form.setValues({
@@ -199,60 +199,128 @@ export function MaterialDetailManager({
     description: string,
     isFree: boolean
   ): Promise<string | null> => {
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("title", title);
-    formData.append("description", description);
-    formData.append("isFree", String(isFree));
-
     try {
       setIsUploading(true);
-      setUploadProgress(0);
+      setUploadProgress(0); // Reset progress
 
-      const progressInterval = setInterval(() => {
-        setUploadProgress((prev) => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 1000);
-
-      const response = await fetch("/api/upload/youtube", {
+      // ============================================================
+      // LANGKAH 1: Minta Access Token dari Backend Vercel sendiri
+      // ============================================================
+      // Kita tidak mengirim file di sini, hanya minta izin.
+      const tokenResponse = await fetch("/api/upload/youtube", {
         method: "POST",
-        body: formData,
       });
 
-      clearInterval(progressInterval);
-      setUploadProgress(100);
+      const tokenResult = await tokenResponse.json();
 
-      const result = await response.json();
-
-      if (!response.ok || !result.success) {
-        throw new Error(result.error);
+      if (!tokenResult.success || !tokenResult.accessToken) {
+        throw new Error(
+          tokenResult.error || "Gagal mendapatkan izin akses YouTube."
+        );
       }
 
-      notifications.show({
-        title: "Upload Berhasil",
-        message: "Video berhasil diupload ke YouTube",
-        color: "green",
-      });
+      const accessToken = tokenResult.accessToken;
 
-      return result.url;
+      // ============================================================
+      // LANGKAH 2: Mulai Sesi Upload ke YouTube (Resumable Upload)
+      // ============================================================
+      // Kirim Metadata dulu (Judul, Deskripsi) langsung ke Google
+      const metadata = {
+        snippet: {
+          title: title,
+          description: description,
+          categoryId: "27", // Education
+        },
+        status: {
+          privacyStatus: isFree ? "public" : "unlisted",
+          selfDeclaredMadeForKids: false,
+        },
+      };
+
+      const initResponse = await fetch(
+        "https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=snippet,status",
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+            "X-Upload-Content-Length": file.size.toString(),
+            "X-Upload-Content-Type": file.type,
+          },
+          body: JSON.stringify(metadata),
+        }
+      );
+
+      if (!initResponse.ok) {
+        throw new Error("Gagal menginisialisasi upload ke YouTube.");
+      }
+
+      // Google memberikan URL khusus untuk upload di header "Location"
+      const uploadUrl = initResponse.headers.get("Location");
+
+      if (!uploadUrl) {
+        throw new Error("Gagal mendapatkan URL upload dari YouTube.");
+      }
+
+      // ============================================================
+      // LANGKAH 3: Upload Fisik File ke URL Khusus tadi
+      // ============================================================
+      // Kita pakai XMLHttpRequest agar Progress Barnya ASLI (bukan fake interval)
+
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open("PUT", uploadUrl);
+        xhr.setRequestHeader("Content-Type", file.type);
+
+        // Tracking Progress Real-time
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = Math.round((e.loaded / e.total) * 100);
+            setUploadProgress(percentComplete);
+          }
+        };
+
+        xhr.onload = () => {
+          if (xhr.status === 200 || xhr.status === 201) {
+            const result = JSON.parse(xhr.responseText);
+            const youtubeUrl = `https://www.youtube.com/watch?v=${result.id}`;
+
+            notifications.show({
+              title: "Upload Berhasil",
+              message: "Video berhasil diupload ke YouTube",
+              color: "green",
+            });
+
+            resolve(youtubeUrl);
+          } else {
+            // Error dari YouTube saat upload file
+            reject(new Error(`YouTube Upload Error: ${xhr.statusText}`));
+          }
+        };
+
+        xhr.onerror = () => {
+          reject(
+            new Error("Terjadi kesalahan jaringan saat upload ke YouTube.")
+          );
+        };
+
+        // Kirim file binary
+        xhr.send(file);
+      });
     } catch (error: any) {
+      console.error("Upload Error:", error);
       notifications.show({
         title: "Upload YouTube Gagal",
-        message: error.message || "Terjadi kesalahan saat upload ke YouTube",
+        message: error.message || "Terjadi kesalahan sistem",
         color: "red",
       });
       return null;
     } finally {
       setIsUploading(false);
-      setUploadProgress(0);
+      // Jangan set progress ke 0 di sini agar user bisa melihat 100% sebentar
     }
   };
-
+  
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -285,16 +353,20 @@ export function MaterialDetailManager({
       }, 500);
 
       const url = await uploadVideoToYoutube(file, title, desc, isFree);
-      
+
       clearInterval(progressInterval);
       setUploadProgress(100);
 
       if (url) {
         setUploadedVideoUrl(url); // Simpan URL
-        notifications.show({ title: "Upload Selesai", message: "Video siap disimpan", color: "green" });
+        notifications.show({
+          title: "Upload Selesai",
+          message: "Video siap disimpan",
+          color: "green",
+        });
       }
     } catch (e) {
-       // Error handled in uploadVideoToYoutube
+      // Error handled in uploadVideoToYoutube
     } finally {
       setIsUploading(false);
     }
@@ -347,8 +419,12 @@ export function MaterialDetailManager({
             // Jika user lupa klik upload manual, tapi ada file
             // Kita bisa paksa upload di sini, atau return error.
             // Demi UX, lebih baik return error minta user klik upload dulu
-            notifications.show({ title: "Video Belum Diupload", message: "Silakan klik tombol Upload Video terlebih dahulu.", color: "orange" });
-            return; 
+            notifications.show({
+              title: "Video Belum Diupload",
+              message: "Silakan klik tombol Upload Video terlebih dahulu.",
+              color: "orange",
+            });
+            return;
           }
         }
 
@@ -535,62 +611,77 @@ export function MaterialDetailManager({
             />
 
             {showVideoUpload && (
-               <Paper withBorder p="sm" bg="gray.0">
-                 <Stack gap="xs">
-                   <Text size="sm" fw={500}>Video Materi</Text>
-                   
-                   <FileInput
-                      label="Pilih File Video"
-                      accept="video/mp4,video/webm"
-                      leftSection={<IconVideo size={16} />}
-                      // Reset uploaded URL jika user ganti file
-                      onChange={(payload) => {
-                        form.setFieldValue("content_file", payload);
-                        setUploadedVideoUrl(null); 
-                        setUploadProgress(0);
-                      }}
-                      // Value file input dikelola form mantine
-                      error={form.errors.content_file}
-                   />
+              <Paper withBorder p="sm" bg="gray.0">
+                <Stack gap="xs">
+                  <Text size="sm" fw={500}>
+                    Video Materi
+                  </Text>
 
-                   {/* TAMPILKAN PROGRESS BAR JIKA SEDANG UPLOAD */}
-                   {isUploading && (
-                     <Box>
-                       <Group justify="space-between" mb={4}>
-                         <Text size="xs">Mengupload ke YouTube...</Text>
-                         <Text size="xs">{uploadProgress}%</Text>
-                       </Group>
-                       <Progress value={uploadProgress} animated />
-                       <Text size="xs" c="dimmed" mt={4}>Anda dapat mengisi kolom lain sambil menunggu.</Text>
-                     </Box>
-                   )}
+                  <FileInput
+                    label="Pilih File Video"
+                    accept="video/mp4,video/webm"
+                    leftSection={<IconVideo size={16} />}
+                    // Reset uploaded URL jika user ganti file
+                    onChange={(payload) => {
+                      form.setFieldValue("content_file", payload);
+                      setUploadedVideoUrl(null);
+                      setUploadProgress(0);
+                    }}
+                    // Value file input dikelola form mantine
+                    error={form.errors.content_file}
+                  />
 
-                   {/* TOMBOL UPLOAD MANUAL */}
-                   {!isUploading && !uploadedVideoUrl && form.values.content_file && (
-                     <Button 
-                       size="xs" 
-                       variant="light" 
-                       onClick={handleUploadVideo}
-                       leftSection={<IconUpload size={14} />}
-                     >
-                       Upload Video Sekarang
-                     </Button>
-                   )}
+                  {/* TAMPILKAN PROGRESS BAR JIKA SEDANG UPLOAD */}
+                  {isUploading && (
+                    <Box>
+                      <Group justify="space-between" mb={4}>
+                        <Text size="xs">Mengupload ke YouTube...</Text>
+                        <Text size="xs">{uploadProgress}%</Text>
+                      </Group>
+                      <Progress value={uploadProgress} animated />
+                      <Text size="xs" c="dimmed" mt={4}>
+                        Anda dapat mengisi kolom lain sambil menunggu.
+                      </Text>
+                    </Box>
+                  )}
 
-                   {/* INDIKATOR SUKSES UPLOAD */}
-                   {uploadedVideoUrl && (
-                      <Alert color="green" title="Video Terupload" icon={<IconVideo />}>
-                        Video siap disimpan.
-                      </Alert>
-                   )}
-                   
-                   {/* Tampilkan video lama jika edit */}
-                   {isEditing && originalContentUrl && !uploadedVideoUrl && !form.values.content_file && (
-                      <Text size="xs" c="dimmed">Video saat ini: {originalContentUrl}</Text>
-                   )}
-                 </Stack>
-               </Paper>
-             )}
+                  {/* TOMBOL UPLOAD MANUAL */}
+                  {!isUploading &&
+                    !uploadedVideoUrl &&
+                    form.values.content_file && (
+                      <Button
+                        size="xs"
+                        variant="light"
+                        onClick={handleUploadVideo}
+                        leftSection={<IconUpload size={14} />}
+                      >
+                        Upload Video Sekarang
+                      </Button>
+                    )}
+
+                  {/* INDIKATOR SUKSES UPLOAD */}
+                  {uploadedVideoUrl && (
+                    <Alert
+                      color="green"
+                      title="Video Terupload"
+                      icon={<IconVideo />}
+                    >
+                      Video siap disimpan.
+                    </Alert>
+                  )}
+
+                  {/* Tampilkan video lama jika edit */}
+                  {isEditing &&
+                    originalContentUrl &&
+                    !uploadedVideoUrl &&
+                    !form.values.content_file && (
+                      <Text size="xs" c="dimmed">
+                        Video saat ini: {originalContentUrl}
+                      </Text>
+                    )}
+                </Stack>
+              </Paper>
+            )}
 
             {showPDFUpload && (
               <>

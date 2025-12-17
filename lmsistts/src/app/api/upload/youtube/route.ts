@@ -4,6 +4,7 @@ import { google } from "googleapis";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Readable } from "stream";
+import { access } from "fs";
 
 // ✅ CRITICAL: Configure route for large file uploads
 export const runtime = 'nodejs';
@@ -24,36 +25,15 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_REDIRECT_URI
 );
 
-// DEBUG: Log environment variables (REMOVE AFTER DEBUGGING)
-console.log("🔍 Environment Check:", {
-  hasClientId: !!process.env.YOUTUBE_CLIENT_ID,
-  hasClientSecret: !!process.env.YOUTUBE_CLIENT_SECRET,
-  hasRefreshToken: !!process.env.YOUTUBE_REFRESH_TOKEN,
-  redirectUri: process.env.YOUTUBE_REDIRECT_URI,
-  refreshTokenPreview: process.env.YOUTUBE_REFRESH_TOKEN?.substring(0, 10) + "...",
-  refreshTokenLength: process.env.YOUTUBE_REFRESH_TOKEN?.length,
-  // FULL TOKEN (TEMPORARY DEBUG ONLY - DELETE AFTER)
-  fullRefreshToken: process.env.YOUTUBE_REFRESH_TOKEN,
-});
-
 // Set refresh token
 oauth2Client.setCredentials({
   refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
 });
 
 export async function POST(request: NextRequest) {
-  console.log("=" .repeat(80));
-  console.log("🎯 POST /api/upload/youtube CALLED");
-  console.log("=" .repeat(80));
-  
   try {
-    console.log("🔐 Checking session...");
     const session = await getServerSession(authOptions);
-    console.log("👤 Session:", {
-      exists: !!session,
-      user: session?.user?.email,
-      role: session?.user?.role,
-    });
+
     if (!session?.user || session.user.role !== "lecturer") {
       console.log("❌ Unauthorized access attempt");
       return NextResponse.json(
@@ -61,22 +41,13 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       );
     }
-
-    console.log("📦 Parsing FormData...");
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const title = formData.get("title") as string;
     const description = formData.get("description") as string;
     const isFree = formData.get("isFree") === "true";
 
-    console.log("📋 Request data:", {
-      hasFile: !!file,
-      fileName: file?.name,
-      fileSize: file?.size,
-      fileType: file?.type,
-      title,
-      isFree,
-    });
+    const { token } = await oauth2Client.getAccessToken();
 
     if (!file) {
       return NextResponse.json(
@@ -95,14 +66,6 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const stream = Readable.from(buffer);
-
-    console.log("📤 Uploading video to YouTube:", {
-      filename: file.name,
-      size: file.size,
-      type: file.type,
-      title,
-      isFree,
-    });
 
     const youtube = google.youtube({
       version: "v3",
@@ -132,13 +95,12 @@ export async function POST(request: NextRequest) {
     const videoId = response.data.id;
     const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
 
-    console.log("✅ Video uploaded successfully:", videoUrl);
-
     return NextResponse.json({
       success: true,
       url: videoUrl,
       videoId: videoId,
       embedUrl: `https://www.youtube.com/embed/${videoId}`,
+      accessToken: token,
     });
   } catch (error: any) {
     console.error("❌ YouTube upload error:", error);
