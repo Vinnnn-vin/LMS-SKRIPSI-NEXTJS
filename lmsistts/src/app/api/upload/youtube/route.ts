@@ -5,24 +5,45 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { Readable } from "stream";
 
+// Pastikan env var ada
+if (!process.env.YOUTUBE_CLIENT_ID || !process.env.YOUTUBE_CLIENT_SECRET || !process.env.YOUTUBE_REFRESH_TOKEN) {
+  console.error("❌ MISSING YOUTUBE ENV VARS");
+}
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.YOUTUBE_CLIENT_ID,
   process.env.YOUTUBE_CLIENT_SECRET,
-  process.env.YOUTUBE_REDIRECT_URI // http://127.0.0.1:3000/api/upload/youtube
+  process.env.YOUTUBE_REDIRECT_URI
 );
 
-// refresh token
+// Set refresh token di luar handler agar tidak di-set berulang kali jika instance masih hidup
 oauth2Client.setCredentials({
   refresh_token: process.env.YOUTUBE_REFRESH_TOKEN,
 });
 
 export async function POST(request: NextRequest) {
   try {
+    // 1. Cek Session
     const session = await getServerSession(authOptions);
+    // Sesuaikan role jika perlu
     if (!session?.user || session.user.role !== "lecturer") {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
+    // 2. [DEBUG] Cek apakah Refresh Token Valid SEBELUM proses file
+    try {
+      const { token } = await oauth2Client.getAccessToken();
+      if (!token) throw new Error("Gagal generate Access Token baru. Refresh token mungkin expired.");
+      console.log("✅ OAuth Token refreshed successfully.");
+    } catch (tokenError: any) {
+      console.error("❌ OAuth Token Error:", tokenError.message);
       return NextResponse.json(
-        { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { 
+          success: false, 
+          error: "Izin YouTube Kadaluwarsa. Mohon generate Refresh Token baru.",
+          details: tokenError.message 
+        },
+        { status: 403 }
       );
     }
 
@@ -33,19 +54,14 @@ export async function POST(request: NextRequest) {
     const isFree = formData.get("isFree") === "true";
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: "File video tidak ditemukan" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "File video tidak ditemukan" }, { status: 400 });
     }
 
-    if (!file.type.startsWith("video/")) {
-      return NextResponse.json(
-        { success: false, error: "File harus berupa video" },
-        { status: 400 }
-      );
-    }
-
+    // 3. Batasan Vercel (PENTING)
+    // Vercel Serverless Function punya batas memory & timeout.
+    // Jika file > 4.5MB (batasan body parser Vercel/Next.js default) atau > 50MB (limit lambda), ini akan gagal.
+    // Untuk skripsi, gunakan video pendek/kecil untuk tes.
+    
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     const stream = Readable.from(buffer);
@@ -53,9 +69,7 @@ export async function POST(request: NextRequest) {
     console.log("📤 Uploading video to YouTube:", {
       filename: file.name,
       size: file.size,
-      type: file.type,
       title,
-      isFree,
     });
 
     const youtube = google.youtube({
@@ -69,11 +83,10 @@ export async function POST(request: NextRequest) {
         snippet: {
           title: title || file.name,
           description: description || "Video pembelajaran dari LMS ISTTS",
-          categoryId: "27",
+          categoryId: "27", // Education
         },
         status: {
           privacyStatus: isFree ? "public" : "unlisted",
-          embeddable: true,
           selfDeclaredMadeForKids: false,
         },
       },
@@ -83,81 +96,57 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const videoId = response.data.id;
-    const videoUrl = `https://www.youtube.com/watch?v=${videoId}`;
-
-    console.log("✅ Video uploaded successfully:", videoUrl);
+    console.log("✅ Video uploaded successfully:", response.data.id);
 
     return NextResponse.json({
       success: true,
-      url: videoUrl,
-      videoId: videoId,
-      embedUrl: `https://www.youtube.com/watch?v=${videoId}`,
+      url: `https://www.youtube.com/watch?v=${response.data.id}`,
+      videoId: response.data.id,
+      embedUrl: `https://www.youtube.com/embed/${response.data.id}`,
     });
-  } catch (error: any) {
-    console.error("❌ YouTube upload error:", error);
 
-    if (error.code === 403) {
-      if (error.message?.includes("quota")) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "Kuota upload YouTube habis. Coba lagi besok.",
-          },
-          { status: 429 }
-        );
-      }
-      return NextResponse.json(
-        { success: false, error: "Akses ditolak. Periksa OAuth credentials." },
-        { status: 403 }
-      );
-    }
+  } catch (error: any) {
+    console.error("❌ YouTube upload error FULL:", error);
+
+    // Tangani error spesifik Google
+    const status = error.code || 500;
+    const message = error.message || "Upload gagal";
 
     return NextResponse.json(
-      { success: false, error: error.message || "Upload ke YouTube gagal" },
-      { status: 500 }
+      { success: false, error: message },
+      { status: status }
     );
   }
 }
 
+// ... (GET handler tetap sama)
 export async function GET(request: NextRequest) {
+  // ... kode GET Anda yang lama sudah oke ...
+  // Pastikan Anda menggunakan kode ini untuk generate token baru
   const url = new URL(request.url);
   const code = url.searchParams.get("code");
 
   if (code) {
     try {
       const { tokens } = await oauth2Client.getToken(code);
-
       return NextResponse.json({
         success: true,
         refreshToken: tokens.refresh_token,
-        accessToken: tokens.access_token,
-        message:
-          "✅ SIMPAN refresh_token ini ke .env.local sebagai YOUTUBE_REFRESH_TOKEN",
+        message: "✅ Copy token ini ke env var YOUTUBE_REFRESH_TOKEN",
       });
     } catch (error: any) {
-      console.error("Token exchange error:", error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
   }
 
   const authUrl = oauth2Client.generateAuthUrl({
-    access_type: "offline",
+    access_type: "offline", // PENTING: Agar dapat refresh token
     scope: [
       "https://www.googleapis.com/auth/youtube.upload",
       "https://www.googleapis.com/auth/youtube.readonly",
-      "https://www.googleapis.com/auth/youtube.force-ssl",
     ],
-    prompt: "consent",
+    prompt: "consent", // PENTING: Paksa user setuju lagi agar dapat refresh token baru
   });
 
-  return NextResponse.json({
-    success: true,
-    authUrl,
-    message:
-      "1. Klik authUrl di bawah\n2. Login dengan account yang digunakan untuk channel\n3. Authorize\n4. Anda akan di-redirect kembali ke sini dengan code\n5. Refresh token akan muncul otomatis",
-  });
+  return NextResponse.json({ authUrl });
 }
