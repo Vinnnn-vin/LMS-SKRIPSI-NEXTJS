@@ -39,6 +39,7 @@
     "pg-hstore": "^2.3.4",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-pdf": "^10.2.0",
     "recharts": "^3.3.0",
     "sequelize": "^6.37.7",
     "xendit-node": "^7.0.0",

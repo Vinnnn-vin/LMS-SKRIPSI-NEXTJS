@@ -52,6 +52,7 @@ import classes from "./CourseDetail.module.css";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 import { getServerSession } from "next-auth";
 import { YouTubeEmbed } from "@/components/student/YouTubeEmbed";
+import { SecurePdfViewer } from "@/components/student/SecurePdfViewer";
 
 const formatPrice = (price: number | null | undefined) => {
   if (price === null || price === undefined || price === 0) return "Gratis";
@@ -536,18 +537,20 @@ export default async function CourseDetailPage({
                                   {/* Tipe 2 (PDF) */}
                                   {detail.material_detail_type === 2 &&
                                     detail.materi_detail_url && (
-                                      <iframe
-                                        src={detail.materi_detail_url}
-                                        style={{
-                                          width: "100%",
-                                          height: "400px",
-                                          border:
-                                            "1px solid var(--mantine-color-gray-3)",
-                                          borderRadius:
-                                            "var(--mantine-radius-md)",
-                                        }}
-                                        title={detail.material_detail_name}
-                                      />
+                                      <div style={{
+                                        maxHeight: "600px",
+                                        overflowY: "auto",
+                                        border: "1px solid var(--mantine-color-gray-3)",
+                                        borderRadius: "var(--mantine-radius-md)",
+                                        padding: "20px",
+                                        background: "#f8f9fa"
+                                      }}>
+                                        {/* Karena ini halaman publik, watermark pakai nama umum atau kosong */}
+                                        <SecurePdfViewer
+                                          fileUrl={detail.materi_detail_url}
+                                          userName="PREVIEW MODE"
+                                        />
+                                      </div>
                                     )}
 
                                   {/* Tipe 4 (Tugas) - Hanya tampilkan deskripsi */}
@@ -610,7 +613,7 @@ export default async function CourseDetailPage({
                 <List spacing="sm" size="sm">
                   {/* UBAH MENJADI DINAMIS */}
                   {course.requirementsList &&
-                  course.requirementsList.length > 0 ? (
+                    course.requirementsList.length > 0 ? (
                     course.requirementsList.map(
                       (item: string, index: number) => (
                         <ListItem key={index}>{item}</ListItem>

@@ -8,6 +8,9 @@ import { CountdownTimer } from "@/components/student/CountdownTimer";
 import { CompleteButton } from "./CompleteButton";
 import { YouTubeEmbed } from "./YouTubeEmbed";
 
+import { SecurePdfViewer } from "./SecurePdfViewer";
+import { useSession } from "next-auth/react";
+
 interface MaterialContentProps {
   detail: any;
   course: any;
@@ -33,23 +36,9 @@ export function MaterialContent({
   enrolledAt,
   onComplete,
 }: MaterialContentProps) {
-  console.log("📄 [MaterialContent] ============ RENDER ============");
-  console.log("📄 [MaterialContent] Detail object:", detail);
-  console.log(
-    "📄 [MaterialContent] material_detail_type:",
-    detail?.material_detail_type
-  );
-  console.log(
-    "📄 [MaterialContent] materi_detail_url:",
-    detail?.materi_detail_url
-  );
 
+  const { data: session } = useSession();
   const isYouTube = isYouTubeUrl(detail?.materi_detail_url);
-  console.log("📄 [MaterialContent] Is YouTube URL?", isYouTube);
-  console.log(
-    "📄 [MaterialContent] Original type:",
-    detail?.material_detail_type
-  );
 
   return (
     <Stack gap="lg">
@@ -67,10 +56,6 @@ export function MaterialContent({
       <Box>
         {isYouTube && detail.materi_detail_url && (
           <>
-            {console.log(
-              "🎬 [MaterialContent] Rendering YouTube embed for:",
-              detail.materi_detail_url
-            )}
             <YouTubeEmbed
               url={detail.materi_detail_url}
               title={detail.material_detail_name}
@@ -82,10 +67,6 @@ export function MaterialContent({
           detail.material_detail_type === 1 &&
           detail.materi_detail_url && (
             <>
-              {console.log(
-                "🎥 [MaterialContent] Rendering MP4 video for:",
-                detail.materi_detail_url
-              )}
               <video
                 controls
                 width="100%"

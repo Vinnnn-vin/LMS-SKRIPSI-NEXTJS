@@ -8,6 +8,8 @@ export const createQuizSchema = z.object({
   passing_score: z.coerce.number().int().min(0).max(100).default(70),
   time_limit: z.coerce.number().int().min(1, "Minimal 1 menit").default(10),
   max_attempts: z.coerce.number().int().min(1).max(10).default(3),
+  media_type: z.enum(["none", "image", "video", "pdf"]).default("none"),
+  media_url: z.string().optional().nullable(),
 });
 
 export const updateQuizSchema = createQuizSchema.partial();
@@ -35,6 +37,8 @@ export const quizQuestionWithOptionsSchema = z.object({
   quiz_id: z.number().nullable(),
   question_text: z.string().nullable(),
   question_type: z.enum(["multiple_choice", "checkbox", "essay"]).nullable(),
+  media_type: z.enum(["none", "image", "video", "pdf"]).nullable().optional(),
+  media_url: z.string().nullable().optional(),
   created_at: z.date().nullable(),
   options: z.array(quizAnswerOptionSchema).optional(),
 });
@@ -43,6 +47,8 @@ export const normalizedQuestionSchema = z.object({
   question_id: z.number(),
   question_text: z.string(),
   question_type: z.enum(["multiple_choice", "checkbox", "essay"]),
+  media_type: z.enum(["none", "image", "video", "pdf"]).nullable().optional(),
+  media_url: z.string().nullable().optional(),
   options: z.array(questionOptionSchema),
 });
 

@@ -1,7 +1,12 @@
-// lmsistts\src\components\student\ActiveQuizPlayer.tsx
 "use client";
 
-import React, { useState, useEffect, useTransition, useCallback } from "react";
+import React, {
+  useState,
+  useEffect,
+  useTransition,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   Box,
   Stack,
@@ -35,6 +40,9 @@ import {
   type QuizAnswerOption,
 } from "@/lib/schemas/quiz.schema";
 
+import { QuizMediaRenderer } from "./QuizMediaRenderer";
+import { useSession } from "next-auth/react";
+
 dayjs.extend(duration);
 
 interface ActiveQuizPlayerProps {
@@ -45,6 +53,24 @@ interface ActiveQuizPlayerProps {
   onFinish: (result: { score: number; status: "passed" | "failed" }) => void;
 }
 
+function shuffleArray<T>(array: T[]): T[] {
+  const newArr = [...array];
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+}
+
+// 🔥 GENERATE UNIQUE SESSION ID untuk quiz attempt ini
+function generateQuizSessionId(
+  enrollmentId: number,
+  quizId: number,
+  attemptNumber: number
+): string {
+  return `quiz_${enrollmentId}_${quizId}_attempt_${attemptNumber}`;
+}
+
 export function ActiveQuizPlayer({
   quizData,
   courseId,
@@ -52,33 +78,218 @@ export function ActiveQuizPlayer({
   attemptNumber,
   onFinish,
 }: ActiveQuizPlayerProps) {
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const { data: session } = useSession();
+
+  // 🔥 SESSION ID - untuk identifikasi quiz attempt ini
+  const quizSessionId = useMemo(
+    () => generateQuizSessionId(enrollmentId, quizData.quiz_id, attemptNumber),
+    [enrollmentId, quizData.quiz_id, attemptNumber]
+  );
+
+  // 🔥 CALCULATE TIME LEFT berdasarkan waktu mulai
+  const calculateTimeLeft = useCallback(() => {
+    if (typeof window === "undefined") return (quizData.time_limit || 1) * 60;
+
+    const savedStartTime = localStorage.getItem(`${quizSessionId}_startTime`);
+
+    if (!savedStartTime) {
+      // Belum pernah mulai, set start time sekarang
+      const now = Date.now();
+      localStorage.setItem(`${quizSessionId}_startTime`, String(now));
+      return (quizData.time_limit || 1) * 60;
+    }
+
+    // Hitung waktu yang sudah berlalu
+    const startTime = parseInt(savedStartTime);
+    const now = Date.now();
+    const elapsedSeconds = Math.floor((now - startTime) / 1000);
+    const totalSeconds = (quizData.time_limit || 1) * 60;
+    const remaining = Math.max(0, totalSeconds - elapsedSeconds);
+
+    console.log("⏰ Time calculation:", {
+      startTime: new Date(startTime).toLocaleString(),
+      now: new Date(now).toLocaleString(),
+      elapsedSeconds,
+      totalSeconds,
+      remaining,
+    });
+
+    return remaining;
+  }, [quizData.time_limit, quizSessionId]);
+
+  // 🔥 LOAD dari localStorage atau buat baru
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`${quizSessionId}_currentIndex`);
+      return saved ? parseInt(saved) : 0;
+    }
+    return 0;
+  });
+
   const [studentAnswers, setStudentAnswers] = useState<
     Record<number, number | number[]>
-  >({});
-  const [timeLeft, setTimeLeft] = useState((quizData.time_limit || 1) * 60);
+  >(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`${quizSessionId}_answers`);
+      return saved ? JSON.parse(saved) : {};
+    }
+    return {};
+  });
+
+  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft());
+
   const [isSubmitting, startSubmitting] = useTransition();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [showTimeoutModal, setShowTimeoutModal] = useState(false);
-  const [isSubmitted, setIsSubmitted] = useState(false);
-  const [hasTriggeredAutoSubmit, setHasTriggeredAutoSubmit] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(`${quizSessionId}_submitted`) === "true";
+    }
+    return false;
+  });
 
-  const questions = quizData.questions || [];
-  const currentQuestion = questions[currentQuestionIndex];
+  // 🔥 ACAK SOAL DAN OPSI - hanya sekali saat pertama load
+  const processedQuestions = useMemo(() => {
+    // Cek apakah sudah ada urutan tersimpan
+    if (typeof window !== "undefined") {
+      const savedOrder = localStorage.getItem(`${quizSessionId}_questionOrder`);
+      if (savedOrder) {
+        const orderIds = JSON.parse(savedOrder);
+        const rawQuestions = quizData.questions || [];
+
+        // Reconstruct questions berdasarkan urutan tersimpan
+        return orderIds
+          .map((id: number) => {
+            const question = rawQuestions.find((q) => q.question_id === id);
+            if (!question) return null;
+
+            // Load saved option order
+            const savedOptions = localStorage.getItem(
+              `${quizSessionId}_options_${id}`
+            );
+            if (savedOptions) {
+              const optionIds = JSON.parse(savedOptions);
+              const reconstructedOptions = optionIds
+                .map((optId: number) =>
+                  question.options?.find((o) => o.option_id === optId)
+                )
+                .filter(Boolean);
+              return { ...question, options: reconstructedOptions };
+            }
+
+            return question;
+          })
+          .filter(Boolean);
+      }
+    }
+
+    // Jika belum ada, acak baru
+    const rawQuestions = quizData.questions || [];
+    const shuffledQuestions = shuffleArray(rawQuestions);
+
+    const processed = shuffledQuestions.map((q) => {
+      const shuffledOptions = q.options ? shuffleArray(q.options) : [];
+
+      // Simpan urutan ke localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem(
+          `${quizSessionId}_options_${q.question_id}`,
+          JSON.stringify(shuffledOptions.map((o) => o.option_id))
+        );
+      }
+
+      return {
+        ...q,
+        options: shuffledOptions,
+      };
+    });
+
+    // Simpan urutan soal
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `${quizSessionId}_questionOrder`,
+        JSON.stringify(processed.map((q) => q.question_id))
+      );
+    }
+
+    return processed;
+  }, [quizData, quizSessionId]);
+
+  const currentQuestion = processedQuestions[currentQuestionIndex];
+
+  // 🔥 RE-CALCULATE time left saat component mount (untuk handle refresh)
+  useEffect(() => {
+    const recalculatedTime = calculateTimeLeft();
+    setTimeLeft(recalculatedTime);
+
+    if (recalculatedTime <= 0 && !isSubmitted) {
+      console.log("⏰ Time already expired on mount!");
+      setShowTimeoutModal(true);
+      handleSubmit(true);
+    }
+  }, [calculateTimeLeft, isSubmitted]);
+
+  // 🔥 SIMPAN STATE ke localStorage setiap kali berubah
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `${quizSessionId}_currentIndex`,
+        String(currentQuestionIndex)
+      );
+    }
+  }, [currentQuestionIndex, quizSessionId]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `${quizSessionId}_answers`,
+        JSON.stringify(studentAnswers)
+      );
+    }
+  }, [studentAnswers, quizSessionId]);
+
+  // 🔥 PREVENT REFRESH / BACK BUTTON
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isSubmitted) {
+        e.preventDefault();
+        e.returnValue =
+          "Quiz sedang berlangsung. Yakin ingin keluar? Waktu akan tetap berjalan.";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isSubmitted]);
+
+  // 🔥 CLEANUP localStorage saat submit berhasil
+  const cleanupSession = useCallback(() => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`${quizSessionId}_startTime`);
+      localStorage.removeItem(`${quizSessionId}_currentIndex`);
+      localStorage.removeItem(`${quizSessionId}_answers`);
+      localStorage.removeItem(`${quizSessionId}_questionOrder`);
+      localStorage.removeItem(`${quizSessionId}_submitted`);
+
+      // Remove all option orders
+      processedQuestions.forEach((q) => {
+        localStorage.removeItem(`${quizSessionId}_options_${q.question_id}`);
+      });
+    }
+  }, [quizSessionId, processedQuestions]);
 
   const handleSubmit = useCallback(
     (isTimeout = false) => {
-      console.log("🔵 handleSubmit called, isTimeout:", isTimeout);
-      console.log("🔵 Current state - isSubmitted:", isSubmitted);
-      console.log("🔵 Student answers:", studentAnswers);
-      console.log("🔵 Questions length:", questions.length);
-
       if (isSubmitted) {
         console.log("⚠️ Already submitted, returning");
         return;
       }
 
-      if (!isTimeout && Object.keys(studentAnswers).length < questions.length) {
+      if (
+        !isTimeout &&
+        Object.keys(studentAnswers).length < processedQuestions.length
+      ) {
         console.log("⚠️ Not all questions answered");
         const userConfirmed = window.confirm(
           "Anda belum menjawab semua pertanyaan. Yakin ingin mengumpulkan?"
@@ -91,30 +302,35 @@ export function ActiveQuizPlayer({
 
       console.log("✅ Proceeding with submission...");
       setIsSubmitted(true);
+
+      // Mark as submitted di localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem(`${quizSessionId}_submitted`, "true");
+      }
+
       setSubmitError(null);
       setTimeLeft(0);
 
       startSubmitting(async () => {
         try {
-          console.log("📤 Submitting answers:", studentAnswers);
-          console.log("📤 Quiz ID:", quizData.quiz_id);
-          console.log("📤 Course ID:", courseId);
-          console.log("📤 Enrollment ID:", enrollmentId);
-          console.log("📤 Attempt Number:", attemptNumber);
+          // Calculate actual time taken
+          const startTime = localStorage.getItem(`${quizSessionId}_startTime`);
+          const actualTimeTaken = startTime
+            ? Math.floor((Date.now() - parseInt(startTime)) / 1000)
+            : quizData.time_limit * 60;
 
           const result = await submitQuizAttempt({
             quizId: quizData.quiz_id,
             courseId,
             enrollmentId,
             answers: studentAnswers,
-            timeTaken: quizData.time_limit * 60 - timeLeft,
+            timeTaken: Math.min(actualTimeTaken, quizData.time_limit * 60),
             attemptSession: attemptNumber,
           });
 
-          console.log("📥 Submit result:", result);
-
           if (result.success) {
-            console.log("✅ Quiz submitted successfully!");
+            // 🔥 CLEANUP session setelah submit berhasil
+            cleanupSession();
 
             if (isTimeout) {
               notifications.show({
@@ -161,6 +377,12 @@ export function ActiveQuizPlayer({
           console.error("❌ Submit Quiz Error:", error);
           setSubmitError(error.message || "Terjadi kesalahan saat submit.");
           setIsSubmitted(false);
+
+          // Remove submitted flag jika error
+          if (typeof window !== "undefined") {
+            localStorage.removeItem(`${quizSessionId}_submitted`);
+          }
+
           notifications.show({
             title: "❌ Gagal Submit Quiz",
             message:
@@ -176,15 +398,17 @@ export function ActiveQuizPlayer({
       quizData,
       courseId,
       enrollmentId,
-      timeLeft,
       attemptNumber,
       onFinish,
       startSubmitting,
       isSubmitted,
-      questions.length,
+      processedQuestions.length,
+      cleanupSession,
+      quizSessionId,
     ]
   );
 
+  // Timer - REAL TIME berdasarkan clock
   useEffect(() => {
     if (isSubmitted) {
       console.log("⏸️ Timer stopped - already submitted");
@@ -199,20 +423,23 @@ export function ActiveQuizPlayer({
     }
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        const newTime = Math.max(0, prev - 1);
-        if (newTime % 10 === 0) {
-          console.log("⏱️ Time left:", newTime);
-        }
-        return newTime;
-      });
+      const recalculatedTime = calculateTimeLeft();
+      setTimeLeft(recalculatedTime);
+
+      if (recalculatedTime % 10 === 0) {
+        console.log("⏱️ Time left:", recalculatedTime);
+      }
+
+      if (recalculatedTime <= 0) {
+        clearInterval(timer);
+      }
     }, 1000);
 
     return () => {
       console.log("🧹 Cleaning up timer");
       clearInterval(timer);
     };
-  }, [timeLeft, isSubmitted]);
+  }, [timeLeft, isSubmitted, handleSubmit, calculateTimeLeft]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -249,7 +476,7 @@ export function ActiveQuizPlayer({
   };
 
   const goToNext = () => {
-    if (currentQuestionIndex < questions.length - 1) {
+    if (currentQuestionIndex < processedQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
@@ -276,23 +503,6 @@ export function ActiveQuizPlayer({
     <Box pos="relative">
       <LoadingOverlay visible={isSubmitting} overlayProps={{ blur: 1 }} />
 
-      {/* <Alert color="blue" mb="md" title="Debug Info">
-        <Stack gap="xs">
-          <Text size="xs">isSubmitted: {isSubmitted ? "✅ YES" : "❌ NO"}</Text>
-          <Text size="xs">
-            isSubmitting: {isSubmitting ? "✅ YES" : "❌ NO"}
-          </Text>
-          <Text size="xs">
-            Answered: {answeredCount}/{questions.length}
-          </Text>
-          <Text size="xs">Current Q: {currentQuestionIndex + 1}</Text>
-          <Text size="xs">
-            Is Last Q:{" "}
-            {currentQuestionIndex === questions.length - 1 ? "✅ YES" : "❌ NO"}
-          </Text>
-        </Stack>
-      </Alert> */}
-
       {submitError && (
         <Alert
           color="red"
@@ -310,30 +520,24 @@ export function ActiveQuizPlayer({
         <Title order={4}>
           {quizData.quiz_title} (Percobaan {attemptNumber})
         </Title>
-        <Group align="center">
+        <Group>
           <Paper withBorder px="sm" py={4} radius="sm" shadow="xs">
-            <Group gap="xs" align="center">
-              <IconClock
-                size={16}
-                color={
-                  isLowTime
-                    ? "var(--mantine-color-red-7)"
-                    : "var(--mantine-color-dimmed)"
-                }
-              />
-              <Text fw={500} size="sm" c={isLowTime ? "red" : "inherit"}>
+            <Group gap="xs">
+              <IconClock size={16} color={isLowTime ? "red" : "gray"} />
+              <Text fw={500} c={isLowTime ? "red" : "inherit"}>
                 {formatTime(timeLeft)}
               </Text>
             </Group>
           </Paper>
-          <Box w={150}>
+          <Box w={100}>
             <Progress
-              value={((currentQuestionIndex + 1) / questions.length) * 100}
+              value={
+                ((currentQuestionIndex + 1) / processedQuestions.length) * 100
+              }
               size="sm"
-              radius="sm"
             />
-            <Text size="xs" c="dimmed" ta="right">
-              {currentQuestionIndex + 1} / {questions.length}
+            <Text size="xs" ta="right">
+              {currentQuestionIndex + 1} / {processedQuestions.length}
             </Text>
           </Box>
         </Group>
@@ -349,19 +553,41 @@ export function ActiveQuizPlayer({
             ? "blue.0"
             : undefined
         }
+        style={{
+          userSelect: "none",
+          WebkitUserSelect: "none",
+          MozUserSelect: "none",
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          notifications.show({
+            message: "Klik kanan dinonaktifkan untuk ujian ini.",
+            color: "red",
+            autoClose: 2000,
+          });
+        }}
+        onCopy={(e) => {
+          e.preventDefault();
+          return false;
+        }}
       >
+        <QuizMediaRenderer
+          mediaType={currentQuestion.media_type || "none"}
+          mediaUrl={currentQuestion.media_url || null}
+          userName={session?.user?.name || "Mahasiswa"}
+        />
+
         <Text fw={500} mb="md" size="lg">
-          {currentQuestionIndex + 1}.{" "}
-          {currentQuestion.question_text || "Pertanyaan tidak ada teks."}
+          {currentQuestionIndex + 1}. {currentQuestion.question_text}
         </Text>
 
         {currentQuestion.question_type === "multiple_choice" && (
           <Radio.Group
             value={String(studentAnswers[currentQuestion.question_id] || "")}
-            onChange={(value) =>
+            onChange={(val) =>
               handleAnswerChange(
                 currentQuestion.question_id,
-                Number(value),
+                Number(val),
                 "multiple_choice"
               )
             }
@@ -371,8 +597,9 @@ export function ActiveQuizPlayer({
                 <Radio
                   key={opt.option_id}
                   value={String(opt.option_id)}
-                  label={opt.option_text || "Opsi kosong"}
+                  label={opt.option_text}
                   disabled={isSubmitted}
+                  style={{ cursor: "pointer" }}
                 />
               ))}
             </Stack>
@@ -387,14 +614,12 @@ export function ActiveQuizPlayer({
             {currentQuestion.options?.map((opt) => {
               const currentAnswers =
                 (studentAnswers[currentQuestion.question_id] as number[]) || [];
-              const isChecked = currentAnswers.includes(opt.option_id);
-
               return (
                 <Checkbox
                   key={opt.option_id}
-                  label={opt.option_text || "Opsi kosong"}
-                  checked={isChecked}
-                  onChange={(event) =>
+                  label={opt.option_text}
+                  checked={currentAnswers.includes(opt.option_id)}
+                  onChange={() =>
                     handleAnswerChange(
                       currentQuestion.question_id,
                       opt.option_id,
@@ -419,14 +644,11 @@ export function ActiveQuizPlayer({
           Sebelumnya
         </Button>
 
-        {currentQuestionIndex === questions.length - 1 ? (
+        {currentQuestionIndex === processedQuestions.length - 1 ? (
           <Button
             color="green"
             leftSection={<IconListCheck size={16} />}
             onClick={() => {
-              console.log("🔘 Button clicked!");
-              console.log("🔘 isSubmitted:", isSubmitted);
-              console.log("🔘 isSubmitting:", isSubmitting);
               handleSubmit(false);
             }}
             loading={isSubmitting}
@@ -446,7 +668,6 @@ export function ActiveQuizPlayer({
         )}
       </Group>
 
-      {/* Timeout Modal */}
       <Modal
         opened={showTimeoutModal}
         onClose={() => setShowTimeoutModal(false)}

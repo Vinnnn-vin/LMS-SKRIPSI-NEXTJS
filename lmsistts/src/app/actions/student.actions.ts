@@ -473,7 +473,15 @@ export async function createOrUpdateReview(payload: {
   }
 }
 
-// lmsistts\src\app\actions\student.actions.ts
+// Helper Function: Fisher-Yates Shuffle
+function shuffleArray<T>(array: T[]): T[] {
+  const newArr = [...array]; // Buat copy array agar tidak mutasi original
+  for (let i = newArr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
+  }
+  return newArr;
+}
 
 export async function getCourseLearningData(courseId: number) {
   try {
@@ -495,10 +503,11 @@ export async function getCourseLearningData(courseId: number) {
     });
 
     if (!enrollment) {
-      // (Opsional) Logika fallback jika enrollment completed tapi tidak ketemu di query active
       const completedEnrollment = await Enrollment.findOne({
         where: { course_id: courseId, user_id: userId, status: "completed" },
-        include: [{ model: Course, as: "course", attributes: ["course_duration"] }],
+        include: [
+          { model: Course, as: "course", attributes: ["course_duration"] },
+        ],
       });
 
       if (completedEnrollment) {
@@ -508,28 +517,32 @@ export async function getCourseLearningData(courseId: number) {
       }
     }
 
-    // 1. Cek Apakah Expired?
     let isAccessExpired =
       enrollment.access_expires_at &&
       dayjs().isAfter(dayjs(enrollment.access_expires_at));
 
-    // =================================================================================
-    // [FIX] LOGIKA AUTO-RESET JIKA EXPIRED
-    // =================================================================================
     if (isAccessExpired) {
-      console.log(`⏳ Access expired for user ${userId}, course ${courseId}. Auto-resetting...`);
-      
       const courseDuration = (enrollment.course as any)?.course_duration || 0;
 
-      // Gunakan Transaction agar bersih (hapus semua sekaligus atau tidak sama sekali)
       await sequelize.transaction(async (t) => {
-        // A. Hapus Progress & Jawaban
-        await StudentProgress.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
-        await StudentQuizAnswer.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
-        await AssignmentSubmission.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
-        
+        await StudentProgress.destroy({
+          where: { user_id: userId, course_id: courseId },
+          transaction: t,
+        });
+        await StudentQuizAnswer.destroy({
+          where: { user_id: userId, course_id: courseId },
+          transaction: t,
+        });
+        await AssignmentSubmission.destroy({
+          where: { user_id: userId, course_id: courseId },
+          transaction: t,
+        });
+
         // Hapus sertifikat jika ada (agar user tidak punya sertifikat ganda/invalid)
-        await Certificate.destroy({ where: { user_id: userId, course_id: courseId }, transaction: t });
+        await Certificate.destroy({
+          where: { user_id: userId, course_id: courseId },
+          transaction: t,
+        });
 
         // B. Generate Waktu Baru & Reset Enrollment
         const updateData: any = {
@@ -543,26 +556,27 @@ export async function getCourseLearningData(courseId: number) {
 
         // Set Timer Baru (JIKA ada durasi)
         if (courseDuration > 0) {
-          updateData.access_expires_at = dayjs().add(courseDuration, "hour").toDate();
+          updateData.access_expires_at = dayjs()
+            .add(courseDuration, "hour")
+            .toDate();
         } else {
           // Jika durasi 0 (selamanya), set null
-          updateData.access_expires_at = null; 
+          updateData.access_expires_at = null;
         }
 
         await enrollment.update(updateData, { transaction: t });
       });
 
-      // C. Update variabel lokal agar UI langsung merender data 'fresh' tanpa refresh halaman
-      isAccessExpired = false; 
-      
-      // Update object enrollment di memori agar return data di bawah menggunakan tanggal baru
+      isAccessExpired = false;
+
       if (courseDuration > 0) {
-         enrollment.access_expires_at = dayjs().add(courseDuration, "hour").toDate();
+        enrollment.access_expires_at = dayjs()
+          .add(courseDuration, "hour")
+          .toDate();
       } else {
-         enrollment.access_expires_at = null;
+        enrollment.access_expires_at = null;
       }
     }
-    // =================================================================================
 
     const course = await Course.findByPk(courseId, {
       include: [
@@ -606,8 +620,23 @@ export async function getCourseLearningData(courseId: number) {
 
     if (!course) throw new Error("Kursus tidak ditemukan.");
 
-    // Karena data progress baru saja di-destroy (jika expired), query di bawah ini akan mengembalikan array kosong.
-    // Ini benar, karena user memulai dari awal.
+    if (course.materials) {
+      course.materials.forEach((material: any) => {
+        if (material.quizzes) {
+          material.quizzes.forEach((quiz: any) => {
+            if (quiz.questions && quiz.questions.length > 0) {
+              quiz.questions = shuffleArray(quiz.questions);
+
+              quiz.questions.forEach((question: any) => {
+                if (question.options && question.options.length > 0) {
+                  question.options = shuffleArray(question.options);
+                }
+              });
+            }
+          });
+        }
+      });
+    }
 
     const progressDetails = await StudentProgress.findAll({
       where: { user_id: userId, course_id: courseId, is_completed: true },
@@ -1094,16 +1123,23 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
   try {
     const { userId } = await getStudentSession();
 
-    const materialDetailId = parseInt(formData.get("materialDetailId") as string, 10);
+    const materialDetailId = parseInt(
+      formData.get("materialDetailId") as string,
+      10
+    );
     const courseId = parseInt(formData.get("courseId") as string, 10);
     const enrollmentId = parseInt(formData.get("enrollmentId") as string, 10);
-    
-    const submission_type = formData.get("submission_type") as "file" | "text" | "both" | "url";
+
+    const submission_type = formData.get("submission_type") as
+      | "file"
+      | "text"
+      | "both"
+      | "url";
     const submission_text = formData.get("submission_text") as string | null;
-    
+
     // Ambil file mentah dari form
     const fileRaw = formData.get("file_path"); // Di client, name inputnya biasanya 'file_path' atau 'file'
-    
+
     // Validasi ID
     if (isNaN(materialDetailId) || isNaN(courseId) || isNaN(enrollmentId)) {
       return { success: false, error: "Data ID tidak valid." };
@@ -1117,31 +1153,36 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       // Cek apakah input adalah File fisik (berarti user upload file baru)
       if (fileRaw instanceof File && fileRaw.size > 0) {
         console.log("📂 Mengupload file tugas ke Vercel Blob...");
-        
+
         // Upload ke folder 'assignments' di Blob Storage
         const uploadRes = await uploadToBlob(fileRaw, "assignments");
-        
+
         if (!uploadRes.success || !uploadRes.url) {
           console.error("❌ Upload Gagal:", uploadRes.error);
-          return { success: false, error: "Gagal upload file ke server cloud." };
+          return {
+            success: false,
+            error: "Gagal upload file ke server cloud.",
+          };
         }
-        
+
         fileUrl = uploadRes.url; // URL sekarang https://... (bukan lokal path)
         console.log("✅ Upload Berhasil:", fileUrl);
-
       } else if (typeof fileRaw === "string" && fileRaw.startsWith("http")) {
         // Jika user tidak mengganti file (fileRaw adalah URL blob lama yang dikirim balik)
         fileUrl = fileRaw;
       } else {
         // Jika required tapi kosong
         if (!fileRaw) {
-           return { success: false, error: "File wajib diupload." };
+          return { success: false, error: "File wajib diupload." };
         }
       }
     }
 
     // Validasi Text
-    if ((submission_type === "text" || submission_type === "both") && !submission_text?.trim()) {
+    if (
+      (submission_type === "text" || submission_type === "both") &&
+      !submission_text?.trim()
+    ) {
       return { success: false, error: "Teks jawaban wajib diisi." };
     }
 
@@ -1158,7 +1199,10 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
       submission_type: submission_type,
       file_path: fileUrl, // URL Blob
       submission_url: null,
-      submission_text: (submission_type === "text" || submission_type === "both") ? submission_text?.trim() : null,
+      submission_text:
+        submission_type === "text" || submission_type === "both"
+          ? submission_text?.trim()
+          : null,
       submitted_at: new Date(),
       status: "submitted" as const,
       score: null,
@@ -1169,20 +1213,27 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
 
     if (existingSubmission) {
       if (existingSubmission.status === "approved") {
-        return { success: false, error: "Tugas sudah dinilai lulus, tidak dapat dikumpulkan ulang." };
+        return {
+          success: false,
+          error: "Tugas sudah dinilai lulus, tidak dapat dikumpulkan ulang.",
+        };
       }
 
       // Hapus file lama di Blob jika user mengupload file BARU
       // (Cek: ada file lama, ada file baru, dan URL-nya beda)
-      if (existingSubmission.file_path && fileUrl && existingSubmission.file_path !== fileUrl) {
+      if (
+        existingSubmission.file_path &&
+        fileUrl &&
+        existingSubmission.file_path !== fileUrl
+      ) {
         // Pastikan hanya hapus jika itu URL Blob (bukan path lokal legacy)
         if (existingSubmission.file_path.startsWith("http")) {
-            try {
-              await deleteFromBlob(existingSubmission.file_path);
-              console.log("🗑️ File lama dihapus dari Blob.");
-            } catch (err) {
-              console.error("⚠️ Gagal hapus file lama (abaikan):", err);
-            }
+          try {
+            await deleteFromBlob(existingSubmission.file_path);
+            console.log("🗑️ File lama dihapus dari Blob.");
+          } catch (err) {
+            console.error("⚠️ Gagal hapus file lama (abaikan):", err);
+          }
         }
       }
 
@@ -1196,7 +1247,10 @@ export async function createOrUpdateAssignmentSubmission(formData: FormData) {
     }
   } catch (error: any) {
     console.error("[SUBMIT_ASSIGNMENT_ERROR]", error);
-    return { success: false, error: error.message || "Gagal mengumpulkan tugas." };
+    return {
+      success: false,
+      error: error.message || "Gagal mengumpulkan tugas.",
+    };
   }
 }
 

@@ -24,6 +24,8 @@ import {
   Accordion,
   Badge,
   Alert,
+  FileInput,
+  Image,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import { useForm } from "@mantine/form";
@@ -36,6 +38,9 @@ import {
   IconCircleX,
   IconX,
   IconAlertCircle,
+  IconBrandYoutube,
+  IconFileTypePdf,
+  IconPhoto,
 } from "@tabler/icons-react";
 import {
   addQuestionToQuiz,
@@ -48,21 +53,64 @@ import {
   createQuestionSchema,
 } from "@/lib/schemas/quizQuestion.schema";
 import type {
-  normalizedQuestionSchema,
   QuizQuestionWithOptions,
-  NormalizedQuestion,
+  // NormalizedQuestion,
 } from "@/lib/schemas/quiz.schema";
+
+interface NormalizedQuestion {
+  question_id: number;
+  question_text: string;
+  question_type: "multiple_choice" | "checkbox" | "essay";
+  media_type?: "none" | "image" | "video" | "pdf"; // [BARU]
+  media_url?: string | null; // [BARU]
+  options: {
+    option_id: number;
+    option_text: string;
+    is_correct: boolean;
+  }[];
+}
 
 interface QuizQuestionManagerProps {
   quizId: number;
   initialQuestions: QuizQuestionWithOptions[];
 }
 
+const uploadFileToServer = async (file: File): Promise<string> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", file); // Key harus sesuai dengan backend ('file')
+
+    // Ganti endpoint ini sesuai route upload Anda (misal: /api/upload atau /api/upload/blob)
+    const response = await fetch("/api/upload", {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Gagal mengupload file ke server");
+    }
+
+    const data = await response.json();
+    // Pastikan backend mengembalikan { url: "..." }
+    if (!data.url)
+      throw new Error("Format response server tidak valid (missing url)");
+
+    return data.url;
+  } catch (error: any) {
+    console.error("Upload Error:", error);
+    throw error;
+  }
+};
+
 export function QuizQuestionManager({
   quizId,
   initialQuestions,
 }: QuizQuestionManagerProps) {
   const [isPending, startTransition] = useTransition();
+
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+
   const [questions, setQuestions] = useState<NormalizedQuestion[]>(
     initialQuestions
       .filter(
@@ -75,6 +123,8 @@ export function QuizQuestionManager({
         question_id: q.question_id,
         question_text: q.question_text || "",
         question_type: q.question_type || "multiple_choice",
+        media_type: (q as any).media_type || "none",
+        media_url: (q as any).media_url || null,
         options: (q.options || [])
           .filter((o) => o.option_id != null && o.option_text != null)
           .map((o) => ({
@@ -96,6 +146,8 @@ export function QuizQuestionManager({
     initialValues: {
       question_text: "",
       question_type: "multiple_choice",
+      media_type: "none",
+      media_url: "",
       options: [
         { option_text: "", is_correct: false },
         { option_text: "", is_correct: false },
@@ -103,6 +155,10 @@ export function QuizQuestionManager({
     },
     validate: zod4Resolver(createQuestionSchema),
   });
+
+  const handleFileUpload = async (file: File): Promise<string> => {
+    return await uploadFileToServer(file);
+  };
 
   const addOption = () => {
     form.setFieldValue("options", [
@@ -114,6 +170,62 @@ export function QuizQuestionManager({
   const removeOption = (index: number) => {
     const updated = form.values.options.filter((_, i) => i !== index);
     form.setFieldValue("options", updated);
+  };
+
+  const processFormSubmit = async (values: CreateQuestionInput) => {
+    let finalMediaUrl = values.media_url;
+
+    // 1. Jika User memilih Image/PDF dan ada file baru yang diupload
+    if (
+      (values.media_type === "image" || values.media_type === "pdf") &&
+      uploadFile
+    ) {
+      try {
+        notifications.show({
+          id: "upload-progress",
+          title: "Mengupload...",
+          message: "Mohon tunggu sebentar",
+          loading: true,
+          autoClose: false,
+        });
+
+        finalMediaUrl = await handleFileUpload(uploadFile);
+
+        notifications.update({
+          id: "upload-progress",
+          title: "Berhasil",
+          message: "File berhasil diupload",
+          color: "green",
+          loading: false,
+          autoClose: 2000,
+        });
+      } catch (error) {
+        notifications.update({
+          id: "upload-progress",
+          title: "Gagal Upload",
+          message: error.message,
+          color: "red",
+          loading: false,
+          autoClose: 3000,
+        });
+        return null;
+      }
+    }
+    // 2. Jika tipe Video/YouTube, pastikan URL tidak kosong
+    else if (values.media_type === "video" && !values.media_url) {
+       notifications.show({
+          title: "Validasi Gagal",
+          message: "Anda memilih tipe Video YouTube, tetapi belum mengisi Link URL-nya.",
+          color: "orange"
+       });
+       return null;
+    }
+    // 3. Jika None, kosongkan URL
+    else if (values.media_type === "none") {
+      finalMediaUrl = null;
+    }
+
+    return { ...values, media_url: finalMediaUrl };
   };
 
   const handleSubmit = (values: CreateQuestionInput) => {
@@ -151,6 +263,8 @@ export function QuizQuestionManager({
           question_id: result.data.question_id,
           question_text: result.data.question_text,
           question_type: result.data.question_type,
+          media_type: (result.data as any).media_type || "none",
+          media_url: (result.data as any).media_url,
           options: result.data.options.map((o) => ({
             option_id: o.option_id,
             option_text: o.option_text,
@@ -175,11 +289,14 @@ export function QuizQuestionManager({
     form.setValues({
       question_text: q.question_text,
       question_type: q.question_type,
+      media_type: q.media_type || "none",
+      media_url: q.media_url || "",
       options: q.options.map((o) => ({
         option_text: o.option_text,
         is_correct: o.is_correct,
       })),
     });
+    setUploadFile(null);
     setEditingQuestionId(q.question_id);
     setEditMode(true);
     openFormModal();
@@ -223,6 +340,8 @@ export function QuizQuestionManager({
           question_id: result.data.question_id,
           question_text: result.data.question_text,
           question_type: result.data.question_type,
+          media_type: (result.data as any).media_type,
+          media_url: (result.data as any).media_url,
           options: result.data.options.map((o) => ({
             option_id: o.option_id,
             option_text: o.option_text,
@@ -343,34 +462,108 @@ export function QuizQuestionManager({
               {...form.getInputProps("question_text")}
             />
 
-            <Select
-              label="Tipe Pertanyaan"
-              description={
-                form.values.question_type === "multiple_choice"
-                  ? "Siswa hanya bisa memilih 1 jawaban benar"
-                  : "Siswa bisa memilih lebih dari 1 jawaban benar"
-              }
-              data={[
-                {
-                  value: "multiple_choice",
-                  label: "Pilihan Ganda (1 Jawaban Benar)",
-                },
-                {
-                  value: "checkbox",
-                  label: "Pilihan Ganda (Banyak Jawaban Benar)",
-                },
-              ]}
-              required
-              {...form.getInputProps("question_type")}
-              onChange={(value) => {
-                form.setFieldValue("question_type", value as any);
-                const resetOptions = form.values.options.map((opt) => ({
-                  ...opt,
-                  is_correct: false,
-                }));
-                form.setFieldValue("options", resetOptions);
-              }}
-            />
+            <Group grow>
+              {/* Select Tipe Soal */}
+              <Select
+                label="Tipe Jawaban"
+                data={[
+                  {
+                    value: "multiple_choice",
+                    label: "Pilihan Ganda (1 Benar)",
+                  },
+                  { value: "checkbox", label: "Pilihan Ganda (Banyak Benar)" },
+                ]}
+                required
+                {...form.getInputProps("question_type")}
+                onChange={(value) => {
+                  form.setFieldValue("question_type", value as any);
+                  // Reset pilihan benar jika tipe berubah
+                  form.setFieldValue(
+                    "options",
+                    form.values.options.map((o) => ({
+                      ...o,
+                      is_correct: false,
+                    }))
+                  );
+                }}
+              />
+
+              {/* Select Tipe Media [BARU] */}
+              <Select
+                label="Media Pendukung"
+                data={[
+                  { value: "none", label: "Tidak Ada" },
+                  { value: "image", label: "Gambar" },
+                  { value: "video", label: "Video YouTube" },
+                  { value: "pdf", label: "Dokumen PDF" },
+                ]}
+                {...form.getInputProps("media_type")}
+                onChange={(val) => {
+                  form.setFieldValue("media_type", val as any);
+                  if (val === "none") form.setFieldValue("media_url", "");
+                  setUploadFile(null);
+                }}
+              />
+            </Group>
+
+            {form.values.media_type !== "none" && (
+              <Paper withBorder p="sm" bg="gray.0">
+                {form.values.media_type === "image" && (
+                  <Stack gap="xs">
+                    <FileInput
+                      label="Upload Gambar"
+                      placeholder="Pilih file gambar..."
+                      accept="image/*"
+                      leftSection={<IconPhoto size={16} />}
+                      onChange={setUploadFile}
+                      clearable
+                    />
+                    {/* Preview logic sederhana */}
+                    {(uploadFile || form.values.media_url) && (
+                      <Image
+                        src={
+                          uploadFile
+                            ? URL.createObjectURL(uploadFile)
+                            : form.values.media_url
+                        }
+                        h={150}
+                        w="auto"
+                        fit="contain"
+                        radius="md"
+                      />
+                    )}
+                  </Stack>
+                )}
+
+                {form.values.media_type === "pdf" && (
+                  <Stack gap="xs">
+                    <FileInput
+                      label="Upload PDF"
+                      placeholder="Pilih file PDF..."
+                      accept="application/pdf"
+                      leftSection={<IconFileTypePdf size={16} />}
+                      onChange={setUploadFile}
+                      clearable
+                    />
+                    <Text size="xs" c="dimmed">
+                      File saat ini:{" "}
+                      {uploadFile
+                        ? uploadFile.name
+                        : form.values.media_url || "Belum ada file"}
+                    </Text>
+                  </Stack>
+                )}
+
+                {form.values.media_type === "video" && (
+                  <TextInput
+                    label="Link YouTube"
+                    placeholder="https://youtube.com/watch?v=..."
+                    leftSection={<IconBrandYoutube size={16} />}
+                    {...form.getInputProps("media_url")}
+                  />
+                )}
+              </Paper>
+            )}
 
             <Divider label="Pilihan Jawaban" my="xs" />
 

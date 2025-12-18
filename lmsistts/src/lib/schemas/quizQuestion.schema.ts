@@ -9,6 +9,8 @@ export const questionTypeEnum = z.enum([
   "essay",
 ]);
 
+export const mediaTypeEnum = z.enum(["none", "image", "video", "pdf"]);
+
 export const createQuizQuestionSchema = z.object({
   quiz_id: z.number().int().positive("Quiz ID is required"),
   question_text: z
@@ -16,11 +18,15 @@ export const createQuizQuestionSchema = z.object({
     .min(5, "Question must be at least 5 characters")
     .max(5000),
   question_type: questionTypeEnum,
+  media_type: mediaTypeEnum.default("none"),
+  media_url: z.string().nullable().optional(),
 });
 
 export const updateQuizQuestionSchema = z.object({
   question_text: z.string().min(5).max(5000).optional(),
   question_type: questionTypeEnum.optional(),
+  media_type: mediaTypeEnum.optional(),
+  media_url: z.string().nullable().optional(),
 });
 
 export const questionIdParamSchema = z.object({
@@ -30,6 +36,8 @@ export const questionIdParamSchema = z.object({
 export const createQuestionSchema = z.object({
   question_text: z.string().min(3, "Teks pertanyaan tidak boleh kosong"),
   question_type: z.enum(["multiple_choice", "checkbox", "essay"]),
+  media_type: mediaTypeEnum.default("none"),
+  media_url: z.string().nullable().optional(),
   options: z
     .array(answerOptionSchema)
     .min(1, "Minimal harus ada 1 pilihan jawaban")

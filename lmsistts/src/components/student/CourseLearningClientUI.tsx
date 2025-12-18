@@ -236,7 +236,6 @@ export function CourseLearningClientUI({
     )[0];
   }, [currentQuizAttempts]);
 
-  // Get all contents in order for navigation
   const allContents = useMemo(() => {
     const contents: Array<{ type: "detail" | "quiz"; content: any }> = [];
 
@@ -256,7 +255,6 @@ export function CourseLearningClientUI({
     return contents;
   }, [course.materials]);
 
-  // Get current index and navigation info
   const { currentIndex, previousContent, nextContent } = useMemo(() => {
     if (!activeContent || !contentType) {
       return { currentIndex: -1, previousContent: null, nextContent: null };
@@ -289,7 +287,6 @@ export function CourseLearningClientUI({
         targetContent.type as "detail" | "quiz"
       );
 
-      // Scroll to top
       if (contentAreaRef.current) {
         contentAreaRef.current.scrollTo({ top: 0, behavior: "smooth" });
       }
@@ -318,7 +315,6 @@ export function CourseLearningClientUI({
     setContentType(type);
     setIsQuizActive(false);
 
-    // Close drawer on mobile
     if (isMobile) {
       closeDrawer();
     }
@@ -400,7 +396,6 @@ export function CourseLearningClientUI({
     return lastCheckpoint?.type === type && lastCheckpoint?.id === id;
   };
 
-  // Sidebar Content Component
   const SidebarContent = () => (
     <Box p="lg">
       {/* Progress Card */}
@@ -786,7 +781,6 @@ export function CourseLearningClientUI({
     return null;
   };
 
-  // Show checkpoint notification on mount
   useEffect(() => {
     if (initialContent && initialContentType && typeof window !== "undefined") {
       const notifKey = `checkpoint_notif_${course.course_id}`;
@@ -810,7 +804,6 @@ export function CourseLearningClientUI({
     }
   }, []);
 
-  // Calculate progress percentage
   const progressPercentage =
     allContents.length > 0 && currentIndex >= 0
       ? ((currentIndex + 1) / allContents.length) * 100
