@@ -47,6 +47,8 @@ export default function AddQuizPage({
       passing_score: 70,
       time_limit: 10,
       max_attempts: 3,
+      media_type: "none",
+      media_url: "",
     },
     validate: zod4Resolver(createQuizSchema),
   });

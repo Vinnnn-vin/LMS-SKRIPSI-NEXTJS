@@ -93,13 +93,11 @@ export function ActiveQuizPlayer({
     const savedStartTime = localStorage.getItem(`${quizSessionId}_startTime`);
 
     if (!savedStartTime) {
-      // Belum pernah mulai, set start time sekarang
       const now = Date.now();
       localStorage.setItem(`${quizSessionId}_startTime`, String(now));
       return (quizData.time_limit || 1) * 60;
     }
 
-    // Hitung waktu yang sudah berlalu
     const startTime = parseInt(savedStartTime);
     const now = Date.now();
     const elapsedSeconds = Math.floor((now - startTime) / 1000);
@@ -148,7 +146,6 @@ export function ActiveQuizPlayer({
     return false;
   });
 
-  // 🔥 ACAK SOAL DAN OPSI - hanya sekali saat pertama load
   const processedQuestions = useMemo(() => {
     // Cek apakah sudah ada urutan tersimpan
     if (typeof window !== "undefined") {

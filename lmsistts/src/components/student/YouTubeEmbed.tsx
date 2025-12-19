@@ -193,44 +193,21 @@ export function YouTubeEmbed({ url, title }: YouTubeEmbedProps) {
     );
   }
 
-  // if (error || !videoId) {
-  //   return (
-  //     <Alert
-  //       color="red"
-  //       icon={<IconAlertCircle />}
-  //       title="Tidak Dapat Memuat Video"
-  //     >
-  //       <Text size="sm" mb="xs">
-  //         {error || "Video YouTube tidak dapat ditampilkan."}
-  //       </Text>
-  //       <Text size="sm" fw={500} mb="xs">
-  //         Kemungkinan penyebab:
-  //       </Text>
-  //       <List size="xs" mb="md">
-  //         <List.Item>Video bersifat private atau unlisted</List.Item>
-  //         <List.Item>Pemilik video menonaktifkan fitur embed</List.Item>
-  //         <List.Item>Video telah dihapus atau tidak tersedia</List.Item>
-  //         <List.Item>Format URL tidak didukung</List.Item>
-  //       </List>
-  //       <Text size="xs" c="dimmed" mb="sm">
-  //         URL: {url}
-  //       </Text>
-  //       <Group gap="xs">
-  //         <Button
-  //           component="a"
-  //           href={url}
-  //           target="_blank"
-  //           rel="noopener noreferrer"
-  //           size="xs"
-  //           variant="light"
-  //         >
-  //           Buka di YouTube
-  //         </Button>
-  //       </Group>
-  //     </Alert>
-  //   );
-  // }
-
+  if (error) {
+    return (
+      <Alert title="Gagal Memuat Video" color="red" icon={<IconAlertCircle />}>
+        {error}
+      </Alert>
+    );
+  }
+  if (!videoId) {
+    return (
+      <Alert title="Gagal Memuat Video" color="red" icon={<IconAlertCircle />}>
+        ID Video tidak ditemukan dalam URL.
+      </Alert>
+    );
+  }
+  
   if (!userClicked) {
     return (
       <Box
