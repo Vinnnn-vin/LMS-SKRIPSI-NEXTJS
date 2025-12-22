@@ -2,15 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
-import { Box, Button, Group, Text, Loader, Center, Stack } from "@mantine/core";
-import { IconArrowLeft, IconArrowRight } from "@tabler/icons-react";
+import { Box, Button, Group, Text, Loader, Center, Stack, Paper } from "@mantine/core";
+import { IconArrowLeft, IconArrowRight, IconShieldLock } from "@tabler/icons-react";
 import { PdfWatermark } from "./PdfWatermark";
 
-// Import CSS styles
-// import "react-pdf/dist/esm/Page/AnnotationLayer.css";
-// import "react-pdf/dist/esm/Page/TextLayer.css";
-
-// Setup worker - gunakan jsdelivr yang lebih reliable
+// Setup worker
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface Props {
@@ -18,79 +14,223 @@ interface Props {
   userName: string;
 }
 
-export default function SecurePdfViewerClientV10({ fileUrl, userName }: Props) {
+export default function SecurePdfViewerClient({ fileUrl, userName }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
   const [numPages, setNumPages] = useState(0);
   const [page, setPage] = useState(1);
+  const [isDevToolsOpen, setIsDevToolsOpen] = useState(false);
 
-  // MAXIMUM PROTECTION - Block all methods to steal content
+  // ============================================
+  // 1. BLOCK KEYBOARD SHORTCUTS
+  // ============================================
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Disable Ctrl+P (print)
-      if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+      const ctrl = e.ctrlKey || e.metaKey;
+      const shift = e.shiftKey;
+
+      // Disable Print (Ctrl+P)
+      if (ctrl && e.key === "p") {
         e.preventDefault();
-        alert("Print dinonaktifkan untuk melindungi konten.");
+        e.stopPropagation();
+        alert("🚫 Print dinonaktifkan untuk melindungi konten.");
         return false;
       }
-      // Disable Ctrl+S (save)
-      if ((e.ctrlKey || e.metaKey) && e.key === "s") {
+
+      // Disable Save (Ctrl+S)
+      if (ctrl && e.key === "s") {
         e.preventDefault();
-        alert("Save dinonaktifkan untuk melindungi konten.");
+        e.stopPropagation();
+        alert("🚫 Save dinonaktifkan untuk melindungi konten.");
         return false;
       }
+
       // Disable PrintScreen
       if (e.key === "PrintScreen") {
         e.preventDefault();
-        navigator.clipboard.writeText(""); // Clear clipboard
-        alert("Screenshot dinonaktifkan untuk melindungi konten.");
+        navigator.clipboard.writeText("");
+        alert("🚫 Screenshot dinonaktifkan untuk melindungi konten.");
         return false;
       }
-      // Disable F12 (DevTools)
+
+      // Disable DevTools - F12
       if (e.key === "F12") {
         e.preventDefault();
         return false;
       }
-      // Disable Ctrl+Shift+I (DevTools)
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "I") {
+
+      // Disable DevTools - Ctrl+Shift+I
+      if (ctrl && shift && e.key === "I") {
         e.preventDefault();
         return false;
       }
-      // Disable Ctrl+U (view source)
-      if ((e.ctrlKey || e.metaKey) && e.key === "u") {
+
+      // Disable DevTools - Ctrl+Shift+J
+      if (ctrl && shift && e.key === "J") {
+        e.preventDefault();
+        return false;
+      }
+
+      // Disable DevTools - Ctrl+Shift+C
+      if (ctrl && shift && e.key === "C") {
+        e.preventDefault();
+        return false;
+      }
+
+      // Disable View Source - Ctrl+U
+      if (ctrl && e.key === "u") {
+        e.preventDefault();
+        return false;
+      }
+
+      // Disable Select All - Ctrl+A
+      if (ctrl && e.key === "a") {
+        e.preventDefault();
+        return false;
+      }
+
+      // Disable Copy - Ctrl+C
+      if (ctrl && e.key === "c") {
         e.preventDefault();
         return false;
       }
     };
 
+    document.addEventListener("keydown", handleKeyDown, true);
+    return () => document.removeEventListener("keydown", handleKeyDown, true);
+  }, []);
+
+  // ============================================
+  // 2. BLOCK COPY, PASTE, CUT
+  // ============================================
+  useEffect(() => {
     const handleCopy = (e: ClipboardEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       return false;
     };
 
-    const handleContextMenu = (e: MouseEvent) => {
+    const handleCut = (e: ClipboardEvent) => {
       e.preventDefault();
+      e.stopPropagation();
       return false;
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    document.addEventListener("copy", handleCopy);
-    document.addEventListener("contextmenu", handleContextMenu);
+    const handlePaste = (e: ClipboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    document.addEventListener("copy", handleCopy, true);
+    document.addEventListener("cut", handleCut, true);
+    document.addEventListener("paste", handlePaste, true);
 
     return () => {
-      document.removeEventListener("keydown", handleKeyDown);
-      document.removeEventListener("copy", handleCopy);
-      document.removeEventListener("contextmenu", handleContextMenu);
+      document.removeEventListener("copy", handleCopy, true);
+      document.removeEventListener("cut", handleCut, true);
+      document.removeEventListener("paste", handlePaste, true);
     };
   }, []);
 
-  // Responsive width
+  // ============================================
+  // 3. BLOCK RIGHT CLICK / CONTEXT MENU
+  // ============================================
+  useEffect(() => {
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      return false;
+    };
+
+    document.addEventListener("contextmenu", handleContextMenu, true);
+    return () => document.removeEventListener("contextmenu", handleContextMenu, true);
+  }, []);
+
+  // ============================================
+  // 4. DETECT DEVTOOLS OPEN
+  // ============================================
+  useEffect(() => {
+    const detectDevTools = () => {
+      const threshold = 160;
+      const widthThreshold = window.outerWidth - window.innerWidth > threshold;
+      const heightThreshold = window.outerHeight - window.innerHeight > threshold;
+      
+      if (widthThreshold || heightThreshold) {
+        setIsDevToolsOpen(true);
+      } else {
+        setIsDevToolsOpen(false);
+      }
+    };
+
+    detectDevTools();
+    window.addEventListener("resize", detectDevTools);
+    
+    const interval = setInterval(detectDevTools, 1000);
+
+    return () => {
+      window.removeEventListener("resize", detectDevTools);
+      clearInterval(interval);
+    };
+  }, []);
+
+  // ============================================
+  // 5. BLOCK PRINT DIALOG
+  // ============================================
+  useEffect(() => {
+    const beforePrint = (e: Event) => {
+      e.preventDefault();
+      alert("🚫 Print dinonaktifkan untuk melindungi konten.");
+      return false;
+    };
+
+    window.addEventListener("beforeprint", beforePrint);
+    return () => window.removeEventListener("beforeprint", beforePrint);
+  }, []);
+
+  // ============================================
+  // 6. RESPONSIVE WIDTH
+  // ============================================
   useEffect(() => {
     if (!containerRef.current) return;
     const ro = new ResizeObserver((e) => setWidth(e[0].contentRect.width));
     ro.observe(containerRef.current);
     return () => ro.disconnect();
   }, []);
+
+  // ============================================
+  // 7. DISABLE DRAG & DROP
+  // ============================================
+  const handleDragStart = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    return false;
+  };
+
+  // If DevTools detected, show warning
+  if (isDevToolsOpen) {
+    return (
+      <Center style={{ minHeight: "400px" }}>
+        <Paper p="xl" withBorder shadow="md" radius="md">
+          <Stack align="center" gap="md">
+            <IconShieldLock size={64} color="red" />
+            <Text size="xl" fw={700} c="red">
+              Konten Dilindungi
+            </Text>
+            <Text size="sm" ta="center" c="dimmed">
+              Developer Tools terdeteksi. Tutup Developer Tools untuk melanjutkan.
+            </Text>
+          </Stack>
+        </Paper>
+      </Center>
+    );
+  }
 
   return (
     <Box
@@ -102,32 +242,45 @@ export default function SecurePdfViewerClientV10({ fileUrl, userName }: Props) {
         msUserSelect: "none",
         WebkitTouchCallout: "none",
         position: "relative",
+        overflow: "hidden",
       }}
       onContextMenu={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         return false;
       }}
       onCopy={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         return false;
       }}
       onCut={(e) => {
         e.preventDefault();
+        e.stopPropagation();
         return false;
       }}
-      onDragStart={(e) => {
-        e.preventDefault();
-        return false;
-      }}
+      onDragStart={handleDragStart}
+      onDrop={handleDrop}
+      onDragOver={(e) => e.preventDefault()}
       onMouseDown={(e) => {
-        // Prevent text selection on mouse down
         if (e.detail > 1) {
           e.preventDefault();
         }
       }}
+      
     >
-      {/* Watermark - user identification */}
-      <PdfWatermark text={`• MILIK ISTTS CLICK •`} />
+      {/* Multiple Watermarks for better protection */}
+      <PdfWatermark text={userName || "ISTTS PROTECTED"} />
+      
+      {/* Transparent overlay to block interaction */}
+      <div
+        style={{
+          position: "absolute",
+          inset: 0,
+          zIndex: 10,
+          pointerEvents: "none",
+        }}
+      />
 
       <Stack gap="md">
         <Center>
@@ -157,7 +310,7 @@ export default function SecurePdfViewerClientV10({ fileUrl, userName }: Props) {
         </Center>
 
         {numPages > 1 && (
-          <Group justify="center" mt="md">
+          <Group justify="center" mt="md" style={{ position: "relative", zIndex: 15 }}>
             <Button
               variant="default"
               disabled={page <= 1}
@@ -183,33 +336,84 @@ export default function SecurePdfViewerClientV10({ fileUrl, userName }: Props) {
         )}
       </Stack>
 
-      {/* Additional CSS protection */}
+      {/* Enhanced CSS Protection */}
       <style jsx global>{`
-        /* Disable text selection in PDF canvas */
-        .react-pdf__Page__canvas {
-          pointer-events: none !important;
+        /* Disable ALL text selection */
+        * {
           -webkit-user-select: none !important;
           -moz-user-select: none !important;
           -ms-user-select: none !important;
           user-select: none !important;
+          -webkit-touch-callout: none !important;
         }
-        
-        /* Block print media */
+
+        /* Block PDF canvas interaction */
+        .react-pdf__Page__canvas {
+          pointer-events: none !important;
+          -webkit-user-drag: none !important;
+          -khtml-user-drag: none !important;
+          -moz-user-drag: none !important;
+          -o-user-drag: none !important;
+          user-drag: none !important;
+        }
+
+        /* Block text layer */
+        .react-pdf__Page__textContent {
+          display: none !important;
+        }
+
+        /* Block annotation layer */
+        .react-pdf__Page__annotations {
+          display: none !important;
+        }
+
+        /* Block print completely */
         @media print {
-          body * {
+          * {
+            display: none !important;
             visibility: hidden !important;
           }
+          
+          body {
+            display: block !important;
+            visibility: visible !important;
+          }
+          
           body::after {
-            content: "⚠️ Print dinonaktifkan untuk melindungi konten." !important;
+            content: "⚠️ PRINT DINONAKTIFKAN - Konten dilindungi hak cipta ISTTS" !important;
+            display: block !important;
             visibility: visible !important;
             position: fixed !important;
             top: 50% !important;
             left: 50% !important;
             transform: translate(-50%, -50%) !important;
-            font-size: 24px !important;
+            font-size: 28px !important;
             font-weight: bold !important;
-            color: red !important;
+            color: #ff0000 !important;
+            text-align: center !important;
+            background: white !important;
+            padding: 40px !important;
+            border: 5px solid red !important;
+            z-index: 999999 !important;
           }
+        }
+
+        /* Disable drag on images */
+        img {
+          pointer-events: none !important;
+          -webkit-user-drag: none !important;
+          user-drag: none !important;
+        }
+
+        /* Block screenshot tools overlay */
+        ::selection {
+          background: transparent !important;
+          color: inherit !important;
+        }
+
+        ::-moz-selection {
+          background: transparent !important;
+          color: inherit !important;
         }
       `}</style>
     </Box>

@@ -12,6 +12,7 @@ interface StudentProgressAttributes {
   material_detail_id: number;
   is_completed: boolean;
   completed_at: Date;
+  last_watched_seconds: number | null;
   created_at: Date;
   updated_at: Date;
   deleted_at: Date | null;
@@ -23,6 +24,7 @@ interface StudentProgressCreationAttributes
     | "progress_id"
     | "is_completed"
     | "completed_at"
+    | "last_watched_seconds" // 👈 TAMBAHAN BARU
     | "created_at"
     | "updated_at"
   > {}
@@ -37,6 +39,7 @@ export class StudentProgress
   declare material_detail_id: number;
   declare is_completed: boolean;
   declare completed_at: Date;
+  declare last_watched_seconds: number | null; // 👈 TAMBAHAN BARU
   declare created_at: Date;
   declare updated_at: Date;
   declare deleted_at: Date;
@@ -80,6 +83,11 @@ export class StudentProgress
           type: DataTypes.DATE,
           allowNull: false,
           defaultValue: DataTypes.NOW,
+        },
+        last_watched_seconds: { // 👈 TAMBAHAN BARU
+          type: DataTypes.INTEGER,
+          allowNull: true,
+          defaultValue: 0,
         },
         created_at: {
           type: DataTypes.DATE,

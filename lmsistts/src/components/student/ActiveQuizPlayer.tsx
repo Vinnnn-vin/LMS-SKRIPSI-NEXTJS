@@ -80,13 +80,11 @@ export function ActiveQuizPlayer({
 }: ActiveQuizPlayerProps) {
   const { data: session } = useSession();
 
-  // 🔥 SESSION ID - untuk identifikasi quiz attempt ini
   const quizSessionId = useMemo(
     () => generateQuizSessionId(enrollmentId, quizData.quiz_id, attemptNumber),
     [enrollmentId, quizData.quiz_id, attemptNumber]
   );
 
-  // 🔥 CALCULATE TIME LEFT berdasarkan waktu mulai
   const calculateTimeLeft = useCallback(() => {
     if (typeof window === "undefined") return (quizData.time_limit || 1) * 60;
 
@@ -115,7 +113,6 @@ export function ActiveQuizPlayer({
     return remaining;
   }, [quizData.time_limit, quizSessionId]);
 
-  // 🔥 LOAD dari localStorage atau buat baru
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem(`${quizSessionId}_currentIndex`);
@@ -145,6 +142,8 @@ export function ActiveQuizPlayer({
     }
     return false;
   });
+
+  const [hasTriggeredAutoSubmit, setHasTriggeredAutoSubmit] = useState(false);
 
   const processedQuestions = useMemo(() => {
     // Cek apakah sudah ada urutan tersimpan
@@ -214,7 +213,7 @@ export function ActiveQuizPlayer({
 
   const currentQuestion = processedQuestions[currentQuestionIndex];
 
-  // 🔥 RE-CALCULATE time left saat component mount (untuk handle refresh)
+  // RE-CALCULATE time left saat component mount (untuk handle refresh)
   useEffect(() => {
     const recalculatedTime = calculateTimeLeft();
     setTimeLeft(recalculatedTime);
@@ -226,7 +225,7 @@ export function ActiveQuizPlayer({
     }
   }, [calculateTimeLeft, isSubmitted]);
 
-  // 🔥 SIMPAN STATE ke localStorage setiap kali berubah
+  // SIMPAN STATE ke localStorage setiap kali berubah
   useEffect(() => {
     if (typeof window !== "undefined") {
       localStorage.setItem(
@@ -245,7 +244,7 @@ export function ActiveQuizPlayer({
     }
   }, [studentAnswers, quizSessionId]);
 
-  // 🔥 PREVENT REFRESH / BACK BUTTON
+  // PREVENT REFRESH / BACK BUTTON
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (!isSubmitted) {
@@ -260,7 +259,7 @@ export function ActiveQuizPlayer({
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isSubmitted]);
 
-  // 🔥 CLEANUP localStorage saat submit berhasil
+  // 🔥 CLEANUP sessionStorage saat submit berhasil
   const cleanupSession = useCallback(() => {
     if (typeof window !== "undefined") {
       localStorage.removeItem(`${quizSessionId}_startTime`);
@@ -299,29 +298,17 @@ export function ActiveQuizPlayer({
 
       console.log("✅ Proceeding with submission...");
       setIsSubmitted(true);
-
-      // Mark as submitted di localStorage
-      if (typeof window !== "undefined") {
-        localStorage.setItem(`${quizSessionId}_submitted`, "true");
-      }
-
       setSubmitError(null);
       setTimeLeft(0);
 
       startSubmitting(async () => {
         try {
-          // Calculate actual time taken
-          const startTime = localStorage.getItem(`${quizSessionId}_startTime`);
-          const actualTimeTaken = startTime
-            ? Math.floor((Date.now() - parseInt(startTime)) / 1000)
-            : quizData.time_limit * 60;
-
           const result = await submitQuizAttempt({
             quizId: quizData.quiz_id,
             courseId,
             enrollmentId,
             answers: studentAnswers,
-            timeTaken: Math.min(actualTimeTaken, quizData.time_limit * 60),
+            timeTaken: quizData.time_limit * 60 - timeLeft,
             attemptSession: attemptNumber,
           });
 
@@ -374,12 +361,6 @@ export function ActiveQuizPlayer({
           console.error("❌ Submit Quiz Error:", error);
           setSubmitError(error.message || "Terjadi kesalahan saat submit.");
           setIsSubmitted(false);
-
-          // Remove submitted flag jika error
-          if (typeof window !== "undefined") {
-            localStorage.removeItem(`${quizSessionId}_submitted`);
-          }
-
           notifications.show({
             title: "❌ Gagal Submit Quiz",
             message:
@@ -395,17 +376,17 @@ export function ActiveQuizPlayer({
       quizData,
       courseId,
       enrollmentId,
+      timeLeft,
       attemptNumber,
       onFinish,
       startSubmitting,
       isSubmitted,
       processedQuestions.length,
       cleanupSession,
-      quizSessionId,
     ]
   );
 
-  // Timer - REAL TIME berdasarkan clock
+  // Timer
   useEffect(() => {
     if (isSubmitted) {
       console.log("⏸️ Timer stopped - already submitted");
@@ -420,23 +401,20 @@ export function ActiveQuizPlayer({
     }
 
     const timer = setInterval(() => {
-      const recalculatedTime = calculateTimeLeft();
-      setTimeLeft(recalculatedTime);
-
-      if (recalculatedTime % 10 === 0) {
-        console.log("⏱️ Time left:", recalculatedTime);
-      }
-
-      if (recalculatedTime <= 0) {
-        clearInterval(timer);
-      }
+      setTimeLeft((prev) => {
+        const newTime = Math.max(0, prev - 1);
+        if (newTime % 10 === 0) {
+          console.log("⏱️ Time left:", newTime);
+        }
+        return newTime;
+      });
     }, 1000);
 
     return () => {
       console.log("🧹 Cleaning up timer");
       clearInterval(timer);
     };
-  }, [timeLeft, isSubmitted, handleSubmit, calculateTimeLeft]);
+  }, [timeLeft, isSubmitted, handleSubmit]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

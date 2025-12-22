@@ -497,7 +497,7 @@ export async function getCourseLearningData(courseId: number) {
         {
           model: Course,
           as: "course",
-          attributes: ["course_duration"], // Pastikan durasi diambil
+          attributes: ["course_duration"],
         },
       ],
     });
@@ -639,10 +639,15 @@ export async function getCourseLearningData(courseId: number) {
     }
 
     const progressDetails = await StudentProgress.findAll({
-      where: { user_id: userId, course_id: courseId, is_completed: true },
-      attributes: ["material_detail_id"],
+      where: { user_id: userId, course_id: courseId },
+      attributes: [
+        "material_detail_id",
+        "is_completed",
+        "last_watched_seconds",
+      ],
       raw: true,
     });
+
     const completedDetailSet = new Set(
       progressDetails.map((p) => p.material_detail_id)
     );
@@ -766,6 +771,17 @@ export async function getCourseLearningData(courseId: number) {
       });
     }
 
+    const progressMap = progressDetails.reduce(
+      (acc, p: any) => {
+        acc[p.material_detail_id] = {
+          completed: p.is_completed,
+          seconds: p.last_watched_seconds || 0,
+        };
+        return acc;
+      },
+      {} as Record<number, { completed: boolean; seconds: number }>
+    );
+
     return {
       success: true,
       data: {
@@ -775,6 +791,7 @@ export async function getCourseLearningData(courseId: number) {
           quizzes: completedQuizSet,
           assignments: approvedAssignmentSet,
         },
+        progressMap: progressMap,
         enrollment_id: enrollment.enrollment_id,
         totalProgress: totalProgress > 100 ? 100 : totalProgress,
         initialSubmissionData: initialSubmissionData,
@@ -784,7 +801,7 @@ export async function getCourseLearningData(courseId: number) {
         enrolledAt: enrollment.enrolled_at,
         learningStartedAt: enrollment.learning_started_at,
         courseDuration: (course as any).course_duration || 0,
-        isAccessExpired: isAccessExpired, // Ini sekarang FALSE karena sudah di-reset di atas
+        isAccessExpired: isAccessExpired,
         lastCheckpoint: enrollment.checkpoint_id
           ? {
               type: enrollment.checkpoint_type!,
@@ -1796,5 +1813,143 @@ export async function getNextContent(
   } catch (error: any) {
     console.error("[GET_NEXT_CONTENT_ERROR]", error);
     return { success: false, error: error.message };
+  }
+}
+
+export async function saveVideoProgress(
+  courseId: number,
+  materialDetailId: number,
+  seconds: number
+) {
+  try {
+    console.log("🔵 [SERVER] saveVideoProgress called:", {
+      courseId,
+      materialDetailId,
+      seconds,
+    });
+
+    // Get user from session
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      console.error("❌ [SERVER] Unauthorized - no session");
+      return { success: false, error: "Unauthorized" };
+    }
+
+    const user = await User.findOne({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      console.error("❌ [SERVER] User not found");
+      return { success: false, error: "User not found" };
+    }
+
+    console.log("🔵 [SERVER] User ID:", user.user_id);
+
+    // Find or create progress
+    const existingProgress = await StudentProgress.findOne({
+      where: {
+        user_id: user.user_id,
+        material_detail_id: materialDetailId,
+      },
+    });
+
+    if (existingProgress) {
+      console.log("🔵 [SERVER] Updating existing progress...");
+      await existingProgress.update({
+        last_watched_seconds: Math.floor(seconds),
+        updated_at: new Date(),
+      });
+      console.log("✅ [SERVER] Progress updated successfully");
+    } else {
+      console.log("🔵 [SERVER] Creating new progress...");
+      await StudentProgress.create({
+        user_id: user.user_id,
+        course_id: courseId,
+        material_detail_id: materialDetailId,
+        is_completed: false,
+        last_watched_seconds: Math.floor(seconds),
+        completed_at: new Date(),
+        created_at: new Date(),
+      });
+      console.log("✅ [SERVER] Progress created successfully");
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("❌ [SERVER] Failed to save video progress:", error);
+    return {
+      success: false,
+      error: error.message || "Gagal menyimpan progress video",
+    };
+  }
+}
+
+/**
+ * Get video progress (in seconds)
+ */
+export async function getVideoProgress(materialDetailId: number) {
+  try {
+    console.log("🔵 [SERVER] getVideoProgress called for:", materialDetailId);
+
+    // Get user from session
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.email) {
+      console.error("❌ [SERVER] Unauthorized - no session");
+      return { success: false, error: "Unauthorized", data: null };
+    }
+
+    const user = await User.findOne({
+      where: { email: session.user.email },
+    });
+
+    if (!user) {
+      console.error("❌ [SERVER] User not found");
+      return { success: false, error: "User not found", data: null };
+    }
+
+    console.log("🔵 [SERVER] User ID:", user.user_id);
+
+    const progress = await StudentProgress.findOne({
+      where: {
+        user_id: user.user_id,
+        material_detail_id: materialDetailId,
+      },
+      attributes: ["last_watched_seconds", "is_completed"],
+    });
+
+    if (!progress) {
+      console.log("ℹ️ [SERVER] No existing progress found, returning 0");
+      return { 
+        success: true, 
+        data: { 
+          seconds: 0, 
+          completed: false 
+        } 
+      };
+    }
+
+    const seconds = progress.last_watched_seconds || 0;
+    const completed = progress.is_completed || false;
+
+    const result = {
+      seconds: seconds,
+      completed: completed,
+    };
+
+    console.log("✅ [SERVER] Progress retrieved:", result);
+    console.log("✅ [SERVER] Returning data:", JSON.stringify({ success: true, data: result }));
+    
+    return { 
+      success: true, 
+      data: result 
+    };
+  } catch (error: any) {
+    console.error("❌ [SERVER] Failed to get video progress:", error);
+    return { 
+      success: false, 
+      error: error.message,
+      data: null 
+    };
   }
 }
